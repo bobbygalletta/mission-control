@@ -58,6 +58,13 @@ export function FinnlyWidget() {
         const saved = localStorage.getItem(FINNLY_KEY);
         if (saved) setData(JSON.parse(saved));
       });
+    const interval = setInterval(() => {
+      fetch('/api/finnly')
+        .then(r => r.json())
+        .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData); })
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const sync = (newData: FinnlyDay[]) => {

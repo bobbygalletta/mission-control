@@ -143,6 +143,31 @@ export function CalendarWidget() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+    const interval = setInterval(() => {
+      fetch('/api/calendar')
+        .then(r => r.json())
+        .then(d => {
+          if (!d.events) return;
+          const label = getDateLabel(viewDate).toLowerCase();
+          const dayEvents = d.events.filter((e: CalendarEvent) => {
+            const eDate = e.date.toLowerCase();
+            if (label === 'today') return eDate.startsWith('today');
+            if (label === 'tomorrow') return eDate.startsWith('tomorrow');
+            if (label === 'yesterday') return false;
+            return eDate.includes(viewDate.toLocaleDateString('en-US', { month: 'long' }).toLowerCase()) ||
+                   eDate.includes(viewDate.toLocaleDateString('en-US', { month: 'short' }).toLowerCase());
+          });
+          const parsed: ParsedEvent[] = [];
+          for (const e of dayEvents) {
+            const t = parseEventTimes(e.date, viewDate);
+            if (!t) continue;
+            parsed.push({ ...e, start: t.start, end: t.end, col: 0, cols: 1 });
+          }
+          setEvs(layout(parsed));
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, [viewDate]);
 
   useEffect(() => {

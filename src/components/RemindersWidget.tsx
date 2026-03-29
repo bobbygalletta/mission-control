@@ -190,7 +190,11 @@ export function RemindersWidget() {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   const apiAction = async (action: string, list: ListType, extra: Record<string, unknown> = {}) => {
     const res = await fetch('/api/reminders/action', {

@@ -52,6 +52,13 @@ export function HabitsWidget() {
         const saved = localStorage.getItem(HABITS_KEY);
         if (saved) setData(JSON.parse(saved));
       });
+    const interval = setInterval(() => {
+      fetch('/api/habits')
+        .then(r => r.json())
+        .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData); })
+        .catch(() => {});
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const sync = (newData: HabitDay[]) => {

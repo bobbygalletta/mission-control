@@ -34,6 +34,19 @@ export function BillsWidget() {
         }
       })
       .catch(() => {});
+    const interval = setInterval(() => {
+      fetch('/api/bills')
+        .then(r => r.json())
+        .then(serverBills => {
+          if (serverBills && Array.isArray(serverBills)) {
+            setBills(serverBills);
+            const paid = serverBills.filter((b: Bill) => b.paid && b.paidDate);
+            setHistory(paid as PaidBill[]);
+          }
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const sync = (newBills: Bill[]) => {

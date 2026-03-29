@@ -86,6 +86,24 @@ export function MoneyWidget() {
         setLoganData(load('logan'));
         setDashData(load('dash'));
       });
+    const interval = setInterval(() => {
+      fetch('/api/money/backup')
+        .then(r => r.json())
+        .then(serverData => {
+          if (serverData && serverData.bobby) {
+            localStorage.setItem('bobby_checking', String(serverData.bobby.checking));
+            localStorage.setItem('bobby_entries', JSON.stringify(serverData.bobby.entries));
+            setBobbyData(serverData.bobby);
+          }
+          if (serverData && serverData.logan) {
+            localStorage.setItem('logan_checking', String(serverData.logan.checking));
+            localStorage.setItem('logan_entries', JSON.stringify(serverData.logan.entries));
+            setLoganData(serverData.logan);
+          }
+        })
+        .catch(() => {});
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const saveData = (key: Account, data: AccountData) => {
