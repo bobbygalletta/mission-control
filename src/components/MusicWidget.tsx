@@ -28,7 +28,8 @@ export function MusicWidget() {
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [addedToPlaylist, setAddedToPlaylist] = useState(false);
-  const [playHistory, setPlayHistory] = useState<Track[]>([]);
+  const MAX_HISTORY = 10;
+  const [playHistory, setPlayHistory] = useState<(Track | null)[]>(Array(MAX_HISTORY).fill(null));
   const [showHistory, setShowHistory] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addedSongRef = useRef<string | null>(null);
@@ -129,8 +130,9 @@ export function MusicWidget() {
       );
       const newTrack: Track = { name, artist: artist.trim() || '', album: '' };
       setPlayHistory(prev => {
-        const filtered = prev.filter(t => t.name !== name);
-        return [newTrack, ...filtered].slice(0, 20);
+        const realTracks = prev.filter(Boolean) as Track[];
+        const filtered = realTracks.filter(t => t.name !== name);
+        return [newTrack, ...filtered].slice(0, MAX_HISTORY);
       });
     } catch {}
   };
@@ -160,7 +162,7 @@ export function MusicWidget() {
               </div>
             )}
             <button onClick={() => setShowHistory(true)} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-              History{playHistory.length > 0 ? ` (${playHistory.length})` : ''}
+              History ({playHistory.filter(Boolean).length}/{MAX_HISTORY})
             </button>
           </div>
         </div>
@@ -234,16 +236,23 @@ export function MusicWidget() {
               <span className="text-4xl">🎵</span>
               <div>
                 <h3 className="text-xl font-semibold text-slate-100">Play History</h3>
-                <p className="text-sm text-slate-400">{playHistory.length} songs</p>
+                <p className="text-sm text-slate-400">{playHistory.filter(Boolean).length}/{MAX_HISTORY} songs</p>
               </div>
             </div>
             <div className="px-5 pb-6 max-h-80 overflow-y-auto space-y-1">
-              {playHistory.map((t, i) => (
-                <button key={i} onClick={() => { playTrack(t.name); setShowHistory(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/[0.06] border border-white/[0.04] transition-colors">
-                  <p className="text-sm font-medium text-slate-100 truncate">{t.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{t.artist}</p>
-                </button>
-              ))}
+              {Array.from({ length: MAX_HISTORY }).map((_, i) => {
+                const t = playHistory[i];
+                return t ? (
+                  <button key={i} onClick={() => { playTrack(t.name); setShowHistory(false); }} className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/[0.06] border border-white/[0.04] transition-colors">
+                    <p className="text-sm font-medium text-slate-100 truncate">{t.name}</p>
+                    <p className="text-xs text-slate-500 truncate">{t.artist}</p>
+                  </button>
+                ) : (
+                  <div key={i} className="w-full text-left px-4 py-3 rounded-xl border border-white/[0.03]">
+                    <p className="text-sm text-slate-700 truncate">{i + 1}. —</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

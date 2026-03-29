@@ -180,6 +180,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Generic music script runner
+  if (pathname === '/api/music' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { script } = JSON.parse(body);
+        const result = execSync(`osascript -e '${script.replace(/'/g, "'\\''")}'`, { timeout: 10000 }).toString().trim();
+        res.writeHead(200);
+        res.end(JSON.stringify({ result }));
+      } catch (e) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ result: '', error: e.message }));
+      }
+    });
+    return;
+  }
+
   // Music endpoints
   if (pathname === '/api/music/state') {
     res.setHeader('Content-Type', 'application/json');
