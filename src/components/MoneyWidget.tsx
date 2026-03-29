@@ -117,6 +117,15 @@ export function MoneyWidget() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Add failed');
       setEntries(data.money || [item, ...entries]);
+
+      // Auto-update and save the account balance
+      const newBalances = { ...balances, [account]: balances[account] + item.amount };
+      const saveRes = await fetch('/api/money/balances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBalances),
+      });
+      if (saveRes.ok) setBalances(newBalances);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to add entry');
     }
@@ -126,6 +135,7 @@ export function MoneyWidget() {
   };
 
   const handleDelete = async (id: string) => {
+    const entry = entries.find(e => e.id === id);
     try {
       const res = await fetch('/api/money/action', {
         method: 'POST',
@@ -135,6 +145,17 @@ export function MoneyWidget() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Delete failed');
       setEntries(data.money || entries.filter(e => e.id !== id));
+
+      // Auto-update and save the account balance (reverse the deleted amount)
+      if (entry) {
+        const newBalances = { ...balances, [account]: balances[account] - entry.amount };
+        const saveRes = await fetch('/api/money/balances', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newBalances),
+        });
+        if (saveRes.ok) setBalances(newBalances);
+      }
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to delete entry');
     }
@@ -339,30 +360,26 @@ export function MoneyWidget() {
             <div className="flex items-center gap-4 px-5 pb-4">
               <span className="text-4xl">💵</span>
               <div>
-                <h3 className="text-xl font-semibold text-slate-100">Combined Cash</h3>
-                <p className="text-sm text-slate-400">All Accounts</p>
-              </div>
-              <div className="ml-auto text-right">
-                <p className="text-2xl font-mono font-semibold text-slate-100">${fmt(balance)}</p>
-                <p className="text-xs text-slate-500">total</p>
+                <h3 className="text-xl font-semibold text-slate-100">Total Balance</h3>
+                <p className="text-sm text-slate-400">All Accounts Combined</p>
               </div>
             </div>
-            <div className="px-5 pb-6">
-              <div className="flex items-center justify-between py-3">
-                <p className="text-sm font-semibold text-slate-200">Net Balance</p>
-                <p className="text-xl font-mono font-bold text-slate-100">${fmt(balance)}</p>
+            <div className="px-5 pb-6 space-y-3">
+              <div className="flex items-center justify-between py-2">
+                <p className="text-sm text-emerald-400 font-medium">Bobby Checking</p>
+                <p className="text-base font-mono text-emerald-400">${fmt(balances.bobby)}</p>
               </div>
-              <div className="flex items-center justify-between py-3 border-t border-white/[0.06]">
-                <p className="text-sm text-slate-400">Total Income</p>
-                <p className="text-base font-mono text-emerald-400">
-                  +${fmt(entries.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0))}
-                </p>
+              <div className="flex items-center justify-between py-2">
+                <p className="text-sm text-blue-400 font-medium">Logan Checking</p>
+                <p className="text-base font-mono text-blue-400">${fmt(balances.logan)}</p>
               </div>
-              <div className="flex items-center justify-between py-3 border-t border-white/[0.06]">
-                <p className="text-sm text-slate-400">Total Expenses</p>
-                <p className="text-base font-mono text-red-400">
-                  -${fmt(Math.abs(entries.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0)))}
-                </p>
+              <div className="flex items-center justify-between py-2">
+                <p className="text-sm text-orange-400 font-medium">Dash Dasher</p>
+                <p className="text-base font-mono text-orange-400">${fmt(balances.dash)}</p>
+              </div>
+              <div className="flex items-center justify-between py-3 border-t border-white/[0.15] mt-2">
+                <p className="text-base font-semibold text-slate-200">Total</p>
+                <p className="text-xl font-mono font-bold text-slate-100">${fmt(balances.bobby + balances.logan + balances.dash)}</p>
               </div>
             </div>
           </div>
