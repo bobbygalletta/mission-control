@@ -1,11 +1,11 @@
 [
   {
     "date": "Mar 29, 2026",
-    "waterAM": true,
+    "waterAM": false,
     "waterPM": false,
-    "breakfast": true,
+    "breakfast": false,
     "dinner": false,
-    "walk1": true,
+    "walk1": false,
     "walk2": false,
     "walk3": false,
     "walk1Poop": false,

@@ -91,10 +91,16 @@ function getReminderList(listName) {
 // ─── Music ─────────────────────────────────────────────────
 function musicCmd(script) {
   try {
-    // Use -e with single args, pipe through cat to avoid encoding issues
-    const cmd = `osascript -e '${script}' 2>/dev/null`;
-    const out = execSync(cmd, { timeout: 5000, encoding: 'utf8' });
-    return (out || '').trim().replace(/\n/g, ' ');
+    // Use printf to properly handle newlines, write to temp file
+    const { execSync } = require('child_process');
+    const fs = require('fs');
+    const path = require('path');
+    const tmp = path.join('/tmp', `mc_script_${Date.now()}.scpt`);
+    // Write script using printf to preserve newlines
+    fs.writeFileSync(tmp, script);
+    const out = execSync(`osascript "${tmp}"`, { timeout: 8000, encoding: 'utf8', maxBuffer: 1024 * 1024 });
+    fs.unlinkSync(tmp);
+    return (out || '').trim();
   } catch (e) { return ''; }
 }
 
@@ -177,6 +183,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // POST /api/habits — save full habits array (for Finnly daily log)
+  if (post('/api/habits')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { habits } = JSON.parse(body);
+        writeDataFile('habits', habits);
+        res.end(JSON.stringify({ ok: true, habits }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // POST /api/habits/action
   if (post('/api/habits/action')) {
     let body = '';
@@ -198,9 +218,50 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/finnly
+  if (get('/api/finnly')) {
+    res.end(JSON.stringify({ finnly: readDataFile('finnly', []) }));
+    return;
+  }
+
+  // POST /api/finnly
+  if (post('/api/finnly')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { finnly } = JSON.parse(body);
+        writeDataFile('finnly', finnly);
+        res.end(JSON.stringify({ ok: true, finnly }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // GET /api/money
   if (get('/api/money')) {
     res.end(JSON.stringify({ money: readDataFile('money', []) }));
+    return;
+  }
+
+  // GET /api/money/balances
+  if (get('/api/money/balances')) {
+    const balances = readDataFile('balances', { bobby: 0, logan: 0, dash: 0 });
+    res.end(JSON.stringify(balances));
+    return;
+  }
+
+  // POST /api/money/balances
+  if (post('/api/money/balances')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const balances = JSON.parse(body);
+        writeDataFile('balances', balances);
+        res.end(JSON.stringify({ ok: true, balances }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
     return;
   }
 
@@ -231,17 +292,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // POST /api/music — run AppleScript command
+  if (post('/api/music')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { script } = JSON.parse(body);
+        const result = musicCmd(script);
+        res.end(JSON.stringify({ result }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // POST /api/music/action
   if (post('/api/music/action')) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
-        const { action } = JSON.parse(body);
+        const { action, value } = JSON.parse(body);
         if (action === 'play') musicCmd('tell application "Music" to play');
         else if (action === 'pause') musicCmd('tell application "Music" to pause');
         else if (action === 'next') musicCmd('tell application "Music" to next track');
         else if (action === 'prev') musicCmd('tell application "Music" to previous track');
+        else if (action === 'volume') musicCmd(`set volume output volume ${value}`);
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });

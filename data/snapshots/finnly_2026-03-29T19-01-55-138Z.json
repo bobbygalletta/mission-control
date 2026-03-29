@@ -5,7 +5,7 @@
     "waterPM": false,
     "breakfast": true,
     "dinner": false,
-    "walk1": true,
+    "walk1": false,
     "walk2": false,
     "walk3": false,
     "walk1Poop": false,

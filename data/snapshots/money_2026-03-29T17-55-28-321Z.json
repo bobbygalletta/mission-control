@@ -19,5 +19,12 @@
     "description": "Capitol One - QuickSilver",
     "amount": -411,
     "type": "expense"
+  },
+  {
+    "id": "money-2",
+    "date": "2026-03-15",
+    "description": "Paycheck",
+    "amount": 3200,
+    "type": "income"
   }
 ]
