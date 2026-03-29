@@ -44,13 +44,20 @@ export function MusicWidget() {
           musicCmd('output volume of (get volume settings)'),
         ]);
         const newName = name.trim();
-        if (newName) {
+        const newArtist = artist.trim();
+        // Avoid flicker: only update playing state if both name and artist are present,
+        // OR if we don't have a track yet (first load), OR if it's a completely new song
+        if (newName && newArtist) {
           // Reset "added to playlist" when song changes
           if (addedSongRef.current && addedSongRef.current !== newName) {
             setAddedToPlaylist(false);
             addedSongRef.current = null;
           }
-          setPlaying({ name: newName, artist: artist.trim() || '', album: '' });
+          setPlaying({ name: newName, artist: newArtist, album: '' });
+        }
+        // Only clear if BOTH are empty (no track at all)
+        if (!newName && !newArtist) {
+          setPlaying(null);
         }
         setIsPlaying(state.trim() === 'playing');
         const v = parseInt(vol);

@@ -2,7 +2,7 @@
   {
     "date": "Mar 29, 2026",
     "water": 3,
-    "stretch": 1,
+    "stretch": 0,
     "laundry": true,
     "bedMade": false,
     "vacuum": 2,
