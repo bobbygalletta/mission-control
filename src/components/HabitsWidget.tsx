@@ -117,7 +117,7 @@ export function HabitsWidget() {
               <p className={`text-sm font-semibold mb-4 ${isToday(day.date) ? 'text-emerald-400' : 'text-slate-400'}`}>
                 {day.date} {isToday(day.date) && '(Today)'}
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
                 {TASKS.map(({ key, label, emoji, type }) => {
                   const value = getValue(day, key) as boolean | number;
                   if (type === 'bool') {
@@ -125,32 +125,32 @@ export function HabitsWidget() {
                       <button
                         key={key}
                         onClick={() => toggleTask(dayIdx, key as keyof DailyHabit)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                          value ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-white/[0.05] text-slate-400 border border-transparent'
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
+                          value ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-transparent text-slate-400 border-white/10 hover:bg-white/5'
                         }`}
                       >
-                        <span className="text-lg">{emoji}</span>
+                        <span className="text-base">{emoji}</span>
                         <span>{label}</span>
                       </button>
                     );
                   } else {
                     return (
-                      <div key={key} className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/[0.05]">
+                      <div key={key} className="flex items-center justify-between px-4 py-3 rounded-lg bg-transparent border border-white/10">
                         <span className="flex items-center gap-3 text-sm text-slate-300">
-                          <span className="text-lg">{emoji}</span>
+                          <span className="text-base">{emoji}</span>
                           <span>{label}</span>
                         </span>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                           <button
                             onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)}
-                            className="w-7 h-7 rounded-lg bg-white/10 text-slate-400 text-sm font-bold hover:bg-white/20"
+                            className="w-7 h-7 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20"
                           >
                             -
                           </button>
-                          <span className="text-sm font-mono font-semibold text-slate-200 w-6 text-center">{value}</span>
+                          <span className="text-sm font-mono font-semibold text-slate-200 w-5 text-center">{value}</span>
                           <button
                             onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)}
-                            className="w-7 h-7 rounded-lg bg-white/10 text-slate-400 text-sm font-bold hover:bg-white/20"
+                            className="w-7 h-7 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20"
                           >
                             +
                           </button>
