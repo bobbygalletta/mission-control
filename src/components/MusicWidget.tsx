@@ -193,7 +193,7 @@ export function MusicWidget() {
           </div>
         </div>
 
-        <div className="px-5 py-4 border-b border-white/[0.06]">
+        <div className="px-5 py-4 border-b border-white/[0.06] text-center">
           <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Now Playing</p>
           {playing ? (
             <div>
@@ -205,9 +205,9 @@ export function MusicWidget() {
           )}
         </div>
 
-        <div className="px-5 py-3 border-b border-white/[0.06]">
+        <div className="px-5 py-3 border-b border-white/[0.06] text-center">
           <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Search & Play</p>
-          <div className="relative">
+          <div className="relative max-w-sm mx-auto">
             <input
               type="text"
               value={searchQuery}
@@ -241,16 +241,18 @@ export function MusicWidget() {
             <button onClick={nextTrack} className="w-10 h-10 rounded-full bg-white/[0.06] hover:bg-white/[0.10] flex items-center justify-center text-slate-300 hover:text-slate-100 text-lg transition-colors">⏭</button>
           </div>
 
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center justify-center gap-3 mb-3 max-w-xs mx-auto">
             <span className="text-slate-500 text-xs w-4">🔈</span>
             <input type="range" min="0" max="100" value={volume} onChange={e => setVol(parseInt(e.target.value))} className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer accent-emerald-400" style={{ accentColor: '#34d399' }} />
             <span className="text-slate-500 text-xs w-4">🔊</span>
             <span className="text-[10px] text-slate-500 w-6 text-right">{volume}</span>
           </div>
 
-          <button onClick={addToPlaylist} disabled={!playing || addedToPlaylist} className={`w-full py-2.5 rounded-xl text-sm font-medium border transition-colors ${addedToPlaylist ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : playing ? 'bg-white/[0.06] hover:bg-white/[0.10] border-white/[0.10] text-slate-300' : 'bg-white/[0.03] border-white/[0.06] text-slate-600 cursor-not-allowed'}`}>
-            {addedToPlaylist ? '✓ Added to MY PLAYLIST' : '+ Add to MY PLAYLIST'}
-          </button>
+          <div className="flex justify-center">
+            <button onClick={addToPlaylist} disabled={!playing || addedToPlaylist} className={`px-6 py-2.5 rounded-xl text-sm font-medium border transition-colors ${addedToPlaylist ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400' : playing ? 'bg-white/[0.06] hover:bg-white/[0.10] border-white/[0.10] text-slate-300' : 'bg-white/[0.03] border-white/[0.06] text-slate-600 cursor-not-allowed'}`}>
+              {addedToPlaylist ? '✓ Added to MY PLAYLIST' : '+ Add to MY PLAYLIST'}
+            </button>
+          </div>
         </div>
       </div>
 
