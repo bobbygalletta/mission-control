@@ -278,29 +278,25 @@ export function CalendarWidget() {
         </button>
       </div>
 
-      {/* Current time badge — always rendered to keep layout stable */}
-      <div className="flex items-center justify-end px-4 py-1.5 bg-red-500/10 border-b border-red-500/10 min-h-[28px]">
-        {isToday && (
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-            <span className="text-[10px] text-red-400 font-mono">
-              {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-            </span>
-          </div>
-        )}
+      {/* Current time badge — always rendered but hidden when not today */}
+      <div className="flex items-center justify-end px-4 py-1.5 bg-red-500/10 border-b border-red-500/10 min-h-[28px]" style={{opacity: isToday ? 1 : 0, pointerEvents: isToday ? 'auto' : 'none'}}>
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+          <span className="text-[10px] text-red-400 font-mono">
+            {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+          </span>
+        </div>
       </div>
 
-      {/* All-day events — always rendered to prevent layout shift */}
-      <div className="px-4 py-2 border-b border-white/[0.06] min-h-[36px]">
-        {allDayEvs.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5">
-            {allDayEvs.map((e, i) => (
-              <div key={i} className="text-[10px] px-2 py-1 rounded bg-violet-500/40 text-violet-200 border border-violet-400/50 max-w-[180px] truncate">
-                {e.title}
-              </div>
-            ))}
-          </div>
-        ) : <div />}
+      {/* All-day events — always rendered, fixed height, opacity hides when empty */}
+      <div className="px-4 py-2 border-b border-white/[0.06] h-[36px] flex items-center" style={{opacity: allDayEvs.length > 0 ? 1 : 0.15}}>
+        <div className="flex flex-wrap gap-1.5">
+          {allDayEvs.length > 0 ? allDayEvs.map((e, i) => (
+            <div key={i} className="text-[10px] px-2 py-1 rounded bg-violet-500/40 text-violet-200 border border-violet-400/50 max-w-[180px] truncate">
+              {e.title}
+            </div>
+          )) : <div className="text-[10px] text-slate-600">No family events</div>}
+        </div>
       </div>
 
       {loading ? (
