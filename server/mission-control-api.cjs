@@ -34,6 +34,22 @@ function writeDataFile(name, data) {
 }
 
 // ─── Calendar ─────────────────────────────────────────────
+function relativeToDate(str) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(today);
+  const lower = str.toLowerCase();
+  if (lower === 'today') return formatDate(today);
+  if (lower === 'tomorrow' || lower === 'tomorrow.') { d.setDate(d.getDate() + 1); return formatDate(d); }
+  if (lower.startsWith('day after tomorrow')) { d.setDate(d.getDate() + 2); return formatDate(d); }
+  // "in X days" — "in 3 days"
+  const inMatch = lower.match(/^in (\d+) days?/);
+  if (inMatch) { d.setDate(d.getDate() + parseInt(inMatch[1])); return formatDate(d); }
+  return null;
+}
+function formatDate(d) {
+  return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}/${d.getFullYear()}`;
+}
 function getCalendarEvents() {
   try {
     const output = execSync(
@@ -46,9 +62,18 @@ function getCalendarEvents() {
     for (const line of lines) {
       const t = line.trim();
       if (!t) continue;
-      if (t.startsWith('•')) { if (current) events.push(current); current = { title: t.replace('•', '').trim(), date: '', calendar: 'Other', allDay: true }; }
-      else if (/^\(.*\)$/.test(t)) { if (current) current.calendar = t.slice(1, -1); }
-      else if (/^\d{2}:\d{2}|^\d{1,2}\/\d{2}\/\d{4}/.test(t)) { if (current) current.date = t; }
+      if (t.startsWith('•')) {
+        if (current) events.push(current);
+        let title = t.replace('•', '').trim();
+        let calendar = 'Other';
+        // Extract (Calendar Name) from end of title
+        const calMatch = title.match(/\(([^)]+)\)$/);
+        if (calMatch) { calendar = calMatch[1]; title = title.replace(/\s*\([^)]+\)$/, '').trim(); }
+        current = { title, date: '', calendar, allDay: true };
+      }
+      else if (/today at \d/.test(t)) { if (current) { current.date = 'today ' + t.replace('today at ', ''); current.allDay = false; } }
+      else if (/^\d{1,2}\/\d{2}\/\d{4}/.test(t)) { if (current) { current.date = t; current.allDay = true; } }
+      else { const rel = relativeToDate(t); if (current && rel) { current.date = rel; current.allDay = true; } }
     }
     if (current) events.push(current);
     return events;

@@ -106,6 +106,29 @@ const CLS = {
   other:  'bg-blue-500/30 border-blue-400 text-blue-100',
 };
 
+function UpcomingEvents() {
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/api/calendar`)
+      .then(r => r.json())
+      .then(d => { if (d.events) setEvents(d.events.filter((e: CalendarEvent) => e.allDay).slice(0, 8)); });
+  }, []);
+  if (!events.length) return null;
+  return (
+    <div className="space-y-1.5">
+      {events.map((e, i) => {
+        const cls = isFamily(e.calendar) ? 'text-violet-300' : 'text-blue-300';
+        return (
+          <div key={i} className="flex items-center justify-between">
+            <span className={`text-xs font-medium truncate ${cls}`}>{e.title}</span>
+            <span className="text-[10px] text-slate-500 ml-2 shrink-0">{e.date}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CalendarWidget() {
   const [viewDate, setViewDate] = useState(() => new Date());
   const [evs, setEvs] = useState<ParsedEvent[]>([]);
@@ -285,6 +308,7 @@ export function CalendarWidget() {
           {[80,60,40].map((w,i) => <div key={i} className="h-10 bg-white/[0.05] rounded animate-pulse" style={{width:w+'%'}} />)}
         </div>
       ) : (
+        <>
         <div ref={ref} className="overflow-y-auto" style={{height:480}}>
           <div className="relative" style={{height: 24 * HOUR_H}}>
 
@@ -350,6 +374,13 @@ export function CalendarWidget() {
             </div>
           </div>
         </div>
+
+        {/* Upcoming all-day events — show next 7 days */}
+        <div className="border-t border-white/[0.06] px-4 py-3">
+          <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-2 font-semibold">Upcoming</p>
+          <UpcomingEvents />
+        </div>
+        </>
       )}
 
       <div className="flex gap-4 px-5 py-3 border-t border-white/[0.06]">
