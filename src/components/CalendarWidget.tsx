@@ -290,9 +290,9 @@ export function CalendarWidget() {
         )}
       </div>
 
-      {/* All-day events — sticky header */}
-      {!loading && allDayEvs.length > 0 && (
-        <div className="px-4 py-2 border-b border-white/[0.06]">
+      {/* All-day events — always rendered to prevent layout shift */}
+      <div className="px-4 py-2 border-b border-white/[0.06] min-h-[36px]">
+        {allDayEvs.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {allDayEvs.map((e, i) => (
               <div key={i} className="text-[10px] px-2 py-1 rounded bg-violet-500/40 text-violet-200 border border-violet-400/50 max-w-[180px] truncate">
@@ -300,15 +300,15 @@ export function CalendarWidget() {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : <div />}
+      </div>
 
       {loading ? (
         <div className="p-4 space-y-2">
           {[80,60,40].map((w,i) => <div key={i} className="h-10 bg-white/[0.05] rounded animate-pulse" style={{width:w+'%'}} />)}
         </div>
       ) : (
-        <div ref={ref} className="overflow-y-auto" style={{height: allDayEvs.length > 0 ? 380 : 480}}>
+        <div ref={ref} className="overflow-y-auto" style={{height: 480}}>
           <div className="relative" style={{height: 24 * HOUR_H}}>
 
             {/* Time column */}
@@ -375,7 +375,7 @@ export function CalendarWidget() {
         </div>
       )}
 
-      <div className="flex gap-4 px-5 py-3 border-t border-white/[0.06]">
+      <div className="flex gap-4 px-5 py-3 border-t border-white/[0.06] flex-shrink-0">
         <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-400" /><span className="text-[10px] text-slate-500">Now</span></div>
         <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-violet-500/60" /><span className="text-[10px] text-slate-500">Family</span></div>
         <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded bg-blue-500/60" /><span className="text-[10px] text-slate-500">Other</span></div>
