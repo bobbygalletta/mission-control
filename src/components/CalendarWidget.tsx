@@ -148,7 +148,12 @@ export function CalendarWidget() {
           firstFetch.current = false;
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        if (firstFetch.current) {
+          setLoading(false);
+          firstFetch.current = false;
+        }
+      });
     const interval = setInterval(() => {
       fetch(`${API_BASE}/api/calendar`)
         .then(r => r.json())
