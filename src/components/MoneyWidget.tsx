@@ -11,6 +11,12 @@ interface MoneyEntry {
   type: MoneyType;
 }
 
+interface Balances {
+  bobby: number;
+  logan: number;
+  dash: number;
+}
+
 const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const ACC_COLORS: Record<Account, { bg: string; border: string; text: string; label: string }> = {
@@ -22,6 +28,7 @@ const ACC_COLORS: Record<Account, { bg: string; border: string; text: string; la
 export function MoneyWidget() {
   const [account, setAccount] = useState<Account>('bobby');
   const [entries, setEntries] = useState<MoneyEntry[]>([]);
+  const [balances, setBalances] = useState<Balances>({ bobby: 0, logan: 0, dash: 0 });
   const [loading, setLoading] = useState(true);
   const hasLoaded = useRef(true);
 
@@ -30,23 +37,26 @@ export function MoneyWidget() {
   const [isIncome, setIsIncome] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showTotals, setShowTotals] = useState(false);
+  const [editingBalance, setEditingBalance] = useState(false);
+  const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
-    fetch('/api/money')
-      .then(r => r.json())
-      .then(data => {
-        setEntries(data.money || []);
-        if (hasLoaded.current) {
-          setLoading(false);
-          hasLoaded.current = false;
-        }
-      })
-      .catch(() => {
-        if (hasLoaded.current) {
-          setLoading(false);
-          hasLoaded.current = false;
-        }
-      });
+    Promise.all([
+      fetch('/api/money').then(r => r.json()),
+      fetch('/api/money/balances').then(r => r.json()).catch(() => ({ bobby: 0, logan: 0, dash: 0 }))
+    ]).then(([moneyData, balancesData]) => {
+      setEntries(moneyData.money || []);
+      setBalances(balancesData);
+      if (hasLoaded.current) {
+        setLoading(false);
+        hasLoaded.current = false;
+      }
+    }).catch(() => {
+      if (hasLoaded.current) {
+        setLoading(false);
+        hasLoaded.current = false;
+      }
+    });
   }, []);
 
   const currentEntries = entries.filter(e => {
@@ -55,9 +65,36 @@ export function MoneyWidget() {
     return true;
   });
 
-  // Calculate balance: sum all entries for now (API doesn't track per-account balance)
-  const balance = entries.reduce((sum, e) => sum + e.amount, 0);
+  // Use saved balance for selected account
+  const balance = balances[account];
   const colors = ACC_COLORS[account];
+
+  const saveBalance = async (newBalances: Balances) => {
+    try {
+      const res = await fetch('/api/money/balances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newBalances),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+      setBalances(newBalances);
+    } catch (e) {
+      console.error('Failed to save balance', e);
+    }
+  };
+
+  const startEditBalance = () => {
+    setEditValue(balance.toFixed(2));
+    setEditingBalance(true);
+  };
+
+  const saveEditBalance = () => {
+    const newValue = parseFloat(editValue);
+    if (isNaN(newValue)) return;
+    const newBalances = { ...balances, [account]: newValue };
+    saveBalance(newBalances);
+    setEditingBalance(false);
+  };
 
   const handleAdd = async () => {
     const numAmount = parseFloat(amount);
@@ -155,12 +192,30 @@ export function MoneyWidget() {
           </p>
           {loading ? (
             <div className="h-10 w-40 mx-auto bg-white/[0.04] rounded-lg animate-pulse" />
+          ) : editingBalance ? (
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-3xl font-mono font-semibold text-slate-400">$</span>
+              <input
+                type="number"
+                step="0.01"
+                value={editValue}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveEditBalance(); if (e.key === 'Escape') setEditingBalance(false); }}
+                className="w-32 bg-black/20 border border-white/20 rounded-lg px-3 py-2 text-3xl font-mono font-semibold text-slate-100 text-center focus:outline-none focus:border-emerald-500/50"
+                autoFocus
+              />
+              <button onClick={saveEditBalance} className="px-3 py-2 rounded-lg bg-emerald-500/30 text-emerald-400 text-sm font-medium">Save</button>
+              <button onClick={() => setEditingBalance(false)} className="px-3 py-2 rounded-lg bg-white/10 text-slate-400 text-sm">Cancel</button>
+            </div>
           ) : (
-            <span className={`text-3xl font-mono font-semibold ${balance >= 0 ? 'text-slate-100' : 'text-red-400'}`}>
-              ${fmt(Math.abs(balance))}
-            </span>
+            <button onClick={startEditBalance} className="group">
+              <span className={`text-3xl font-mono font-semibold ${balance >= 0 ? 'text-slate-100' : 'text-red-400'}`}>
+                ${fmt(Math.abs(balance))}
+              </span>
+              <span className="text-lg ml-1 opacity-0 group-hover:opacity-50 transition-opacity">✏️</span>
+            </button>
           )}
-          <p className="text-[9px] text-slate-600 mt-1">net balance (all accounts)</p>
+          <p className="text-[9px] text-slate-600 mt-1">tap balance to edit</p>
         </div>
 
         {/* Entry Form */}

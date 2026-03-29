@@ -204,6 +204,27 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/money/balances
+  if (get('/api/money/balances')) {
+    const balances = readDataFile('balances', { bobby: 0, logan: 0, dash: 0 });
+    res.end(JSON.stringify(balances));
+    return;
+  }
+
+  // POST /api/money/balances
+  if (post('/api/money/balances')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const balances = JSON.parse(body);
+        writeDataFile('balances', balances);
+        res.end(JSON.stringify({ ok: true, balances }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // POST /api/money/action
   if (post('/api/money/action')) {
     let body = '';
