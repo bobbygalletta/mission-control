@@ -172,6 +172,7 @@ export function RemindersWidget() {
   const [reminders, setReminders] = useState<ReminderItem[]>([]);
   const [grocery, setGrocery] = useState<ReminderItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const firstFetch = useRef(true);
 
   const fetchList = async (list: ListType): Promise<ReminderItem[]> => {
     const res = await fetch(list === 'grocery' ? `${API_BASE}/api/reminders/grocery` : `${API_BASE}/api/reminders`);
@@ -180,15 +181,16 @@ export function RemindersWidget() {
   };
 
   const fetchAll = async () => {
-    setLoading(true);
     try {
       const [rem, gro] = await Promise.all([fetchList('reminders'), fetchList('grocery')]);
       setReminders(rem.filter((r: ReminderItem) => !r.isCompleted));
       setGrocery(gro.filter((r: ReminderItem) => !r.isCompleted));
+      if (firstFetch.current) {
+        setLoading(false);
+        firstFetch.current = false;
+      }
     } catch (e: unknown) {
       console.error('Failed to load reminders', e);
-    } finally {
-      setLoading(false);
     }
   };
 

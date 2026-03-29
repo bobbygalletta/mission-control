@@ -119,6 +119,7 @@ export function CalendarWidget() {
     return () => clearInterval(t);
   }, []);
 
+  const firstFetch = useRef(true);
   useEffect(() => {
     const label = getDateLabel(viewDate).toLowerCase();
     fetch(`${API_BASE}/api/calendar`)
@@ -142,9 +143,12 @@ export function CalendarWidget() {
         const laid = layout(parsed);
         setEvs(laid);
         setMaxCols(Math.max(...laid.map(e => e.cols), 1));
+        if (firstFetch.current) {
+          setLoading(false);
+          firstFetch.current = false;
+        }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
     const interval = setInterval(() => {
       fetch(`${API_BASE}/api/calendar`)
         .then(r => r.json())
