@@ -94,46 +94,72 @@ export function MusicWidget() {
           set sr to search playlist "Library" for "${escaped}"
           set txt to ""
           repeat with i from 1 to (count of sr)
-            if i > 8 then exit repeat
+            if i > 15 then exit repeat
             set tr to item i of sr
             set trName to name of tr
             set trArtist to artist of tr
-            set txt to txt & trName & " | " & trArtist & linefeed
+            set trAlbum to album of tr
+            set txt to txt & trName & " | " & trArtist & " | " & trAlbum & linefeed
           end repeat
           return txt
         end tell`
       );
       const lines = result.trim().split('\n').filter(Boolean);
       const tracks: Track[] = lines.map(line => {
-        const [name, ...artistParts] = line.split('|');
-        return { name: name.trim(), artist: artistParts.join('|').trim() || '', album: '' };
+        const parts = line.split('|').map(p => p.trim());
+        return { name: parts[0] || '', artist: parts[1] || '', album: parts[2] || '' };
       }).filter(t => t.name);
-      setSearchResults(tracks.slice(0, 8));
+      setSearchResults(tracks.slice(0, 15));
       setShowResults(true);
     } catch {}
   };
 
-  const playTrack = async (name: string) => {
+  const playTrack = async (name: string, artist?: string, album?: string) => {
     setShowResults(false);
     setSearchQuery('');
     try {
-      const escaped = name.replace(/"/g, '\\"');
-      const artist = await musicCmd(
-        `tell application "Music"
-          set sr to search library playlist 1 for "${escaped}"
-          if (count of sr) > 0 then
-            play item 1 of sr
-            return artist of item 1 of sr
-          end if
-          return ""
-        end tell`
-      );
-      const newTrack: Track = { name, artist: artist.trim() || '', album: '' };
-      setPlayHistory(prev => {
-        const realTracks = prev.filter(Boolean) as Track[];
-        const filtered = realTracks.filter(t => t.name !== name);
-        return [newTrack, ...filtered].slice(0, MAX_HISTORY);
-      });
+      const escapedName = name.replace(/"/g, '\\"');
+      const escapedArtist = artist ? artist.replace(/"/g, '\\"') : '';
+      let playedArtist = artist || '';
+      let playedAlbum = album || '';
+
+      if (escapedArtist) {
+        // Search for the specific track by name and artist
+        await musicCmd(
+          `tell application "Music"
+            set sr to search playlist "Library" for "${escapedName}"
+            repeat with tr in sr
+              if player state is playing then pause
+            end repeat
+            repeat with tr in sr
+              if artist of tr contains "${escapedArtist}" then
+                play tr
+                return artist of tr & "|" & album of tr
+              end if
+            end repeat
+            -- If exact match not found, play first result
+            if (count of sr) > 0 then
+              play item 1 of sr
+              return artist of item 1 of sr & "|" & album of item 1 of sr
+            end if
+            return ""
+          end tell`
+        );
+      } else {
+        await musicCmd(
+          `tell application "Music"
+            set sr to search playlist "Library" for "${escapedName}"
+            if (count of sr) > 0 then
+              play item 1 of sr
+              return artist of item 1 of sr & "|" & album of item 1 of sr
+            end if
+            return ""
+          end tell`
+        );
+      }
+
+      // Update now playing
+      setIsPlaying(true);
     } catch {}
   };
 
@@ -195,11 +221,12 @@ export function MusicWidget() {
               className="w-full bg-white/[0.06] border border-white/[0.10] rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
             />
             {showResults && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-xl border border-white/[0.10] rounded-xl overflow-hidden z-50 max-h-64 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900/95 backdrop-blur-xl border border-white/[0.10] rounded-xl overflow-hidden z-50 max-h-72 overflow-y-auto">
                 {searchResults.map((t, i) => (
-                  <button key={i} onClick={() => playTrack(t.name)} className="w-full text-left px-4 py-2.5 hover:bg-white/[0.06] border-b border-white/[0.04] last:border-0 transition-colors">
+                  <button key={i} onClick={() => playTrack(t.name, t.artist, t.album)} className="w-full text-left px-4 py-2.5 hover:bg-white/[0.06] border-b border-white/[0.04] last:border-0 transition-colors">
                     <p className="text-sm text-slate-100 truncate">{t.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{t.artist}</p>
+                    <p className="text-xs text-emerald-400/70 truncate">{t.artist}</p>
+                    {t.album && <p className="text-[10px] text-slate-600 truncate">{t.album}</p>}
                   </button>
                 ))}
               </div>

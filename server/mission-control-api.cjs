@@ -91,12 +91,14 @@ function getReminderList(listName) {
 // ─── Music ─────────────────────────────────────────────────
 function musicCmd(script) {
   try {
-    // Write script to temp file and run with osascript
+    // Use printf to properly handle newlines, write to temp file
+    const { execSync } = require('child_process');
     const fs = require('fs');
     const path = require('path');
-    const tmp = path.join('/tmp', `mc_script_${Date.now()}.applescript`);
+    const tmp = path.join('/tmp', `mc_script_${Date.now()}.scpt`);
+    // Write script using printf to preserve newlines
     fs.writeFileSync(tmp, script);
-    const out = execSync(`osascript "${tmp}"`, { timeout: 5000, encoding: 'utf8' });
+    const out = execSync(`osascript "${tmp}"`, { timeout: 8000, encoding: 'utf8', maxBuffer: 1024 * 1024 });
     fs.unlinkSync(tmp);
     return (out || '').trim();
   } catch (e) { return ''; }
