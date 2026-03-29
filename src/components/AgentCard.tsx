@@ -21,21 +21,30 @@ export const AgentCard = ({ agent, state, onClick }: AgentCardProps) => {
     <button
       onClick={() => onClick(agent)}
       className="
-        group relative w-full backdrop-blur-xl bg-white/5 border border-white/10 rounded-2xl p-6
+        group relative w-full backdrop-blur-xl bg-white/[0.08] border border-white/[0.12] rounded-2xl p-6
         flex flex-col items-center gap-3 text-left
         transition-all duration-200 ease-out
-        hover:bg-white/[0.08] hover:border-white/20 hover:scale-[1.02]
+        hover:bg-white/[0.11] hover:border-white/[0.22] hover:scale-[1.02]
         active:scale-[0.99]
         focus:outline-none focus:ring-2 focus:ring-accent-indigo/50
       "
-      style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
+      style={{
+        boxShadow:
+          '0 8px 32px rgba(0,0,0,0.4), 0 0 60px rgba(88,28,135,0.08), inset 0 1px 0 rgba(255,255,255,0.08)',
+      }}
     >
       {/* Ambient glow for online/busy */}
       {state.status === 'online' && (
-        <div className="absolute inset-0 rounded-2xl bg-status-online/5 pointer-events-none" />
+        <div
+          className="absolute inset-0 rounded-2xl pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(52,211,153,0.12) 0%, transparent 70%)' }}
+        />
       )}
       {state.status === 'busy' && (
-        <div className="absolute inset-0 rounded-2xl bg-status-busy/5 pointer-events-none animate-pulse" />
+        <div
+          className="absolute inset-0 rounded-2xl animate-pulse pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(167,139,250,0.15) 0%, transparent 70%)' }}
+        />
       )}
 
       {/* Emoji avatar */}

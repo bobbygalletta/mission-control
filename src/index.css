@@ -4,63 +4,218 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent scroll anchor from resetting list scroll position */
+.mc-no-scroll-anchor {
+  overflow-anchor: none !important;
+}
+
+:root {
+  --panel-bg: rgba(5, 8, 18, 0.82);
+}
+
+/* Light mode — body background is the panel color */
+body.light-mode {
+  background: var(--panel-bg) !important;
+}
+
+/* Dark mode — transparent panels show body background */
+body:not(.light-mode) .backdrop-blur-xl,
+body.dark-mode .backdrop-blur-xl {
+  background: var(--panel-bg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.light-mode .backdrop-blur-xl {
+  background: var(--panel-bg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(30, 50, 90, 0.20) !important;
+  box-shadow:
+    0 8px 40px rgba(30, 50, 80, 0.12),
+    0 2px 12px rgba(30, 50, 80, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 0 0 0.5px rgba(30, 50, 90, 0.08) !important;
+}
+body.light-mode .backdrop-blur-xl:hover {
+  background: var(--panel-bg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(30, 50, 90, 0.28) !important;
+  box-shadow:
+    0 12px 48px rgba(30, 50, 80, 0.15),
+    0 4px 16px rgba(30, 50, 80, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.90),
+    0 0 0 0.5px rgba(30, 50, 90, 0.10) !important;
+}
+body.light-mode .bg-slate-900\/95 {
+  background: var(--panel-bg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.light-mode .bg-black\/50 { background-color: rgba(0, 0, 0, 0.25) !important; }
+
+/* Dark text in light mode */
+body.light-mode .text-slate-100 { color: #0f172a !important; }
+body.light-mode .text-slate-200 { color: #1e293b !important; }
+body.light-mode .text-slate-300 { color: #334155 !important; }
+body.light-mode .text-slate-400 { color: #475569 !important; }
+body.light-mode .text-slate-500 { color: #64748b !important; }
+body.light-mode .text-slate-600 { color: #64748b !important; }
+
+/* Buttons & inputs in light mode */
+body.light-mode .bg-white\/\[0\.05\] { background-color: rgba(200, 218, 240, 0.60) !important; }
+body.light-mode .bg-white\/\[0\.06\] { background-color: rgba(200, 218, 240, 0.65) !important; }
+body.light-mode .bg-white\/\[0\.08\] { background-color: rgba(200, 218, 240, 0.70) !important; }
+body.light-mode .bg-white\/\[0\.10\] { background-color: rgba(200, 218, 240, 0.75) !important; }
+body.light-mode .bg-white\/\[0\.12\] { background-color: rgba(200, 218, 240, 0.80) !important; }
+body.light-mode .bg-white\/\[0\.15\] { background-color: rgba(200, 218, 240, 0.82) !important; }
+body.light-mode .bg-white\/\[0\.20\] { background-color: rgba(200, 218, 240, 0.85) !important; }
+body.light-mode .bg-white\/\[0\.30\] { background-color: rgba(200, 218, 240, 0.88) !important; }
+body.light-mode .hover\:bg-white\/\[0\.08\]:hover { background-color: rgba(200, 218, 240, 0.75) !important; }
+body.light-mode .hover\:bg-white\/\[0\.10\]:hover { background-color: rgba(200, 218, 240, 0.80) !important; }
+body.light-mode .hover\:bg-white\/\[0\.12\]:hover { background-color: rgba(200, 218, 240, 0.85) !important; }
+
+/* Borders in light mode */
+body.light-mode .border-white\/\[0\.10\] { border-color: rgba(30, 50, 90, 0.14) !important; }
+body.light-mode .border-white\/\[0\.06\] { border-color: rgba(30, 50, 90, 0.09) !important; }
+body.light-mode .border-white\/\[0\.05\] { border-color: rgba(30, 50, 90, 0.07) !important; }
+body.light-mode .border-white\/\[0\.04\] { border-color: rgba(30, 50, 90, 0.06) !important; }
+body.light-mode .border-white\/\[0\.12\] { border-color: rgba(30, 50, 90, 0.16) !important; }
+body.light-mode .border-white\/\[0\.15\] { border-color: rgba(30, 50, 90, 0.18) !important; }
+body.light-mode .border-white\/\[0\.18\] { border-color: rgba(30, 50, 90, 0.22) !important; }
+body.light-mode .border-white\/\[0\.20\] { border-color: rgba(30, 50, 90, 0.25) !important; }
+body.light-mode .border-white\/\[0\.25\] { border-color: rgba(30, 50, 90, 0.28) !important; }
+body.light-mode .border-white\/\[0\.30\] { border-color: rgba(30, 50, 90, 0.32) !important; }
+
+/* Colored text — readable in light mode */
+body.light-mode .text-emerald-400 { color: #059669 !important; }
+body.light-mode .text-emerald-400\/70 { color: rgba(5, 150, 105, 0.85) !important; }
+body.light-mode .text-red-400    { color: #dc2626 !important; }
+body.light-mode .text-red-400\/70    { color: rgba(220, 38, 38, 0.85) !important; }
+body.light-mode .text-blue-400  { color: #2563eb !important; }
+body.light-mode .text-amber-400 { color: #d97706 !important; }
+body.light-mode .text-cyan-400  { color: #0891b2 !important; }
+body.light-mode .text-green-400 { color: #16a34a !important; }
+body.light-mode .text-violet-300 { color: #7c3aed !important; }
+body.light-mode .text-violet-400 { color: #7c3aed !important; }
+body.light-mode .text-slate-400\/70 { color: rgba(71, 85, 105, 0.85) !important; }
+
+/* Status dots */
+body.light-mode .bg-emerald-400 { background-color: #10b981 !important; }
+
+/* Placeholder */
+body.light-mode .placeholder-slate-600::placeholder { color: #64748b !important; }
+
+/* Inputs */
+body.light-mode input,
+body.light-mode select,
+body.light-mode textarea {
+  background-color: rgba(220, 230, 245, 0.65) !important;
+  color: #0f172a !important;
+  border-color: rgba(30, 50, 90, 0.20) !important;
+}
+body.light-mode input:focus,
+body.light-mode select:focus,
+body.light-mode textarea:focus {
+  border-color: rgba(37, 99, 235, 0.5) !important;
+  outline: none !important;
+}
+
 @layer base {
-  *, *::before, *::after {
-    box-sizing: border-box;
-  }
-
-  html {
-    scroll-behavior: smooth;
-  }
-
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
-    margin: 0;
-    padding: 0;
+    margin: 0; padding: 0;
     background: #08080e;
     color: #f8fafc;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 }
 
 @layer utilities {
-  .animate-in {
-    animation: fadeIn 0.2s ease-out forwards;
-  }
+  .animate-in { animation: fadeIn 0.2s ease-out forwards; }
 }
 
+@keyframes orb-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(4%, 3%) scale(1.04); }
+  50%  { transform: translate(2%, 6%) scale(1.02); }
+  75%  { transform: translate(-2%, 4%) scale(0.98); }
+}
+@keyframes orb-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  30%  { transform: translate(-5%, 3%) scale(1.05); }
+  60%  { transform: translate(-3%, -4%) scale(1.03); }
+  80%  { transform: translate(2%, -2%) scale(0.97); }
+}
+@keyframes orb-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  20%  { transform: translate(3%, -3%) scale(1.03); }
+  50%  { transform: translate(-4%, -5%) scale(1.06); }
+  70%  { transform: translate(-2%, 2%) scale(0.98); }
+}
+@keyframes orb-drift-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  35%  { transform: translate(-3%, 4%) scale(1.04); }
+  65%  { transform: translate(4%, 2%) scale(0.97); }
+}
+@keyframes orb-drift-5 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%  { transform: translate(-4%, -3%) scale(1.05); }
+  70%  { transform: translate(2%, -5%) scale(1.02); }
+}
+@keyframes orb-drift-6 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%  { transform: translate(5%, -4%) scale(1.06); }
+  55%  { transform: translate(3%, 3%) scale(0.96); }
+  80%  { transform: translate(-2%, 5%) scale(1.03); }
+}
+@keyframes orb-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.7; }
+}
+@keyframes color-shift-1 {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  33%  { filter: hue-rotate(15deg) brightness(1.1); }
+  66%  { filter: hue-rotate(-10deg) brightness(0.95); }
+}
+@keyframes color-shift-2 {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  40%  { filter: hue-rotate(-20deg) brightness(1.08); }
+  70%  { filter: hue-rotate(10deg) brightness(0.92); }
+}
 @keyframes fadeIn {
   from { opacity: 0; transform: scale(0.97); }
-  to { opacity: 1; transform: scale(1); }
+  to   { opacity: 1; transform: scale(1); }
 }
-
-@keyframes slide-in-from-bottom-4 {
-  from { opacity: 0; transform: translate(-50%, 20px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
 }
-
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
+  0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 @keyframes pulse-glow {
-  0%, 100% { opacity: 1; box-shadow: 0 0 8px 2px rgba(167, 139, 250, 0.6); }
-  50% { opacity: 0.75; box-shadow: 0 0 16px 4px rgba(167, 139, 250, 0.9); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px 2px rgba(167,139,250,0.6); }
+  50%       { opacity: 0.75; box-shadow: 0 0 16px 4px rgba(167,139,250,0.9); }
 }
+
+.orb-1 { animation: orb-drift-1 22s ease-in-out infinite, orb-pulse 8s ease-in-out infinite; }
+.orb-2 { animation: orb-drift-2 28s ease-in-out infinite, orb-pulse 11s ease-in-out infinite 2s; }
+.orb-3 { animation: orb-drift-3 25s ease-in-out infinite, orb-pulse 9s ease-in-out infinite 4s; }
+.orb-4 { animation: orb-drift-4 19s ease-in-out infinite, color-shift-1 18s ease-in-out infinite; }
+.orb-5 { animation: orb-drift-5 32s ease-in-out infinite, color-shift-2 22s ease-in-out infinite 3s; }
+.orb-6 { animation: orb-drift-6 16s ease-in-out infinite, orb-pulse 7s ease-in-out infinite 1s; }
+.animate-slideUp { animation: slideUp 0.3s ease-out forwards; }
+.scrollbar-thin::-webkit-scrollbar { height: 4px; }
+.scrollbar-thin::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 4px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+

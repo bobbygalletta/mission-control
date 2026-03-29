@@ -31,5 +31,4 @@ export const AGENTS: Agent[] = [
   { id: 'rex',    name: 'Rex',    role: 'Research Executive',   emoji: '🔍', sessionPrefixes: ['agent:rex:'] },
   { id: 'dj',     name: 'DJ',     role: 'Music Specialist',     emoji: '🎧', sessionPrefixes: ['agent:dj:'] },
   { id: 'cody',   name: 'Cody',   role: 'Coding Expert',        emoji: '💻', sessionPrefixes: ['agent:cody:'] },
-  { id: 'martha', name: 'Martha', role: 'Personal Assistant',   emoji: '🌿', sessionPrefixes: ['agent:martha:'] },
 ];
