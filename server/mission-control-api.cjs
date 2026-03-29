@@ -177,6 +177,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // POST /api/habits — save full habits array (for Finnly daily log)
+  if (post('/api/habits')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { habits } = JSON.parse(body);
+        writeDataFile('habits', habits);
+        res.end(JSON.stringify({ ok: true, habits }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // POST /api/habits/action
   if (post('/api/habits/action')) {
     let body = '';
