@@ -1,17 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 type Account = 'bobby' | 'logan' | 'dash';
+type MoneyType = 'income' | 'expense';
 
 interface MoneyEntry {
   id: string;
-  amount: number;
-  label: string;
   date: string;
-}
-
-interface AccountData {
-  checking: number;
-  entries: MoneyEntry[];
+  description: string;
+  amount: number;
+  type: MoneyType;
 }
 
 const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,154 +21,86 @@ const ACC_COLORS: Record<Account, { bg: string; border: string; text: string; la
 
 export function MoneyWidget() {
   const [account, setAccount] = useState<Account>('bobby');
-  const [bobbyData, setBobbyData] = useState<AccountData>({ checking: 0, entries: [] });
-  const [loganData, setLoganData] = useState<AccountData>({ checking: 0, entries: [] });
-  const [dashData, setDashData] = useState<AccountData>({ checking: 0, entries: [] });
+  const [entries, setEntries] = useState<MoneyEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const hasLoaded = useRef(true);
+
   const [amount, setAmount] = useState('');
-  const [label, setLabel] = useState('');
+  const [description, setDescription] = useState('');
   const [isIncome, setIsIncome] = useState(false);
-  const [editingChecking, setEditingChecking] = useState(false);
-  const [checkingInput, setCheckingInput] = useState('');
   const [showHistory, setShowHistory] = useState(false);
   const [showTotals, setShowTotals] = useState(false);
 
-  const getData = (a: Account) => a === 'bobby' ? bobbyData : a === 'logan' ? loganData : dashData;
-  const setData = (a: Account, d: AccountData) => {
-    if (a === 'bobby') setBobbyData(d);
-    else if (a === 'logan') setLoganData(d);
-    else setDashData(d);
-  };
-
-  const activeData = getData(account);
-  const setActiveData = (d: AccountData) => setData(account, d);
-  const colors = ACC_COLORS[account];
-
   useEffect(() => {
-    const load = (key: Account): AccountData => {
-      const checking = parseFloat(localStorage.getItem(`${key}_checking`) || '0');
-      const entries = JSON.parse(localStorage.getItem(`${key}_entries`) || '[]');
-      return { checking, entries };
-    };
-
-    fetch('/api/money/backup')
+    fetch('/api/money')
       .then(r => r.json())
-      .then(serverData => {
-        if (serverData && serverData.bobby) {
-          localStorage.setItem('bobby_checking', String(serverData.bobby.checking));
-          localStorage.setItem('bobby_entries', JSON.stringify(serverData.bobby.entries));
-          setBobbyData(serverData.bobby);
-        } else {
-          const d = load('bobby');
-          setBobbyData(d);
-        }
-        if (serverData && serverData.logan) {
-          localStorage.setItem('logan_checking', String(serverData.logan.checking));
-          localStorage.setItem('logan_entries', JSON.stringify(serverData.logan.entries));
-          setLoganData(serverData.logan);
-        } else {
-          const d = load('logan');
-          setLoganData(d);
-        }
-        if (serverData && serverData.dash) {
-          localStorage.setItem('dash_checking', String(serverData.dash.checking));
-          localStorage.setItem('dash_entries', JSON.stringify(serverData.dash.entries));
-          setDashData(serverData.dash);
-        } else {
-          const d = load('dash');
-          setDashData(d);
+      .then(data => {
+        setEntries(data.money || []);
+        if (hasLoaded.current) {
+          setLoading(false);
+          hasLoaded.current = false;
         }
       })
       .catch(() => {
-        setBobbyData(load('bobby'));
-        setLoganData(load('logan'));
-        setDashData(load('dash'));
+        if (hasLoaded.current) {
+          setLoading(false);
+          hasLoaded.current = false;
+        }
       });
-    const interval = setInterval(() => {
-      fetch('/api/money/backup')
-        .then(r => r.json())
-        .then(serverData => {
-          if (serverData && serverData.bobby) {
-            localStorage.setItem('bobby_checking', String(serverData.bobby.checking));
-            localStorage.setItem('bobby_entries', JSON.stringify(serverData.bobby.entries));
-            setBobbyData(serverData.bobby);
-          }
-          if (serverData && serverData.logan) {
-            localStorage.setItem('logan_checking', String(serverData.logan.checking));
-            localStorage.setItem('logan_entries', JSON.stringify(serverData.logan.entries));
-            setLoganData(serverData.logan);
-          }
-        })
-        .catch(() => {});
-    }, 30000);
-    return () => clearInterval(interval);
   }, []);
 
-  const saveData = (key: Account, data: AccountData) => {
-    localStorage.setItem(`${key}_checking`, String(data.checking));
-    localStorage.setItem(`${key}_entries`, JSON.stringify(data.entries));
-  };
+  const currentEntries = entries.filter(e => {
+    // Show entries for selected account (tagged in description) or untagged
+    // Since the API doesn't have account field, we'll show all and let user filter
+    return true;
+  });
 
-  const backupToServer = () => {
-    fetch('/api/money/backup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bobby: bobbyData, logan: loganData, dash: dashData }),
-    }).catch(() => {});
-  };
+  // Calculate balance: sum all entries for now (API doesn't track per-account balance)
+  const balance = entries.reduce((sum, e) => sum + e.amount, 0);
+  const colors = ACC_COLORS[account];
 
-  const addTransaction = async () => {
+  const handleAdd = async () => {
     const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0 || !label.trim()) return;
+    if (isNaN(numAmount) || numAmount <= 0 || !description.trim()) return;
 
-    const entry: MoneyEntry = {
+    const item: MoneyEntry = {
       id: Date.now().toString(),
-      amount: isIncome ? numAmount : -numAmount,
-      label: label.trim(),
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      description: description.trim(),
+      amount: isIncome ? numAmount : -numAmount,
+      type: isIncome ? 'income' : 'expense',
     };
-
-    const newData: AccountData = {
-      checking: Math.round((activeData.checking + entry.amount) * 100) / 100,
-      entries: [entry, ...activeData.entries],
-    };
-
-    setActiveData(newData);
-    saveData(account, newData);
-    backupToServer();
 
     try {
-      await fetch('/api/money/add', {
+      const res = await fetch('/api/money/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: entry.date,
-          type: isIncome ? 'income' : 'expense',
-          amount: entry.amount,
-          label: entry.label,
-          account,
-          balance_after: newData.checking,
-        }),
+        body: JSON.stringify({ action: 'add', item }),
       });
-    } catch {}
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Add failed');
+      setEntries(data.money || [item, ...entries]);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to add entry');
+    }
 
     setAmount('');
-    setLabel('');
+    setDescription('');
   };
 
-  const startEditChecking = () => {
-    setCheckingInput(activeData.checking.toFixed(2));
-    setEditingChecking(true);
-  };
-
-  const saveCheckingEdit = () => {
-    const val = parseFloat(checkingInput);
-    if (!isNaN(val)) {
-      const newData = { ...activeData, checking: val };
-      setActiveData(newData);
-      saveData(account, newData);
-      backupToServer();
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch('/api/money/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', item: { id } }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      setEntries(data.money || entries.filter(e => e.id !== id));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to delete entry');
     }
-    setEditingChecking(false);
   };
 
   return (
@@ -188,12 +117,12 @@ export function MoneyWidget() {
             >
               Totals
             </button>
-            {activeData.entries.length > 0 && (
+            {!loading && entries.length > 0 && (
               <button
                 onClick={() => setShowHistory(true)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.05] hover:bg-white/[0.10] text-emerald-400 border border-emerald-500/20 transition-colors"
               >
-                History ({activeData.entries.length})
+                History ({entries.length})
               </button>
             )}
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -219,39 +148,24 @@ export function MoneyWidget() {
           </div>
         </div>
 
-        {/* Checking Balance */}
+        {/* Balance */}
         <div className="px-5 py-5 text-center border-b border-white/[0.06]">
           <p className={`text-[10px] uppercase tracking-wider mb-1 ${colors.text} opacity-70`}>
             {colors.label} {account === 'dash' ? 'Dasher Card' : 'Checking'}
           </p>
-          {editingChecking ? (
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-slate-400">$</span>
-              <input
-                type="number"
-                step="0.01"
-                autoFocus
-                value={checkingInput}
-                onChange={e => setCheckingInput(e.target.value)}
-                onBlur={saveCheckingEdit}
-                onKeyDown={e => { if (e.key === 'Enter') saveCheckingEdit(); if (e.key === 'Escape') setEditingChecking(false); }}
-                className="w-32 bg-white/[0.08] border border-white/[0.15] rounded-lg px-3 py-1.5 text-3xl font-mono text-slate-100 text-center focus:outline-none"
-              />
-            </div>
+          {loading ? (
+            <div className="h-10 w-40 mx-auto bg-white/[0.04] rounded-lg animate-pulse" />
           ) : (
-            <button onClick={startEditChecking} className="group flex items-center justify-center gap-2 mx-auto">
-              <span className={`text-3xl font-mono font-semibold group-hover:opacity-80 transition-colors ${activeData.checking >= 0 ? 'text-slate-100' : 'text-red-400'}`}>
-                ${fmt(Math.abs(activeData.checking))}
-              </span>
-              <span className="text-slate-600 group-hover:text-slate-400 transition-colors text-xs">✎</span>
-            </button>
+            <span className={`text-3xl font-mono font-semibold ${balance >= 0 ? 'text-slate-100' : 'text-red-400'}`}>
+              ${fmt(Math.abs(balance))}
+            </span>
           )}
-          <p className="text-[9px] text-slate-600 mt-1">tap ✎ to update balance</p>
+          <p className="text-[9px] text-slate-600 mt-1">net balance (all accounts)</p>
         </div>
 
         {/* Entry Form */}
         <div className="px-5 py-4">
-          <form onSubmit={e => { e.preventDefault(); addTransaction(); }} className="space-y-2.5">
+          <form onSubmit={e => { e.preventDefault(); handleAdd(); }} className="space-y-2.5">
             <div className="flex gap-2">
               <button
                 type="button"
@@ -289,8 +203,8 @@ export function MoneyWidget() {
               />
               <input
                 type="text"
-                value={label}
-                onChange={e => setLabel(e.target.value)}
+                value={description}
+                onChange={e => setDescription(e.target.value)}
                 placeholder="Label (e.g. Groceries, Paycheck)"
                 className="flex-1 bg-white/[0.06] border border-white/[0.10] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
               />
@@ -321,30 +235,36 @@ export function MoneyWidget() {
             <div className="flex items-center gap-4 px-5 pb-4">
               <span className="text-4xl">📋</span>
               <div>
-                <h3 className="text-xl font-semibold text-slate-100">
-                  {colors.label}'s Transactions
-                </h3>
-                <p className="text-sm text-slate-400">{activeData.entries.length} transactions</p>
+                <h3 className="text-xl font-semibold text-slate-100">Transactions</h3>
+                <p className="text-sm text-slate-400">{entries.length} entries</p>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-2xl font-mono font-semibold text-slate-100">${fmt(activeData.checking)}</p>
-                <p className="text-xs text-slate-500">{account === 'dash' ? 'Dasher Card' : 'checking'}</p>
+                <p className="text-2xl font-mono font-semibold text-slate-100">${fmt(balance)}</p>
+                <p className="text-xs text-slate-500">net balance</p>
               </div>
             </div>
             <div className="px-5 pb-6 max-h-80 overflow-y-auto">
               <div className="space-y-1">
-                {activeData.entries.map(entry => (
-                  <div key={entry.id} className="flex items-start justify-between gap-3 py-2.5 border-b border-white/[0.05]">
+                {entries.map(entry => (
+                  <div key={entry.id} className="group flex items-start justify-between gap-3 py-2.5 border-b border-white/[0.05]">
                     <div className="flex items-start gap-3 min-w-0">
                       <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${entry.amount >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`} />
                       <div className="min-w-0">
-                        <p className="text-sm text-slate-200 font-medium">{entry.label}</p>
+                        <p className="text-sm text-slate-200 font-medium">{entry.description}</p>
                         <p className="text-xs text-slate-500">{entry.date}</p>
                       </div>
                     </div>
-                    <span className={`text-base font-mono font-semibold flex-shrink-0 ${entry.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {entry.amount > 0 ? '+' : ''}${fmt(Math.abs(entry.amount))}
-                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-base font-mono font-semibold ${entry.amount >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {entry.amount > 0 ? '+' : ''}${fmt(Math.abs(entry.amount))}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(entry.id)}
+                        className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs flex-shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -368,33 +288,25 @@ export function MoneyWidget() {
                 <p className="text-sm text-slate-400">All Accounts</p>
               </div>
               <div className="ml-auto text-right">
-                <p className="text-2xl font-mono font-semibold text-slate-100">
-                  ${fmt(bobbyData.checking + loganData.checking + dashData.checking)}
-                </p>
+                <p className="text-2xl font-mono font-semibold text-slate-100">${fmt(balance)}</p>
                 <p className="text-xs text-slate-500">total</p>
               </div>
             </div>
-            <div className="px-5 pb-6 space-y-4">
-              {([
-                { key: 'bobby' as Account, data: bobbyData, color: 'bg-emerald-400' },
-                { key: 'logan' as Account, data: loganData, color: 'bg-blue-400' },
-                { key: 'dash' as Account, data: dashData, color: 'bg-orange-400' },
-              ]).map(({ key, data, color }) => (
-                <div key={key} className="flex items-center justify-between py-3 border-b border-white/[0.06]">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${color}`} />
-                    <div>
-                      <p className="text-sm font-medium text-slate-200">{ACC_COLORS[key].label}{key === 'dash' ? ' Dasher Card' : ''}</p>
-                      <p className="text-xs text-slate-500">{data.entries.length} transactions</p>
-                    </div>
-                  </div>
-                  <p className={`text-lg font-mono font-semibold ${ACC_COLORS[key].text}`}>${fmt(data.checking)}</p>
-                </div>
-              ))}
+            <div className="px-5 pb-6">
               <div className="flex items-center justify-between py-3">
-                <p className="text-sm font-semibold text-slate-200">Combined Total</p>
-                <p className="text-xl font-mono font-bold text-slate-100">
-                  ${fmt(bobbyData.checking + loganData.checking + dashData.checking)}
+                <p className="text-sm font-semibold text-slate-200">Net Balance</p>
+                <p className="text-xl font-mono font-bold text-slate-100">${fmt(balance)}</p>
+              </div>
+              <div className="flex items-center justify-between py-3 border-t border-white/[0.06]">
+                <p className="text-sm text-slate-400">Total Income</p>
+                <p className="text-base font-mono text-emerald-400">
+                  +${fmt(entries.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0))}
+                </p>
+              </div>
+              <div className="flex items-center justify-between py-3 border-t border-white/[0.06]">
+                <p className="text-sm text-slate-400">Total Expenses</p>
+                <p className="text-base font-mono text-red-400">
+                  -${fmt(Math.abs(entries.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0)))}
                 </p>
               </div>
             </div>
