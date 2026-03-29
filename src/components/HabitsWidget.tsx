@@ -27,20 +27,15 @@ export function HabitsWidget() {
   const [days, setDays] = useState<DailyHabit[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
       const res = await fetch('/api/habits');
       const data = await res.json();
       setDays(data.habits || []);
-    } catch (e) {
-      console.error('Failed to fetch', e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error('Failed to fetch', e); }
+    finally { setLoading(false); }
   };
 
   const saveData = async (newDays: DailyHabit[]) => {
@@ -51,9 +46,7 @@ export function HabitsWidget() {
         body: JSON.stringify({ habits: newDays }),
       });
       setDays(newDays);
-    } catch (e) {
-      console.error('Failed to save', e);
-    }
+    } catch (e) { console.error('Failed to save', e); }
   };
 
   const toggleTask = (dayIndex: number, key: keyof DailyHabit) => {
@@ -88,13 +81,10 @@ export function HabitsWidget() {
     return dateStr === today;
   };
 
-  const getValue = (day: DailyHabit, key: string) => {
-    return (day as Record<string, unknown>)[key];
-  };
+  const getValue = (day: DailyHabit, key: string) => (day as Record<string, unknown>)[key];
 
   return (
     <div className="backdrop-blur-xl border border-white/[0.10] rounded-2xl overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
           <span className="text-xl">📋</span>
@@ -107,17 +97,15 @@ export function HabitsWidget() {
           {[100, 80].map((w,i) => <div key={i} className="h-16 bg-white/[0.05] rounded animate-pulse" style={{width:w+'%'}} />)}
         </div>
       ) : days.length === 0 ? (
-        <div className="p-6 text-center">
-          <p className="text-sm text-slate-500">No data yet</p>
+        <div className="p-4 text-center">
+          <p className="text-xs text-slate-500">No data yet</p>
         </div>
       ) : (
-        <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
+        <div className="p-3 space-y-1">
           {days.map((day, dayIdx) => (
-            <div key={day.date} className="p-4 rounded-xl border border-white/[0.06]">
-              <p className="text-sm font-semibold mb-4 text-slate-400">
-                {day.date} {isToday(day.date) && '(Today)'}
-              </p>
-              <div className="space-y-2">
+            <div key={day.date} className="space-y-1">
+              <p className="text-sm font-semibold text-slate-500 uppercase">{day.date} {isToday(day.date) && '(Today)'}</p>
+              <div className="grid grid-cols-2 gap-2">
                 {TASKS.map(({ key, label, emoji, type }) => {
                   const value = getValue(day, key) as boolean | number;
                   if (type === 'bool') {
@@ -125,34 +113,24 @@ export function HabitsWidget() {
                       <button
                         key={key}
                         onClick={() => toggleTask(dayIdx, key as keyof DailyHabit)}
-                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all border border-white/10 hover:bg-white/5"
+                        className="flex items-center gap-3.5 px-4 py-3 rounded text-sm font-medium transition-all border border-white/[0.06] hover:bg-white/[0.05]"
                       >
-                        <span className="text-base">{emoji}</span>
-                        <span className={value ? 'text-emerald-400' : 'text-slate-400'}>{label}</span>
+                        <span>{emoji}</span>
+                        <span className={value ? 'text-emerald-400' : 'text-slate-500'}>{label}</span>
                         {value && <span className="ml-auto text-emerald-400">✓</span>}
                       </button>
                     );
                   } else {
                     return (
-                      <div key={key} className="flex items-center justify-between px-4 py-3 rounded-lg bg-transparent border border-white/10">
-                        <span className="flex items-center gap-3 text-sm text-slate-300">
-                          <span className="text-base">{emoji}</span>
+                      <div key={key} className="flex items-center justify-between px-4 py-3 rounded border border-white/[0.06]">
+                        <span className="flex items-center gap-3.5 text-sm text-slate-400">
+                          <span>{emoji}</span>
                           <span>{label}</span>
                         </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)}
-                            className="w-7 h-7 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20"
-                          >
-                            -
-                          </button>
-                          <span className="text-sm font-mono font-semibold text-slate-200 w-5 text-center">{value}</span>
-                          <button
-                            onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)}
-                            className="w-7 h-7 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20"
-                          >
-                            +
-                          </button>
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)} className="w-7 h-7 rounded bg-white/10 text-slate-500 text-xs font-bold hover:bg-white/20">-</button>
+                          <span className="text-sm font-mono text-slate-300 w-6 text-center">{value}</span>
+                          <button onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)} className="w-7 h-7 rounded bg-white/10 text-slate-500 text-xs font-bold hover:bg-white/20">+</button>
                         </div>
                       </div>
                     );
