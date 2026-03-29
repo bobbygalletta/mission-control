@@ -98,7 +98,7 @@ export function HabitsWidget() {
         </div>
       ) : days.length === 0 ? (
         <div className="p-4 text-center">
-          <p className="text-xs text-slate-500">No data yet</p>
+          <p className="text-[10px] text-slate-500">No data yet</p>
         </div>
       ) : (
         <div className="p-3 space-y-1">
@@ -113,7 +113,7 @@ export function HabitsWidget() {
                       <button
                         key={key}
                         onClick={() => toggleTask(dayIdx, key as keyof DailyHabit)}
-                        className="flex items-center gap-3.5 px-4 py-3 rounded text-sm font-medium transition-all border border-white/[0.06] hover:bg-white/[0.05]"
+                        className="flex items-center gap-0 px-4 py-3 rounded text-sm font-medium transition-all border border-white/[0.06] hover:bg-white/[0.05]"
                       >
                         <span>{emoji}</span>
                         <span className={value ? 'text-emerald-400' : 'text-slate-500'}>{label}</span>
@@ -123,14 +123,14 @@ export function HabitsWidget() {
                   } else {
                     return (
                       <div key={key} className="flex items-center justify-between px-4 py-3 rounded border border-white/[0.06]">
-                        <span className="flex items-center gap-3.5 text-sm text-slate-400">
+                        <span className="flex items-center gap-0 text-sm text-slate-400">
                           <span>{emoji}</span>
                           <span>{label}</span>
                         </span>
                         <div className="flex items-center gap-3">
-                          <button onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)} className="w-7 h-7 rounded bg-white/10 text-slate-500 text-xs font-bold hover:bg-white/20">-</button>
-                          <span className="text-sm font-mono text-slate-300 w-6 text-center">{value}</span>
-                          <button onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)} className="w-7 h-7 rounded bg-white/10 text-slate-500 text-xs font-bold hover:bg-white/20">+</button>
+                          <button onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)} className="w-5 h-5 rounded bg-white/10 text-slate-500 text-[10px] font-bold hover:bg-white/20">-</button>
+                          <span className="text-sm font-mono text-slate-300 w-4 text-center">{value}</span>
+                          <button onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)} className="w-5 h-5 rounded bg-white/10 text-slate-500 text-[10px] font-bold hover:bg-white/20">+</button>
                         </div>
                       </div>
                     );

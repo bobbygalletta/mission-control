@@ -50,8 +50,8 @@ export function FinnlyWidget() {
     fetch('/api/finnly')
       .then(r => r.json())
       .then(serverData => {
-        if (serverData && Array.isArray(serverData)) {
-          setData(serverData);
+        if (serverData && (Array.isArray(serverData) || Array.isArray(serverData.finnly))) {
+          setData(serverData.finnly || serverData);
         }
       })
       .catch(() => {
@@ -61,7 +61,7 @@ export function FinnlyWidget() {
     const interval = setInterval(() => {
       fetch('/api/finnly')
         .then(r => r.json())
-        .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData); })
+        .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData.finnly || serverData); })
         .catch(() => {});
     }, 15000);
     return () => clearInterval(interval);
