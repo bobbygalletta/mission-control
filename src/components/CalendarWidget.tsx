@@ -181,14 +181,42 @@ export function CalendarWidget() {
     return () => clearInterval(interval);
   }, [viewDate]);
 
-  useEffect(() => {
-    if (loading || !ref.current) return;
+  // Auto-scroll to now — 30s after user interaction, not on every 5s refresh
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isUserScrolling = useRef(false);
+
+  const scrollToNow = () => {
+    if (!ref.current) return;
     const pct = getNowPct();
     const totalContent = ref.current.scrollHeight;
     const visibleHeight = ref.current.clientHeight;
-    const scrollTo = (pct / 100) * totalContent - visibleHeight * 0.33;
-    ref.current.scrollTop = Math.max(0, scrollTo);
-  }, [loading, evs]);
+    ref.current.scrollTop = Math.max(0, (pct / 100) * totalContent - visibleHeight * 0.33);
+  };
+
+  // Initial load — scroll to now once
+  useEffect(() => {
+    if (loading || !ref.current) return;
+    scrollToNow();
+  }, [loading]);
+
+  // Track user scroll — reset 30s timer on user interaction
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onUserScroll = () => {
+      isUserScrolling.current = true;
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+      scrollTimer.current = setTimeout(() => {
+        isUserScrolling.current = false;
+        scrollToNow();
+      }, 30000);
+    };
+    el.addEventListener('scroll', onUserScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onUserScroll);
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    };
+  }, [loading]);
 
   const goPrev = () => {
     const d = new Date(viewDate);
