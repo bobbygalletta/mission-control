@@ -1,91 +1,144 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-interface HabitDay {
-  date: string;
-  water: number;
-  stretch: number;
-  laundry: boolean;
-  bedMade: boolean;
-  vacuum: number;
-  breakfast: boolean;
-  lunch: boolean;
-  dinner: boolean;
+interface Habit {
+  id: string;
+  name: string;
+  color: string;
+  completedDates: string[];
 }
 
-const HABITS_KEY = 'habits_data';
+const HABIT_COLORS = [
+  { label: 'Blue',   value: '#60a5fa' },
+  { label: 'Green',  value: '#34d399' },
+  { label: 'Purple', value: '#a78bfa' },
+  { label: 'Orange', value: '#fb923c' },
+  { label: 'Pink',   value: '#f472b6' },
+  { label: 'Cyan',   value: '#22d3ee' },
+  { label: 'Amber',  value: '#fbbf24' },
+];
 
-function today(): string {
-  return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10);
 }
-
-function isToday(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  const t = new Date();
-  return d.toDateString() === t.toDateString();
-}
-
-const emptyDay = (): HabitDay => ({
-  date: today(),
-  water: 0,
-  stretch: 0,
-  laundry: false,
-  bedMade: false,
-  vacuum: 0,
-  breakfast: false,
-  lunch: false,
-  dinner: false,
-});
 
 export function HabitsWidget() {
-  const [data, setData] = useState<HabitDay[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState(HABIT_COLORS[0].value);
+  const hasLoaded = useRef(true);
+
+  const today = todayStr();
 
   useEffect(() => {
     fetch('/api/habits')
       .then(r => r.json())
-      .then(serverData => {
-        if (serverData && Array.isArray(serverData)) {
-          setData(serverData);
+      .then(data => {
+        setHabits(data.habits || []);
+        if (hasLoaded.current) {
+          setLoading(false);
+          hasLoaded.current = false;
         }
       })
       .catch(() => {
-        const saved = localStorage.getItem(HABITS_KEY);
-        if (saved) setData(JSON.parse(saved));
+        if (hasLoaded.current) {
+          setLoading(false);
+          hasLoaded.current = false;
+        }
       });
-    const interval = setInterval(() => {
-      fetch('/api/habits')
-        .then(r => r.json())
-        .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData); })
-        .catch(() => {});
-    }, 15000);
-    return () => clearInterval(interval);
   }, []);
 
-  const sync = (newData: HabitDay[]) => {
-    setData(newData);
-    localStorage.setItem(HABITS_KEY, JSON.stringify(newData));
-    fetch('/api/habits', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newData),
-    }).catch(() => {});
+  const isCompletedToday = (habit: Habit) =>
+    habit.completedDates && habit.completedDates.includes(today);
+
+  const handleToggle = async (habit: Habit) => {
+    const wasCompleted = isCompletedToday(habit);
+    // Optimistic update
+    setHabits(prev => prev.map(h => {
+      if (h.id !== habit.id) return h;
+      const dates = h.completedDates ? [...h.completedDates] : [];
+      const idx = dates.indexOf(today);
+      if (wasCompleted) dates.splice(idx, 1);
+      else dates.push(today);
+      return { ...h, completedDates: dates };
+    }));
+
+    try {
+      const res = await fetch('/api/habits/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle', habit: { id: habit.id }, date: today }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Toggle failed');
+      setHabits(data.habits || habits);
+    } catch (e: unknown) {
+      // Revert on failure
+      setHabits(prev => prev.map(h => {
+        if (h.id !== habit.id) return h;
+        const dates = h.completedDates ? [...h.completedDates] : [];
+        const idx = dates.indexOf(today);
+        if (!wasCompleted && idx === -1) dates.push(today);
+        else if (wasCompleted && idx >= 0) dates.splice(idx, 1);
+        return { ...h, completedDates: dates };
+      }));
+      alert(e instanceof Error ? e.message : 'Failed to toggle habit');
+    }
   };
 
-  const todayData = (): HabitDay => {
-    const existing = data.find(d => isToday(d.date));
-    if (existing) return existing;
-    return emptyDay();
+  const handleAdd = async () => {
+    if (!newName.trim()) return;
+    const habit: Habit = {
+      id: Date.now().toString(),
+      name: newName.trim(),
+      color: newColor,
+      completedDates: [],
+    };
+
+    try {
+      const res = await fetch('/api/habits/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add', habit }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Add failed');
+      setHabits(data.habits || [...habits, habit]);
+      setNewName('');
+      setShowAdd(false);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to add habit');
+    }
   };
 
-  const t = todayData();
-
-  const update = (field: keyof HabitDay, value: boolean | number) => {
-    const updated = { ...t, [field]: value };
-    const rest = data.filter(d => !isToday(d.date));
-    sync([updated, ...rest]);
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch('/api/habits/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', habit: { id } }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Delete failed');
+      setHabits(data.habits || habits.filter(h => h.id !== id));
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to delete habit');
+    }
   };
 
-  const history = data.filter(d => !isToday(d.date)).slice(0, 14);
+  const completedToday = habits.filter(h => isCompletedToday(h)).length;
+  const history = habits
+    .map(h => ({
+      ...h,
+      recentDates: (h.completedDates || [])
+        .filter(d => d !== today)
+        .sort()
+        .reverse()
+        .slice(0, 7),
+    }))
+    .filter(h => h.recentDates.length > 0);
 
   return (
     <>
@@ -96,146 +149,123 @@ export function HabitsWidget() {
             <span className="text-xl">✅</span>
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Daily Habits</p>
           </div>
-          <button
-            onClick={() => setShowHistory(true)}
-            className="text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors"
-          >
-            History
-          </button>
+          <div className="flex items-center gap-2">
+            {!loading && (
+              <span className="text-xs font-mono text-emerald-400/70">
+                {completedToday}/{habits.length}
+              </span>
+            )}
+            <button
+              onClick={() => setShowAdd(!showAdd)}
+              className="text-xs text-emerald-400/70 hover:text-emerald-400 transition-colors"
+            >
+              {showAdd ? 'Cancel' : '+ Add'}
+            </button>
+            {habits.length > 0 && (
+              <button
+                onClick={() => setShowHistory(true)}
+                className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                History
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          {/* Water */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">💧 Water</p>
-              <span className="text-sm font-mono text-blue-400">{t.water}/18</span>
+        {/* Add Habit Form */}
+        {showAdd && (
+          <div className="px-5 py-3 border-b border-white/[0.06] space-y-2">
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setShowAdd(false); setNewName(''); } }}
+              placeholder="Habit name (e.g. Read 30 min)"
+              className="w-full bg-white/[0.06] border border-white/[0.10] rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500/50"
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider">Color:</span>
+              <div className="flex gap-1.5">
+                {HABIT_COLORS.map(c => (
+                  <button
+                    key={c.value}
+                    onClick={() => setNewColor(c.value)}
+                    className={`w-5 h-5 rounded-full transition-transform ${newColor === c.value ? 'scale-125 ring-1 ring-white/30' : ''}`}
+                    style={{ backgroundColor: c.value }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => update('water', Math.max(0, t.water - 1))}
-                disabled={t.water <= 0}
-                className={`w-12 py-3 rounded-xl text-sm font-medium border transition-all ${t.water <= 0 ? 'bg-white/[0.03] border-white/[0.06] text-slate-600 cursor-not-allowed' : 'bg-white/[0.06] border-white/[0.10] text-slate-300 hover:border-white/[0.20]'}`}
-              >
-                -1
-              </button>
-              <button
-                onClick={() => update('water', t.water + 1)}
-                className="flex-1 py-3 rounded-xl text-sm font-medium border transition-all bg-blue-500/20 border-blue-400/50 text-blue-300 hover:bg-blue-500/30 active:scale-95"
-              >
-                +1
-              </button>
-            </div>
-          </div>
-
-          {/* Stretch */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">🧘 Stretch</p>
-              <span className="text-sm font-mono text-purple-400">{t.stretch}/3</span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => update('stretch', Math.max(0, t.stretch - 1))}
-                disabled={t.stretch <= 0}
-                className={`w-12 py-3 rounded-xl text-sm font-medium border transition-all ${t.stretch <= 0 ? 'bg-white/[0.03] border-white/[0.06] text-slate-600 cursor-not-allowed' : 'bg-white/[0.06] border-white/[0.10] text-slate-300 hover:border-white/[0.20]'}`}
-              >
-                -1
-              </button>
-              <button
-                onClick={() => update('stretch', t.stretch + 1)}
-                disabled={t.stretch >= 3}
-                className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-all ${t.stretch >= 3 ? 'bg-purple-500/10 border-purple-500/20 text-purple-500/50 cursor-not-allowed' : 'bg-purple-500/20 border-purple-400/50 text-purple-300 hover:bg-purple-500/30 active:scale-95'}`}
-              >
-                +1
-              </button>
-            </div>
-          </div>
-
-          {/* Vacuum */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">🧹 Vacuum</p>
-              <span className="text-sm font-mono text-cyan-400">{t.vacuum}/2</span>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => update('vacuum', Math.max(0, t.vacuum - 1))}
-                disabled={t.vacuum <= 0}
-                className={`w-12 py-3 rounded-xl text-sm font-medium border transition-all ${t.vacuum <= 0 ? 'bg-white/[0.03] border-white/[0.06] text-slate-600 cursor-not-allowed' : 'bg-white/[0.06] border-white/[0.10] text-slate-300 hover:border-white/[0.20]'}`}
-              >
-                -1
-              </button>
-              <button
-                onClick={() => update('vacuum', t.vacuum + 1)}
-                disabled={t.vacuum >= 2}
-                className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-all ${t.vacuum >= 2 ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-500/50 cursor-not-allowed' : 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 active:scale-95'}`}
-              >
-                +1
-              </button>
-            </div>
-          </div>
-
-          {/* Toggles */}
-          <div className="grid grid-cols-2 gap-2">
-            {/* Laundry */}
             <button
-              onClick={() => update('laundry', !t.laundry)}
-              className={`py-3 rounded-xl text-sm font-medium border transition-all ${t.laundry ? 'bg-orange-500/25 border-orange-400/50 text-orange-300' : 'bg-white/[0.04] border-white/[0.08] text-slate-500 hover:border-white/[0.15]'}`}
+              onClick={handleAdd}
+              className="w-full py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-sm font-medium transition-colors border border-emerald-500/30"
             >
-              🧺 Laundry {t.laundry ? '✓' : ''}
-            </button>
-
-            {/* Bed Made */}
-            <button
-              onClick={() => update('bedMade', !t.bedMade)}
-              className={`py-3 rounded-xl text-sm font-medium border transition-all ${t.bedMade ? 'bg-pink-500/25 border-pink-400/50 text-pink-300' : 'bg-white/[0.04] border-white/[0.08] text-slate-500 hover:border-white/[0.15]'}`}
-            >
-              🛏️ Bed Made {t.bedMade ? '✓' : ''}
+              Add Habit
             </button>
           </div>
+        )}
 
-          {/* Meals */}
-          <div>
-            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">🍽️ Meals</p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={() => update('breakfast', !t.breakfast)}
-                className={`py-3 rounded-xl text-sm font-medium border transition-all ${t.breakfast ? 'bg-amber-500/25 border-amber-400/50 text-amber-300' : 'bg-white/[0.04] border-white/[0.08] text-slate-500 hover:border-white/[0.15]'}`}
-              >
-                Breakfast {t.breakfast ? '✓' : ''}
-              </button>
-              <button
-                onClick={() => update('lunch', !t.lunch)}
-                className={`py-3 rounded-xl text-sm font-medium border transition-all ${t.lunch ? 'bg-amber-500/25 border-amber-400/50 text-amber-300' : 'bg-white/[0.04] border-white/[0.08] text-slate-500 hover:border-white/[0.15]'}`}
-              >
-                Lunch {t.lunch ? '✓' : ''}
-              </button>
-              <button
-                onClick={() => update('dinner', !t.dinner)}
-                className={`py-3 rounded-xl text-sm font-medium border transition-all ${t.dinner ? 'bg-amber-500/25 border-amber-400/50 text-amber-300' : 'bg-white/[0.04] border-white/[0.08] text-slate-500 hover:border-white/[0.15]'}`}
-              >
-                Dinner {t.dinner ? '✓' : ''}
-              </button>
+        {/* Habits List */}
+        <div className="px-5 py-3 space-y-0 max-h-72 overflow-y-auto">
+          {loading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <div key={i} className="h-12 bg-white/[0.04] rounded-xl animate-pulse" />)}
             </div>
-          </div>
+          ) : habits.length === 0 ? (
+            <p className="text-sm text-slate-500 py-6 text-center">No habits yet — click + Add to start tracking!</p>
+          ) : (
+            habits.map(habit => {
+              const done = isCompletedToday(habit);
+              const dotColor = habit.color || '#60a5fa';
+              return (
+                <div key={habit.id} className="group flex items-center justify-between py-2.5 border-b border-white/[0.04] last:border-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: dotColor, opacity: done ? 1 : 0.4 }}
+                    />
+                    <span className={`text-sm min-w-0 truncate ${done ? 'text-slate-300 line-through' : 'text-slate-200'}`}>
+                      {habit.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => handleToggle(habit)}
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        done
+                          ? 'border-transparent'
+                          : 'border-slate-600 hover:border-slate-400'
+                      }`}
+                      style={done ? { backgroundColor: dotColor + '33', borderColor: dotColor } : {}}
+                    >
+                      {done && (
+                        <span style={{ color: dotColor }} className="text-xs font-bold">✓</span>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(habit.id)}
+                      className="w-5 h-5 flex items-center justify-center rounded text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity text-xs flex-shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Summary */}
-        <div className="px-5 py-3 border-t border-white/[0.06]">
-          <p className="text-[10px] text-slate-500 text-center">
-            {today()} — {[
-              `💧${t.water}/18`,
-              `🧘${t.stretch}/3`,
-              `🧹${t.vacuum}/2`,
-              t.laundry && '🧺',
-              t.bedMade && '🛏️',
-              t.breakfast && '🍳',
-              t.lunch && '🥪',
-              t.dinner && '🍽️',
-            ].filter(Boolean).join(' · ') || 'No habits logged'}
-          </p>
-        </div>
+        {habits.length > 0 && (
+          <div className="px-5 py-3 border-t border-white/[0.06]">
+            <p className="text-[10px] text-slate-500 text-center">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+              {loading ? '' : ` — ${completedToday}/${habits.length} done`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* History Modal */}
@@ -250,21 +280,28 @@ export function HabitsWidget() {
               <span className="text-4xl">📊</span>
               <div>
                 <h3 className="text-xl font-semibold text-slate-100">Habit History</h3>
-                <p className="text-sm text-slate-400">Recent days</p>
+                <p className="text-sm text-slate-400">Recent completions</p>
               </div>
             </div>
-            <div className="px-5 pb-6 max-h-80 overflow-y-auto space-y-2">
+            <div className="px-5 pb-6 max-h-80 overflow-y-auto space-y-3">
               {history.length === 0 ? (
                 <p className="text-sm text-slate-500 text-center py-4">No history yet</p>
               ) : (
-                history.map(day => (
-                  <div key={day.date} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-                    <p className="text-xs font-medium text-slate-300 mb-2">{day.date}</p>
-                    <div className="flex flex-wrap gap-1 text-[10px] text-slate-500">
-                      <span className={day.water >= 18 ? 'text-blue-400' : ''}>💧{day.water}/18</span>
-                      <span className={day.stretch >= 3 ? 'text-purple-400' : ''}>🧘{day.stretch}/3</span>
-                      <span className={day.vacuum >= 2 ? 'text-cyan-400' : ''}>🧹{day.vacuum}/2</span>
-                      {day.laundry && '🧺'} {day.bedMade && '🛏️'} {day.breakfast && '🍳'} {day.lunch && '🥪'} {day.dinner && '🍽️'}
+                history.map(habit => (
+                  <div key={habit.id} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: habit.color }} />
+                      <p className="text-sm font-medium text-slate-200">{habit.name}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {habit.recentDates.map(d => (
+                        <span
+                          key={d}
+                          className="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 bg-white/[0.06]"
+                        >
+                          {new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 ))
