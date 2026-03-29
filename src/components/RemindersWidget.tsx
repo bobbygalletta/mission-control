@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'https://all-grapes-cross.loca.lt';
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || '';
 
 interface ReminderItem {
   id: string;
