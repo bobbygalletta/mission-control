@@ -30,21 +30,26 @@ export function BillsWidget() {
   const hasLoaded = useRef(true);
 
   useEffect(() => {
-    fetch('/api/bills')
-      .then(r => r.json())
-      .then(data => {
-        setBills(data.bills || []);
-        if (hasLoaded.current) {
-          setLoading(false);
-          hasLoaded.current = false;
-        }
-      })
-      .catch(() => {
-        if (hasLoaded.current) {
-          setLoading(false);
-          hasLoaded.current = false;
-        }
-      });
+    const fetchBills = () => {
+      fetch('/api/bills')
+        .then(r => r.json())
+        .then(data => {
+          setBills(data.bills || []);
+          if (hasLoaded.current) {
+            setLoading(false);
+            hasLoaded.current = false;
+          }
+        })
+        .catch(() => {
+          if (hasLoaded.current) {
+            setLoading(false);
+            hasLoaded.current = false;
+          }
+        });
+    };
+    fetchBills();
+    const interval = setInterval(fetchBills, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const apiAction = async (action: string, bill: Partial<Bill>) => {
@@ -70,7 +75,9 @@ export function BillsWidget() {
     };
     try {
       await apiAction('add', bill);
-      setBills(prev => [...prev, bill]);
+      const res = await fetch('/api/bills');
+      const data = await res.json();
+      setBills(data.bills || []);
       setNewBill({ name: '', amount: '', dueDate: '', category: '' });
       setShowAdd(false);
     } catch (e: unknown) {
@@ -81,7 +88,9 @@ export function BillsWidget() {
   const handleDelete = async (id: string) => {
     try {
       await apiAction('delete', { id });
-      setBills(prev => prev.filter(b => b.id !== id));
+      const res = await fetch('/api/bills');
+      const data = await res.json();
+      setBills(data.bills || []);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to delete bill');
     }
@@ -90,7 +99,9 @@ export function BillsWidget() {
   const handleMarkPaid = async (id: string) => {
     try {
       await apiAction('markPaid', { id });
-      setBills(prev => prev.map(b => b.id === id ? { ...b, paid: true } : b));
+      const res = await fetch('/api/bills');
+      const data = await res.json();
+      setBills(data.bills || []);
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Failed to mark paid');
     }
