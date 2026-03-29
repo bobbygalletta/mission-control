@@ -6,6 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Local dev: proxy /api to the Node.js API server
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      // Gateway for agent status
       '/tools': {
         target: 'http://localhost:18789',
         changeOrigin: true,
