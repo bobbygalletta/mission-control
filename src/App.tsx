@@ -63,8 +63,8 @@ export default function App() {
         <Header connectionState={connectionState} />
 
         <main className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <WeatherWidget />
           <CalendarWidget />
+          <WeatherWidget />
           <RemindersWidget />
           <MoneyWidget />
           <BillsWidget />
