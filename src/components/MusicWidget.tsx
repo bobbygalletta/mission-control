@@ -91,7 +91,7 @@ export function MusicWidget() {
       const escaped = query.replace(/"/g, '\\"');
       const result = await musicCmd(
         `tell application "Music"
-          set sr to search library playlist 1 for "${escaped}"
+          set sr to search playlist "Library" for "${escaped}"
           set txt to ""
           repeat with i from 1 to (count of sr)
             if i > 8 then exit repeat

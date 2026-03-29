@@ -91,10 +91,14 @@ function getReminderList(listName) {
 // ─── Music ─────────────────────────────────────────────────
 function musicCmd(script) {
   try {
-    // Use -e with single args, pipe through cat to avoid encoding issues
-    const cmd = `osascript -e '${script}' 2>/dev/null`;
-    const out = execSync(cmd, { timeout: 5000, encoding: 'utf8' });
-    return (out || '').trim().replace(/\n/g, ' ');
+    // Write script to temp file and run with osascript
+    const fs = require('fs');
+    const path = require('path');
+    const tmp = path.join('/tmp', `mc_script_${Date.now()}.applescript`);
+    fs.writeFileSync(tmp, script);
+    const out = execSync(`osascript "${tmp}"`, { timeout: 5000, encoding: 'utf8' });
+    fs.unlinkSync(tmp);
+    return (out || '').trim();
   } catch (e) { return ''; }
 }
 
@@ -286,17 +290,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // POST /api/music — run AppleScript command
+  if (post('/api/music')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { script } = JSON.parse(body);
+        const result = musicCmd(script);
+        res.end(JSON.stringify({ result }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // POST /api/music/action
   if (post('/api/music/action')) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
-        const { action } = JSON.parse(body);
+        const { action, value } = JSON.parse(body);
         if (action === 'play') musicCmd('tell application "Music" to play');
         else if (action === 'pause') musicCmd('tell application "Music" to pause');
         else if (action === 'next') musicCmd('tell application "Music" to next track');
         else if (action === 'prev') musicCmd('tell application "Music" to previous track');
+        else if (action === 'volume') musicCmd(`set volume output volume ${value}`);
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });
