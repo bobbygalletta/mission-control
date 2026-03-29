@@ -19,6 +19,17 @@ function readDataFile(name, fallback = []) {
 
 function writeDataFile(name, data) {
   const file = path.join(DATA_DIR, `${name}.json`);
+  const backupDir = path.join(DATA_DIR, 'snapshots');
+  // Auto-snapshot before write
+  try {
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const backup = path.join(backupDir, `${name}_${timestamp}.json`);
+    if (fs.existsSync(file)) fs.copyFileSync(file, backup);
+    // Keep only last 10 snapshots
+    const snaps = fs.readdirSync(backupDir).filter(f => f.startsWith(name)).sort().reverse();
+    snaps.slice(10).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
+  } catch (e) { /* ignore snapshot errors */ }
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
