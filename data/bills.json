@@ -1,34 +1,7 @@
 [
-  {
-    "id": "bill-1",
-    "name": "Electric Bill",
-    "amount": 185,
-    "dueDate": "2026-04-05",
-    "category": "Utilities",
-    "paid": false
-  },
-  {
-    "id": "bill-2",
-    "name": "Internet",
-    "amount": 79.99,
-    "dueDate": "2026-04-10",
-    "category": "Utilities",
-    "paid": false
-  },
-  {
-    "id": "bill-3",
-    "name": "Car Insurance",
-    "amount": 145,
-    "dueDate": "2026-04-15",
-    "category": "Insurance",
-    "paid": false
-  },
-  {
-    "id": "test-bill",
-    "name": "Test Bill",
-    "amount": 99.99,
-    "dueDate": "2026-04-01",
-    "category": "Test",
-    "paid": false
-  }
+ {"id":"2","name":"Capitol One Quicksilver","amount":411,"dueDate":"2026-03-27","category":"Credit","paid":true,"paidDate":"2026-03-27T17:30:14.499Z"},
+ {"id":"3","name":"Chase","amount":74,"dueDate":"2026-03-28","category":"Credit","paid":true,"paidDate":"2026-03-29T01:56:17.949Z"},
+ {"id":"4","name":"Flex","amount":355.14,"dueDate":"2026-03-31","category":"Other","paid":false},
+ {"id":"5","name":"Apple Card","amount":60,"dueDate":"2026-03-31","category":"Credit","paid":true,"paidDate":"2026-03-29T01:56:19.081Z"},
+ {"id":"tmobile-paid","name":"T-Mobile","amount":98.29,"dueDate":"2026-03-25","category":"Phone","paid":true,"paidDate":"2026-03-26T03:36:03.787Z"}
 ]
