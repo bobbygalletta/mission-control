@@ -279,7 +279,7 @@ export function CalendarWidget() {
       </div>
 
       {/* Current time badge — always rendered but hidden when not today */}
-      <div className="flex items-center justify-end px-4 py-1.5 bg-red-500/10 border-b border-red-500/10 min-h-[28px]" style={{opacity: isToday ? 1 : 0, pointerEvents: isToday ? 'auto' : 'none'}}>
+      <div className="flex items-center justify-center px-4 py-1.5 bg-red-500/10 border-b border-red-500/10 min-h-[28px]" style={{opacity: isToday ? 1 : 0, pointerEvents: isToday ? 'auto' : 'none'}}>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
           <span className="text-[10px] text-red-400 font-mono">
@@ -288,14 +288,14 @@ export function CalendarWidget() {
         </div>
       </div>
 
-      {/* All-day events — always rendered, fixed height, opacity hides when empty */}
-      <div className="px-4 py-2 border-b border-white/[0.06] h-[36px] flex items-center" style={{opacity: allDayEvs.length > 0 ? 1 : 0.15}}>
-        <div className="flex flex-wrap gap-1.5">
+      {/* All-day events — always rendered, fixed height, centered */}
+      <div className="px-4 py-2 border-b border-white/[0.06] h-[36px] flex items-center justify-center">
+        <div className="flex flex-wrap gap-1.5 justify-center">
           {allDayEvs.length > 0 ? allDayEvs.map((e, i) => (
             <div key={i} className="text-[10px] px-2 py-1 rounded bg-violet-500/40 text-violet-200 border border-violet-400/50 max-w-[180px] truncate">
               {e.title}
             </div>
-          )) : <div className="text-[10px] text-slate-600">No family events</div>}
+          )) : <div className="text-[10px] text-slate-400 italic">No all day events scheduled</div>}
         </div>
       </div>
 
