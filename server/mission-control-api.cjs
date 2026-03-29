@@ -71,7 +71,7 @@ function getCalendarEvents() {
         if (calMatch) { calendar = calMatch[1]; title = title.replace(/\s*\([^)]+\)$/, '').trim(); }
         current = { title, date: '', calendar, allDay: true };
       }
-      else if (/today at \d/.test(t)) { if (current) { current.date = 'today ' + t.replace('today at ', ''); current.allDay = false; } }
+      else if (/today at \d{2}:\d{2}/.test(t)) { if (current) { current.date = t; current.allDay = false; } }
       else if (/^\d{1,2}\/\d{2}\/\d{4}/.test(t)) { if (current) { current.date = t; current.allDay = true; } }
       else { const rel = relativeToDate(t); if (current && rel) { current.date = rel; current.allDay = true; } }
     }
