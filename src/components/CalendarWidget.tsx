@@ -187,7 +187,7 @@ export function CalendarWidget() {
           setEvs(layout(parsed));
         })
         .catch(() => {});
-    }, 5000);
+    }, 30_000);
     return () => clearInterval(interval);
   }, [viewDate]);
 

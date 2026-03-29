@@ -20,7 +20,7 @@ const CONNECTION_CONFIG = {
     label: 'Connected',
   },
   polling: {
-    dotClass: 'bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)] animate-pulse',
+    dotClass: 'bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.8)]',
     label: 'Polling...',
   },
   disconnected: {

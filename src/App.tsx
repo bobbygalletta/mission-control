@@ -36,24 +36,7 @@ export default function App() {
     document.body.classList.remove('light-mode');
   }
 
-  // Auto-reload when server has new build (hash-based, checks every second)
-  useEffect(() => {
-    let lastHash = '';
-    const check = async () => {
-      try {
-        const res = await fetch('/api/version');
-        const data = await res.json();
-        const hash = data.hash || data.version;
-        if (lastHash && hash !== lastHash) {
-          window.location.reload();
-        }
-        lastHash = hash;
-      } catch {}
-    };
-    check();
-    const id = setInterval(check, 1000);
-    return () => clearInterval(id);
-  }, []);
+  // Auto-reload removed — was causing visible flash/refresh
 
   return (
     <div className="min-h-screen">
