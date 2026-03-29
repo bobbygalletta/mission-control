@@ -73,7 +73,7 @@ export function FinnlyWidget() {
     fetch('/api/finnly', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newData),
+      body: JSON.stringify({ finnly: newData }),
     }).catch(() => {});
   };
 

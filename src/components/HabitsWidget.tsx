@@ -48,7 +48,7 @@ export function HabitsWidget() {
       await fetch('/api/habits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newDays),
+        body: JSON.stringify({ habits: newDays }),
       });
       setDays(newDays);
     } catch (e) {
@@ -113,8 +113,8 @@ export function HabitsWidget() {
       ) : (
         <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
           {days.map((day, dayIdx) => (
-            <div key={day.date} className={`p-4 rounded-xl border ${isToday(day.date) ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/[0.03] border-white/[0.06]'}`}>
-              <p className={`text-sm font-semibold mb-4 ${isToday(day.date) ? 'text-emerald-400' : 'text-slate-400'}`}>
+            <div key={day.date} className="p-4 rounded-xl border border-white/[0.06]">
+              <p className="text-sm font-semibold mb-4 text-slate-400">
                 {day.date} {isToday(day.date) && '(Today)'}
               </p>
               <div className="space-y-2">
@@ -125,12 +125,11 @@ export function HabitsWidget() {
                       <button
                         key={key}
                         onClick={() => toggleTask(dayIdx, key as keyof DailyHabit)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
-                          value ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-transparent text-slate-400 border-white/10 hover:bg-white/5'
-                        }`}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all border border-white/10 hover:bg-white/5"
                       >
                         <span className="text-base">{emoji}</span>
-                        <span>{label}</span>
+                        <span className={value ? 'text-emerald-400' : 'text-slate-400'}>{label}</span>
+                        {value && <span className="ml-auto text-emerald-400">✓</span>}
                       </button>
                     );
                   } else {
