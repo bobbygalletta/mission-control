@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'https://all-grapes-cross.loca.lt';
+
 interface CalendarEvent {
   title: string;
   date: string;
@@ -119,7 +121,7 @@ export function CalendarWidget() {
 
   useEffect(() => {
     const label = getDateLabel(viewDate).toLowerCase();
-    fetch('/api/calendar')
+    fetch(`${API_BASE}/api/calendar`)
       .then(r => r.json())
       .then(d => {
         if (!d.events) return;
@@ -144,7 +146,7 @@ export function CalendarWidget() {
       .catch(() => {})
       .finally(() => setLoading(false));
     const interval = setInterval(() => {
-      fetch('/api/calendar')
+      fetch(`${API_BASE}/api/calendar`)
         .then(r => r.json())
         .then(d => {
           if (!d.events) return;

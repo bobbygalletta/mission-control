@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
+const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'https://all-grapes-cross.loca.lt';
+
 interface ReminderItem {
   id: string;
   title: string;
@@ -172,7 +174,7 @@ export function RemindersWidget() {
   const [loading, setLoading] = useState(true);
 
   const fetchList = async (list: ListType): Promise<ReminderItem[]> => {
-    const res = await fetch(list === 'grocery' ? '/api/reminders/grocery' : '/api/reminders');
+    const res = await fetch(list === 'grocery' ? `${API_BASE}/api/reminders/grocery` : `${API_BASE}/api/reminders`);
     const data: ReminderList = await res.json();
     return data.items || [];
   };
@@ -197,7 +199,7 @@ export function RemindersWidget() {
   }, []);
 
   const apiAction = async (action: string, list: ListType, extra: Record<string, unknown> = {}) => {
-    const res = await fetch('/api/reminders/action', {
+    const res = await fetch(`${API_BASE}/api/reminders/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action, list, ...extra }),
