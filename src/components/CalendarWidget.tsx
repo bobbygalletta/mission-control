@@ -113,7 +113,7 @@ export function CalendarWidget() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = setInterval(() => setNowPct(getNowPct()), 60000);
+    const t = setInterval(() => setNowPct(getNowPct()), 5000);
     return () => clearInterval(t);
   }, []);
 
@@ -166,7 +166,7 @@ export function CalendarWidget() {
           setEvs(layout(parsed));
         })
         .catch(() => {});
-    }, 30000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [viewDate]);
 
