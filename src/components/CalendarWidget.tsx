@@ -91,10 +91,9 @@ function isSameDay(d1: Date, d2: Date) {
   return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 }
 
-function getDateLabel(d: Date) {
-  const today = new Date();
+function getDateLabel(d: Date, today: Date) {
   if (isSameDay(d, today)) return 'Today';
-  const diff = Math.round((d.getTime() - today.setHours(0,0,0,0)) / 86400000);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
   if (diff === 1) return 'Tomorrow';
   if (diff === -1) return 'Yesterday';
   return fmtDate(d);
@@ -110,19 +109,20 @@ export function CalendarWidget() {
   const [viewDate, setViewDate] = useState(() => new Date());
   const [evs, setEvs] = useState<ParsedEvent[]>([]);
   const [allDayEvs, setAllDayEvs] = useState<CalendarEvent[]>([]);
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [nowPct, setNowPct] = useState(getNowPct);
   const [loading, setLoading] = useState(true);
   const [maxCols, setMaxCols] = useState(1);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = setInterval(() => setNowPct(getNowPct()), 5000);
+    const t = setInterval(() => { setNowPct(getNowPct()); setCurrentTime(new Date()); }, 30000);
     return () => clearInterval(t);
   }, []);
 
   const firstFetch = useRef(true);
   useEffect(() => {
-    const label = getDateLabel(viewDate).toLowerCase();
+    const label = getDateLabel(viewDate, currentTime).toLowerCase();
     fetch(`${API_BASE}/api/calendar`)
       .then(r => r.json())
       .then(d => {
@@ -141,15 +141,16 @@ export function CalendarWidget() {
                  eDate.includes(viewDate.toLocaleDateString('en-US', { month: 'short' }).toLowerCase()) ||
                  eDate.includes(viewStr) || eDate.includes(viewStrShort);
         });
+        const timedEvents = dayEvents.filter((e: CalendarEvent) => !e.allDay);
         const parsed: ParsedEvent[] = [];
-        for (const e of dayEvents) {
+        for (const e of timedEvents) {
           const t = parseEventTimes(e.date, viewDate);
           if (!t) continue;
           parsed.push({ ...e, start: t.start, end: t.end, col: 0, cols: 1 });
         }
         const laid = layout(parsed);
         setEvs(laid);
-        setAllDayEvs(dayEvents.filter((e: CalendarEvent) => e.allDay && isFamily(e.calendar)));
+        setAllDayEvs(dayEvents.filter((e: CalendarEvent) => e.allDay));
         setMaxCols(Math.max(...laid.map(e => e.cols), 1));
         if (firstFetch.current) {
           setLoading(false);
@@ -167,7 +168,7 @@ export function CalendarWidget() {
         .then(r => r.json())
         .then(d => {
           if (!d.events) return;
-          const label = getDateLabel(viewDate).toLowerCase();
+          const label = getDateLabel(viewDate, currentTime).toLowerCase();
           const dayEvents = d.events.filter((e: CalendarEvent) => {
             if (!isFamily(e.calendar)) return false;
             const eDate = e.date.toLowerCase();
@@ -241,7 +242,7 @@ export function CalendarWidget() {
 
   const goToday = () => setViewDate(new Date());
 
-  const isToday = isSameDay(viewDate, new Date());
+  const isToday = isSameDay(viewDate, currentTime);
 
   return (
     <div className="backdrop-blur-xl border border-white/[0.10] rounded-2xl overflow-hidden">
@@ -264,7 +265,7 @@ export function CalendarWidget() {
           <div className="flex items-center gap-1.5">
             <span className="text-xl">📅</span>
             <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              {getDateLabel(viewDate)}
+              {getDateLabel(viewDate, currentTime)}
             </p>
           </div>
         </div>
@@ -277,17 +278,17 @@ export function CalendarWidget() {
         </button>
       </div>
 
-      {/* Current time badge */}
-      {isToday && (
-        <div className="flex items-center justify-end px-4 py-1.5 bg-red-500/10 border-b border-red-500/10">
+      {/* Current time badge — always rendered to keep layout stable */}
+      <div className="flex items-center justify-end px-4 py-1.5 bg-red-500/10 border-b border-red-500/10 min-h-[28px]">
+        {isToday && (
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
             <span className="text-[10px] text-red-400 font-mono">
-              {new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </span>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* All-day events — sticky header */}
       {!loading && allDayEvs.length > 0 && (
