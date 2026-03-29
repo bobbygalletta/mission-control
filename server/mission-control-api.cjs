@@ -212,6 +212,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/finnly
+  if (get('/api/finnly')) {
+    res.end(JSON.stringify({ finnly: readDataFile('finnly', []) }));
+    return;
+  }
+
+  // POST /api/finnly
+  if (post('/api/finnly')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { finnly } = JSON.parse(body);
+        writeDataFile('finnly', finnly);
+        res.end(JSON.stringify({ ok: true, finnly }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // GET /api/money
   if (get('/api/money')) {
     res.end(JSON.stringify({ money: readDataFile('money', []) }));
