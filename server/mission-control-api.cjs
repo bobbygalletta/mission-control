@@ -136,7 +136,10 @@ const server = http.createServer((req, res) => {
       try {
         const { action, list = 'Reminders', id, title } = JSON.parse(body);
         if (action === 'complete' && id) execSync(`remindctl complete "${id}"`, { timeout: 5000 });
-        else if (action === 'add' && title) execSync(`remindctl add "${list}" "${title}"`, { timeout: 5000 });
+        else if (action === 'add' && title) {
+          const listName = (list === 'reminders' || list === 'Reminders') ? 'Reminders' : (list === 'grocery' || list === 'Grocery') ? 'Grocery' : list;
+          execSync(`remindctl add "${title}" --list "${listName}"`, { timeout: 5000 });
+        }
         else if (action === 'delete' && id) execSync(`remindctl delete "${id}"`, { timeout: 5000 });
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
