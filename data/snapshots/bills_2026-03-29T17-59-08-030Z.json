@@ -1,0 +1,10 @@
+[
+  {
+    "id": "test-bill",
+    "name": "Test Bill",
+    "amount": 99.99,
+    "dueDate": "2026-04-01",
+    "category": "Test",
+    "paid": false
+  }
+]

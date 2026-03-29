@@ -1,0 +1,10 @@
+[
+  {
+    "id": "flex-1",
+    "name": "Flex",
+    "amount": 335.14,
+    "dueDate": "2026-03-31",
+    "category": "Other",
+    "paid": false
+  }
+]
