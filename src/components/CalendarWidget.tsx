@@ -128,12 +128,18 @@ export function CalendarWidget() {
       .then(d => {
         if (!d.events) return;
         const dayEvents = d.events.filter((e: CalendarEvent) => {
+          if (!isFamily(e.calendar)) return false;
           const eDate = e.date.toLowerCase();
-          if (label === 'today') return eDate.startsWith('today');
+          const todayStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+          const todayStrShort = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+          const viewStr = viewDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+          const viewStrShort = viewDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+          if (label === 'today') return eDate.startsWith('today') || eDate.includes(todayStr) || eDate.includes(todayStrShort);
           if (label === 'tomorrow') return eDate.startsWith('tomorrow');
-          if (label === 'yesterday') return false; // not supported by API
+          if (label === 'yesterday') return false;
           return eDate.includes(viewDate.toLocaleDateString('en-US', { month: 'long' }).toLowerCase()) ||
-                 eDate.includes(viewDate.toLocaleDateString('en-US', { month: 'short' }).toLowerCase());
+                 eDate.includes(viewDate.toLocaleDateString('en-US', { month: 'short' }).toLowerCase()) ||
+                 eDate.includes(viewStr) || eDate.includes(viewStrShort);
         });
         const parsed: ParsedEvent[] = [];
         for (const e of dayEvents) {
@@ -143,7 +149,7 @@ export function CalendarWidget() {
         }
         const laid = layout(parsed);
         setEvs(laid);
-        setAllDayEvs(dayEvents.filter((e: CalendarEvent) => e.allDay));
+        setAllDayEvs(dayEvents.filter((e: CalendarEvent) => e.allDay && isFamily(e.calendar)));
         setMaxCols(Math.max(...laid.map(e => e.cols), 1));
         if (firstFetch.current) {
           setLoading(false);
@@ -163,6 +169,7 @@ export function CalendarWidget() {
           if (!d.events) return;
           const label = getDateLabel(viewDate).toLowerCase();
           const dayEvents = d.events.filter((e: CalendarEvent) => {
+            if (!isFamily(e.calendar)) return false;
             const eDate = e.date.toLowerCase();
             if (label === 'today') return eDate.startsWith('today');
             if (label === 'tomorrow') return eDate.startsWith('tomorrow');
@@ -282,12 +289,25 @@ export function CalendarWidget() {
         </div>
       )}
 
+      {/* All-day events — sticky header */}
+      {!loading && allDayEvs.length > 0 && (
+        <div className="px-4 py-2 border-b border-white/[0.06]">
+          <div className="flex flex-wrap gap-1.5">
+            {allDayEvs.map((e, i) => (
+              <div key={i} className="text-[10px] px-2 py-1 rounded bg-violet-500/40 text-violet-200 border border-violet-400/50 max-w-[180px] truncate">
+                {e.title}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="p-4 space-y-2">
           {[80,60,40].map((w,i) => <div key={i} className="h-10 bg-white/[0.05] rounded animate-pulse" style={{width:w+'%'}} />)}
         </div>
       ) : (
-        <div ref={ref} className="overflow-y-auto" style={{height:480}}>
+        <div ref={ref} className="overflow-y-auto" style={{height: allDayEvs.length > 0 ? 380 : 480}}>
           <div className="relative" style={{height: 24 * HOUR_H}}>
 
             {/* Time column */}
@@ -300,18 +320,6 @@ export function CalendarWidget() {
                 </div>
               ))}
             </div>
-
-            {/* All-day events */}
-            {allDayEvs.length > 0 && (
-              <div className="absolute left-0 right-0 z-20 flex flex-wrap gap-1.5 px-1" style={{top: 4}}>
-                {allDayEvs.map((e, i) => {
-                  const cls = isFamily(e.calendar) ? 'bg-violet-500/40 text-violet-200 border-violet-400' : 'bg-blue-500/40 text-blue-200 border-blue-400';
-                  return (
-                    <div key={i} className={`text-[10px] px-2 py-1 rounded border ${cls} max-w-[180px] truncate`}>{e.title}</div>
-                  );
-                })}
-              </div>
-            )}
 
             {/* Hour grid lines */}
             <div className="absolute top-0 bottom-0 border-l border-white/[0.06]" style={{left: TIME_COL_W, right: 0}}>
