@@ -1,15 +1,20 @@
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
 const PORT = 3001;
 const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
-const EXP_SCRIPT = path.join(__dirname, 'gog-email.exp');
 
-// Run gog command via expect (needed for PTY/TTY environment to access keychain)
+// Run gog command via bash login shell (needed for keychain access + full output)
 function runGog(...args) {
-  return execSync(`/usr/bin/expect ${EXP_SCRIPT} ${args.join(' ')}`, { timeout: 20000 }).toString().trim();
+  const cmd = `/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog ${args.join(' ')}`;
+  const r = spawnSync('bash', ['-lc', cmd], {
+    timeout: 20000, encoding: 'utf8',
+    env: { ...process.env, TERM: 'xterm-256color', HOME: '/Users/bobbygalletta' }
+  });
+  if (r.status !== 0) throw new Error(`gog exit ${r.status}`);
+  return r.stdout.trim();
 }
 
 // Strip HTML tags and decode common HTML entities
