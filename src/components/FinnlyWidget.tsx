@@ -63,7 +63,7 @@ export function FinnlyWidget() {
         .then(r => r.json())
         .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData.finnly || serverData); })
         .catch(() => {});
-    }, 10000);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 

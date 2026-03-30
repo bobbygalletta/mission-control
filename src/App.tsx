@@ -12,7 +12,7 @@ import { useAgentStatus } from './hooks/useAgentStatus';
 import { useEffect } from 'react';
 
 export default function App() {
-  const { connectionState } = useAgentStatus(3000);
+  const { connectionState } = useAgentStatus(2000);
 
   // Set body background immediately (before paint) to avoid flash — both modes
   const savedMode = localStorage.getItem('mc_mode') || 'dark';

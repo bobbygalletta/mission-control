@@ -274,7 +274,7 @@ export function CalendarWidget() {
 
   useEffect(() => {
     fetchEvents();
-    const id = setInterval(fetchEvents, 10_000);
+    const id = setInterval(fetchEvents, 2_000);
     return () => clearInterval(id);
   }, [fetchEvents]);
 

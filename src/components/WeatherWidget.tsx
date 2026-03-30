@@ -198,7 +198,7 @@ export function WeatherWidget() {
 
   useEffect(() => {
     fetchWeather();
-    const id = setInterval(fetchWeather, 60_000);
+    const id = setInterval(fetchWeather, 2_000);
     return () => clearInterval(id);
   }, []);
 

@@ -11,7 +11,7 @@ export function NetWorthWidget() {
     };
     load();
     // Re-read on focus (in case MoneyWidget updated it)
-    const id = setInterval(load, 3000);
+    const id = setInterval(load, 2000);
     window.addEventListener('focus', load);
     return () => {
       clearInterval(id);

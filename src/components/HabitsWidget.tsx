@@ -46,7 +46,7 @@ export function HabitsWidget() {
 
   useEffect(() => {
     fetchData();
-    const id = setInterval(fetchData, 5000);
+    const id = setInterval(fetchData, 2000);
     return () => clearInterval(id);
   }, []);
 

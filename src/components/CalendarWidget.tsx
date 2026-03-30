@@ -187,7 +187,7 @@ export function CalendarWidget() {
           setEvs(layout(parsed));
         })
         .catch(() => {});
-    }, 30_000);
+    }, 2_000);
     return () => clearInterval(interval);
   }, [viewDate]);
 
@@ -219,7 +219,7 @@ export function CalendarWidget() {
       scrollTimer.current = setTimeout(() => {
         isUserScrolling.current = false;
         scrollToNow();
-      }, 30000);
+      }, 2000);
     };
     el.addEventListener('scroll', onUserScroll, { passive: true });
     return () => {
