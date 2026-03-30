@@ -1,0 +1,13 @@
+[
+  {
+    "date": "Mar 29, 2026",
+    "water": 2,
+    "stretch": 0,
+    "laundry": true,
+    "bedMade": false,
+    "vacuum": 2,
+    "breakfast": false,
+    "lunch": true,
+    "dinner": true
+  }
+]

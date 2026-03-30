@@ -76,11 +76,18 @@ function formatHourFromISO(isoString: string): string {
   const hour = date.getHours();
   const diffMs = date.getTime() - now.getTime();
   const diffMins = Math.round(diffMs / (1000 * 60));
+  
+  // "Now" only if this IS the current hour (diffMins == 0 means the slot's hour matches now)
   if (diffMins === 0) return 'Now';
-  if (hour === 0) return '12AM';
-  if (hour === 12) return '12PM';
-  if (hour > 12) return `${hour - 12}PM`;
-  return `${hour}AM`;
+  // Otherwise show the actual hour label
+  if (hour === 0) return '12 AM';
+  if (hour === 12) return '12 PM';
+  if (hour > 12) return `${hour - 12} PM`;
+  return `${hour} AM`;
+  if (hour === 0) return '12 AM';
+  if (hour === 12) return '12 PM';
+  if (hour > 12) return `${hour - 12} PM`;
+  return `${hour} AM`;
 }
 
 function formatDay(dateStr: string, index: number): string {
@@ -98,7 +105,7 @@ export function WeatherWidget() {
 
   const fetchWeather = async () => {
     try {
-      // Try Open-Meteo first (true hourly data)
+      // Fetch both current + hourly from Open-Meteo (Knoxville TN lat/lon)
       const res = await fetch(
         'https://api.open-meteo.com/v1/forecast?latitude=35.96&longitude=-83.92' +
         '&hourly=temperature_2m,weathercode,precipitation,windspeed_10m,uv_index,relativehumidity_2m' +
@@ -107,8 +114,6 @@ export function WeatherWidget() {
         '&precipitation_unit=inch&timezone=America%2FNew_York'
       );
       const data = await res.json();
-      if (data.error || !data.hourly) throw new Error('Open-Meteo failed');
-      processWeatherData(data);
       
       // Use browser's local time — API times are in ET (timezone=America/New_York), getHours() gives local hour in ET
       const now = new Date();
@@ -185,15 +190,7 @@ export function WeatherWidget() {
       });
       setError(null);
     } catch (e) {
-      // Fallback: try our API server (serves wttr.in cached data)
-      try {
-        const res = await fetch('/api/weather');
-        const data = await res.json();
-        if (data.error || !data.hourly) throw new Error('API fallback failed');
-        processWeatherData(data);
-      } catch {
-        setError('Weather unavailable');
-      }
+      setError('Weather unavailable');
     } finally {
       setLoading(false);
     }

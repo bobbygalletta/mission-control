@@ -1,75 +1,10 @@
-const { execSync, spawnSync } = require('child_process');
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
 const PORT = 3001;
 const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
-
-// wttr.in code -> WMO weather code
-function wttrCodeToWMO(code) {
-  const c = parseInt(code, 10);
-  // wttr.in: 113=clear, 116=partly cloudy, 119=cloudy, 122=overcast, 143=haze
-  // 176/179=sprinkles, 182/185=drizzle, 281/284=freezing drizzle, 299/302/305/308=rain
-  // 311/314/317/320/323/326/329/332/335/338=freezing rain, 350/353/356/359/362/365/368=rain
-  // 371/374/377=snow/ice, 386/389/392=thunderstorm, 395/398/395/392=snow
-  if (c === 113) return 0;   // clear
-  if (c === 116) return 1;   // mainly clear
-  if (c === 119 || c === 122) return 3; // cloudy/overcast -> 3
-  if (c === 143) return 45;  // haze -> fog
-  if ([176, 179, 182, 185, 281, 284, 299, 302, 305, 308, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 353, 356, 359, 362, 365, 368, 371, 374, 377].includes(c)) return 61; // rain
-  if ([386, 389, 392, 395].includes(c)) return 95; // thunderstorm
-  if ([227, 230, 233].includes(c)) return 71; // snow
-  return 0;
-}
-
-// Run gog via bash login shell (needed for keychain/credential access)
-function runGog(...args) {
-  const cmd = `/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog ${args.join(' ')}`;
-  const r = spawnSync('bash', ['-lc', cmd], {
-    timeout: 20000, encoding: 'utf8',
-    env: { ...process.env, TERM: 'xterm-256color', PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' }
-  });
-  if (r.status !== 0) throw new Error(`gog exit ${r.status}`);
-  return r.stdout.trim();
-}
-
-function stripHtml(html) {
-  if (!html) return '';
-  return html
-    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<tr[^>]*>/gi, '\n')
-    .replace(/<td[^>]*>/gi, '  ')
-    .replace(/<th[^>]*>/gi, '\n')
-    .replace(/<table[^>]*>/gi, '\n')
-    .replace(/<\/table>/gi, '\n')
-    .replace(/<img[^>]+>/gi, '')
-    .replace(/<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
-    .replace(/&#\d+;/g, '').replace(/[-_]{20,}\n*/g, '').replace(/^[*#]+/gm, '')
-    .replace(/\n{3,}/g, '\n\n').trim();
-}
-
-function cleanEmailText(text) {
-  if (!text) return '';
-  return text
-    .replace(/\[https?:\/\/[^\]]+\]/g, (m) => {
-      try { const u = new URL(m.slice(1, -1)); return `[${u.origin}${u.pathname}]`; } catch { return ''; }
-    })
-    .replace(/https?:\/\/\S+/g, (url) => {
-      try { const u = new URL(url); return `${u.origin}${u.pathname}`; } catch { return ''; }
-    })
-    .replace(/\[\s*\]/g, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .split('\n').map(l => l.trimEnd()).filter((l, i, a) => !(l === '' && a[i-1] === '')).join('\n')
-    .trim();
-}
 
 function readDataFile(name, fallback = []) {
   const file = path.join(DATA_DIR, `${name}.json`);
@@ -243,41 +178,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/habits — returns only today's daily log, auto-resets at 3am
+  // GET /api/habits
   if (get('/api/habits')) {
-    const all = readDataFile('habits', []);
-    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const DEFAULT_DAY = { date: todayStr, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false };
-    const now = new Date();
-    if (now.getHours() >= 3) {
-      let today = all.find(h => h.date === todayStr);
-      if (!today) {
-        const otherDays = all.filter(h => h.date !== todayStr);
-        otherDays.unshift(DEFAULT_DAY);
-        writeDataFile('habits', otherDays);
-      }
-    }
-    const updated = readDataFile('habits', []);
-    const todayOnly = updated.filter(h => h.date === todayStr);
-    res.end(JSON.stringify({ habits: todayOnly.length > 0 ? todayOnly : [DEFAULT_DAY] }));
+    res.end(JSON.stringify({ habits: readDataFile('habits', []) }));
     return;
   }
 
-  // POST /api/habits — save today's habits (preserves other days)
+  // POST /api/habits — save full habits array (for Finnly daily log)
   if (post('/api/habits')) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
         const { habits } = JSON.parse(body);
-        const all = readDataFile('habits', []);
-        const todayStr = habits[0]?.date;
-        if (todayStr) {
-          const otherDays = all.filter(h => h.date !== todayStr);
-          writeDataFile('habits', [...otherDays, ...habits]);
-        } else {
-          writeDataFile('habits', habits);
-        }
+        writeDataFile('habits', habits);
         res.end(JSON.stringify({ ok: true, habits }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });
@@ -438,18 +352,10 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — serves cached wttr data (15-min cache)
-  // Network fetch happens via LaunchAgent watchdog cron every 15 min
-  if (get('/api/weather')) {
-    const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
-    try {
-      const raw = fs.readFileSync(cacheFile, 'utf8');
-      res.end(raw);
-    } catch {
-      // Return empty valid structure if no cache
-      res.end(JSON.stringify({ current_condition: [{ temp_F: '--', weatherDesc: [{ value: 'Loading' }] }], weather: [] }));
-    }
-    return;
-  }
+  res.writeHead(404);
+  res.end(JSON.stringify({ error: 'Not found' }));
+});
 
-  // GET /api/emails  // GET /api/emails  // GET /api/emails
+server.listen(PORT, () => {
+  console.log(`Mission Control API on http://localhost:${PORT}`);
+});
