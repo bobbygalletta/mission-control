@@ -438,7 +438,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — fetch from wttr.in and convert to Open-Meteo format
+  // GET /api/weather — fetch from Open-Meteo (true hourly data)
   if (get('/api/weather')) {
     const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
@@ -447,12 +447,21 @@ const server = http.createServer((req, res) => {
         const stat = fs.statSync(cacheFile);
         if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
           raw = fs.readFileSync(cacheFile, 'utf8');
+          // Validate it's real data
+          const test = JSON.parse(raw);
+          if (!test.hourly) throw new Error('invalid cache');
         }
       } catch {}
       if (!raw) {
-        raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=35.96&longitude=-83.92' +
+          '&hourly=temperature_2m,weathercode,precipitation,windspeed_10m,uv_index,relativehumidity_2m' +
+          '&daily=temperature_2m_max,temperature_2m_min,weathercode,uv_index_max,precipitation_sum,sunrise,sunset' +
+          '&current_weather=true&forecast_days=3&temperature_unit=fahrenheit&windspeed_unit=mph' +
+          '&precipitation_unit=inch&timezone=America%2FNew_York';
+        raw = execSync(`curl -s "${url}"`, { timeout: 15000 });
         fs.writeFileSync(cacheFile, raw);
       }
+      res.end(raw);
       // Convert wttr.in JSON to Open-Meteo format for the widget
       const wttr = JSON.parse(raw);
       const cc = wttr.current_condition[0];
