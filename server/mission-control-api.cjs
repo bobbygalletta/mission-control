@@ -270,10 +270,10 @@ const server = http.createServer((req, res) => {
   // GET /api/emails — list inbox threads
   if (get('/api/emails')) {
     try {
-      const raw = execSync(`gog gmail search "in:inbox" -j`, { timeout: 15000 }).toString().trim();
+      const raw = execSync(`/usr/local/bin/gog gmail search "in:inbox" -j`, { timeout: 15000 }).toString().trim();
       let data = { threads: [], nextPageToken: '' };
       try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = execSync(`gog gmail search "in:inbox is:unread" -j`, { timeout: 15000 }).toString().trim();
+      const unreadRaw = execSync(`/usr/local/bin/gog gmail search "in:inbox is:unread" -j`, { timeout: 15000 }).toString().trim();
       let unreadData = { threads: [] };
       try { unreadData = JSON.parse(unreadRaw); } catch {}
       const emails = (data.threads || []).map(t => ({
@@ -293,24 +293,20 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/emails/thread/:id — get thread body
+  // GET /api/emails/thread/:id — get thread body (plain text, no images)
   if (get('/api/emails/thread/')) {
     const threadId = pathname.replace('/api/emails/thread/', '');
     try {
-      const raw = execSync(`gog gmail thread "${threadId}" -j`, { timeout: 15000 }).toString().trim();
-      let data = {};
-      try { data = JSON.parse(raw); } catch {}
-      const thread = data.thread;
-      const messages = thread?.messages || [];
-      let body = '';
-      for (const msg of messages) {
-        const payload = msg.payload;
-        const bodyData = payload?.body?.data;
-        if (bodyData) {
-          try { body = Buffer.from(bodyData, 'base64').toString('utf-8'); break; } catch {}
-        }
-      }
-      res.end(JSON.stringify({ body, snippet: '' }));
+      const raw = execSync(`/usr/local/bin/gog gmail thread "${threadId}"`, { timeout: 15000 }).toString().trim();
+      // Strip email headers (To:, From:, Subject:, Date:, === Message, ===)
+      let body = raw
+        .replace(/^===.*?===\s*/gm, '')
+        .replace(/^(From|To|Subject|Date):.*$/gm, '')
+        .replace(/^\s*[-=]{3,}.*$/gm, '')
+        .replace(/\bhttps?:\/\/[^\s]+/g, '') // strip URLs
+        .replace(/\s{3,}/g, '\n\n')
+        .trim();
+      res.end(JSON.stringify({ body }));
     } catch (e) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: String(e), body: '' }));

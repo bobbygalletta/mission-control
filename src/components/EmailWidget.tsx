@@ -24,21 +24,67 @@ export function EmailWidget() {
   const [body, setBody] = useState('');
   const [showAll, setShowAll] = useState(false);
 
+  const GATEWAY = 'http://127.0.0.1:18789';
+
   const fetchEmails = async () => {
     try {
-      const res = await fetch('/api/emails');
+      const res = await fetch(`${GATEWAY}/tools/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tool: 'exec',
+          args: { command: 'gog gmail search "in:inbox" -j', timeout: 15000 }
+        })
+      });
       const data = await res.json();
-      setEmails(data.emails || []);
-      setUnread(data.unread || 0);
+      // Parse gog output — might be wrapped in exec result or raw JSON
+      let text = '';
+      if (data.text) text = data.text;
+      else if (typeof data === 'string') text = data;
+      else text = JSON.stringify(data);
+
+      // Extract JSON from output
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const threads = JSON.parse(jsonMatch[0]);
+        setEmails(threads.map((t: Record<string, unknown>) => ({
+          id: t.id,
+          from: String(t.from || ''),
+          subject: String(t.subject || ''),
+          date: String(t.date || ''),
+          snippet: String(t.snippet || ''),
+          labels: (t.labels as string[]) || [],
+          unread: (t.labels as string[])?.includes('UNREAD') || false,
+        })));
+        setUnread(threads.filter((t: Record<string, unknown>) => (t.labels as string[])?.includes('UNREAD')).length);
+      }
     } catch (e) { console.error('Failed to fetch emails', e); }
     finally { setLoading(false); }
   };
 
   const fetchBody = async (id: string) => {
     try {
-      const res = await fetch(`/api/emails/thread/${id}`);
+      const res = await fetch(`${GATEWAY}/tools/invoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tool: 'exec',
+          args: { command: `gog gmail thread "${id}"`, timeout: 15000 }
+        })
+      });
       const data = await res.json();
-      setBody(data.body || data.snippet || '');
+      let text = '';
+      if (data.text) text = data.text;
+      else if (typeof data === 'string') text = data;
+      else text = JSON.stringify(data);
+      // Strip email headers
+      const body = text
+        .replace(/^(From|To|Subject|Date|To|Cc|Bcc):.*$/gm, '')
+        .replace(/^\s*[-=]{3,}.*$/gm, '')
+        .replace(/\bhttps?:\/\/[^\s]+/g, '')
+        .replace(/^\s+/gm, '')
+        .trim();
+      setBody(body);
     } catch (e) { console.error('Failed to fetch body', e); }
   };
 
