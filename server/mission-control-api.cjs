@@ -487,7 +487,8 @@ const server = http.createServer((req, res) => {
           const before = [...daySlots].reverse().find(s => s.hour <= h);
           const after = daySlots.find(s => s.hour > h);
           const t = (before && after) ? (h - before.hour) / (after.hour - before.hour) : 0;
-          const temp = before && after
+          // For current hour, use actual current weather temp instead of interpolation
+          let temp = before && after
             ? Math.round(before.temp + t * (after.temp - before.temp))
             : (before?.temp ?? 0);
           const precip = before && after
@@ -502,7 +503,12 @@ const server = http.createServer((req, res) => {
           const humidity = before && after
             ? Math.round(before.humidity + t * (after.humidity - before.humidity))
             : (before?.humidity ?? 50);
-          const code = before?.code ?? 0;
+          let code = before?.code ?? 0;
+          // Current hour: use actual current weather
+          if (di === 0 && h === currentHour) {
+            temp = parseInt(cc.temp_F, 10);
+            code = wttrCodeToWMO(cc.weatherCode || '113');
+          }
 
           const d = new Date(now);
           if (di === 1) d.setDate(d.getDate() + 1);

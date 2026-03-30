@@ -76,18 +76,11 @@ function formatHourFromISO(isoString: string): string {
   const hour = date.getHours();
   const diffMs = date.getTime() - now.getTime();
   const diffMins = Math.round(diffMs / (1000 * 60));
-  
-  // "Now" only if this IS the current hour (diffMins == 0 means the slot's hour matches now)
   if (diffMins === 0) return 'Now';
-  // Otherwise show the actual hour label
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
+  if (hour === 0) return '12AM';
+  if (hour === 12) return '12PM';
+  if (hour > 12) return `${hour - 12}PM`;
+  return `${hour}AM`;
 }
 
 function formatDay(dateStr: string, index: number): string {
