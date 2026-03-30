@@ -127,10 +127,10 @@ export function HabitsWidget() {
                           <span className="w-8 text-center text-base leading-none shrink-0">{emoji}</span>
                           <span className="truncate">{label}</span>
                         </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)} className="w-6 h-6 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20 flex items-center justify-center">-</button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => decrementTask(dayIdx, key as keyof DailyHabit)} className="w-5 h-5 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20 flex items-center justify-center leading-none">-</button>
                           <span className="text-sm font-mono text-slate-300 w-5 text-center">{value}</span>
-                          <button onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)} className="w-6 h-6 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20 flex items-center justify-center">+</button>
+                          <button onClick={() => incrementTask(dayIdx, key as keyof DailyHabit)} className="w-5 h-5 rounded bg-white/10 text-slate-400 text-xs font-bold hover:bg-white/20 flex items-center justify-center leading-none">+</button>
                         </div>
                       </div>
                     );
