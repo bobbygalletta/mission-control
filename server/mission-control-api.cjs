@@ -266,6 +266,58 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Email API
+  // GET /api/emails — list inbox threads
+  if (get('/api/emails')) {
+    try {
+      const raw = execSync(`gog gmail search "in:inbox" -j`, { timeout: 15000 }).toString().trim();
+      let data = { threads: [], nextPageToken: '' };
+      try { data = JSON.parse(raw); } catch {}
+      const unreadRaw = execSync(`gog gmail search "in:inbox is:unread" -j`, { timeout: 15000 }).toString().trim();
+      let unreadData = { threads: [] };
+      try { unreadData = JSON.parse(unreadRaw); } catch {}
+      const emails = (data.threads || []).map(t => ({
+        id: t.id,
+        from: t.from,
+        subject: t.subject,
+        date: t.date,
+        snippet: t.snippet || '',
+        labels: t.labels || [],
+        unread: (unreadData.threads || []).some(u => u.id === t.id),
+      }));
+      res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
+    }
+    return;
+  }
+
+  // GET /api/emails/thread/:id — get thread body
+  if (get('/api/emails/thread/')) {
+    const threadId = pathname.replace('/api/emails/thread/', '');
+    try {
+      const raw = execSync(`gog gmail thread "${threadId}" -j`, { timeout: 15000 }).toString().trim();
+      let data = {};
+      try { data = JSON.parse(raw); } catch {}
+      const thread = data.thread;
+      const messages = thread?.messages || [];
+      let body = '';
+      for (const msg of messages) {
+        const payload = msg.payload;
+        const bodyData = payload?.body?.data;
+        if (bodyData) {
+          try { body = Buffer.from(bodyData, 'base64').toString('utf-8'); break; } catch {}
+        }
+      }
+      res.end(JSON.stringify({ body, snippet: '' }));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e), body: '' }));
+    }
+    return;
+  }
+
   // GET /api/money
   if (get('/api/money')) {
     res.end(JSON.stringify({ money: readDataFile('money', []) }));
