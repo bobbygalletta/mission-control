@@ -300,8 +300,8 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /api/emails/thread/:id — get thread body (plain text, no images)
-  if (get('/api/emails/thread/')) {
-    const threadId = pathname.replace('/api/emails/thread/', '');
+  if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
+    const threadId = url.pathname.replace('/api/emails/thread/', '');
     try {
       const raw = runGog('gmail', 'thread', threadId);
       // Strip email headers (To:, From:, Subject:, Date:, === Message, ===)
