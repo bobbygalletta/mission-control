@@ -1,11 +1,11 @@
 [
   {
     "date": "Mar 29, 2026",
-    "water": 2,
-    "stretch": 0,
+    "water": 3,
+    "stretch": 1,
     "laundry": true,
     "bedMade": false,
-    "vacuum": 1,
+    "vacuum": 2,
     "breakfast": false,
     "lunch": true,
     "dinner": true
