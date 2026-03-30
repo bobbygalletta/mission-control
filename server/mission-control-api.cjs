@@ -469,20 +469,33 @@ const server = http.createServer((req, res) => {
       const hourlyUv = [];
       const hourlyHumidity = [];
 
-      // Use raw 3-hour forecast slots in local time, skip past ones
+      // Use raw 3-hour forecast slots, skip past ones
+      // Slots with hour >= 24 belong to the next calendar day
       const allSlots = [];
+      const [curY, curMo, curD] = [now.getFullYear(), now.getMonth(), now.getDate()];
       for (const day of weatherDays) {
+        const [y, mo, d] = day.date.split('-').map(Number);
+        const dayStart = new Date(y, mo - 1, d);
         for (const h of day.hourly || []) {
           const minutes = parseInt(h.time, 10);
           if (isNaN(minutes)) continue;
-          const slotHour = Math.floor(minutes / 60);
+          let slotHour = Math.floor(minutes / 60);
           const slotMin = minutes % 60;
-          // Parse day.date as local date
-          const [y, mo, d] = day.date.split('-').map(Number);
-          const slotDateTime = new Date(y, mo - 1, d, slotHour, slotMin);
-          if (slotDateTime <= now && allSlots.length > 0) continue; // skip past slots
+          // Compute local date string — handle slots past midnight (>=24)
+          let slotDate = new Date(dayStart);
+          if (slotHour >= 24) {
+            slotDate.setDate(slotDate.getDate() + 1);
+            slotHour -= 24;
+          }
+          const slotY = slotDate.getFullYear();
+          const slotMo = slotDate.getMonth() + 1;
+          const slotD = slotDate.getDate();
+          const dateStr = `${slotY}-${String(slotMo).padStart(2,'0')}-${String(slotD).padStart(2,'0')}`;
+          // Check if this slot is in the past
+          const slotDateTime = new Date(slotY, slotDate.getMonth(), slotD, slotHour, slotMin);
+          if (slotDateTime <= now) continue;
           allSlots.push({
-            time: `${day.date}T${String(slotHour).padStart(2,'0')}:${String(slotMin).padStart(2,'0')}:00`,
+            time: `${dateStr}T${String(slotHour).padStart(2,'0')}:${String(slotMin).padStart(2,'0')}:00`,
             temp: parseInt(h.tempF, 10),
             code: wttrCodeToWMO(h.weatherCode || '113'),
             precip: parseFloat(h.precipInches || '0'),
@@ -492,10 +505,13 @@ const server = http.createServer((req, res) => {
           });
         }
       }
-      // If no future slots yet, prepend current actual weather
+      // Sort by time
+      allSlots.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+      // Prepend current actual weather if no future slots yet or first slot is ahead of now
       if (allSlots.length === 0 || new Date(allSlots[0].time) > now) {
         allSlots.unshift({
-          time: now.toISOString().slice(0, 16) + ':00',
+          time: `${curY}-${String(curMo+1).padStart(2,'0')}-${String(curD).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:00`,
           temp: parseInt(cc.temp_F, 10),
           code: wttrCodeToWMO(cc.weatherCode || '113'),
           precip: 0,
@@ -504,7 +520,6 @@ const server = http.createServer((req, res) => {
           humidity: parseInt(cc.humidity || '50', 10),
         });
       }
-      // Push to output
       for (const slot of allSlots) {
         hourlyTimes.push(slot.time);
         hourlyTemp.push(slot.temp);
