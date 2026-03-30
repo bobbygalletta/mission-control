@@ -116,9 +116,9 @@ export function HabitsWidget() {
         </div>
       ) : (
         <div className="p-4 space-y-6">
-          {days.map((day, dayIdx) => (
+          {days.filter(isToday).map((day, dayIdx) => (
             <div key={day.date} className="space-y-3">
-              <p className="text-sm font-semibold text-slate-500 uppercase">{day.date} {isToday(day.date) && '(Today)'}</p>
+              <p className="text-sm font-semibold text-slate-500 uppercase">{day.date}</p>
               <div className="grid grid-cols-2 gap-4">
                 {TASKS.map(({ key, label, emoji, type }) => {
                   const value = getValue(day, key);
