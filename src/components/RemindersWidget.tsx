@@ -196,7 +196,7 @@ export function RemindersWidget() {
 
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 15000);
+    const interval = setInterval(fetchAll, 10000);
     return () => clearInterval(interval);
   }, []);
 

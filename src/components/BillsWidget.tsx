@@ -48,7 +48,7 @@ export function BillsWidget() {
         });
     };
     fetchBills();
-    const interval = setInterval(fetchBills, 15000);
+    const interval = setInterval(fetchBills, 5000);
     return () => clearInterval(interval);
   }, []);
 

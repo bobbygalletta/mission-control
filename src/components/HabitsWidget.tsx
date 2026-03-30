@@ -35,8 +35,6 @@ export function HabitsWidget() {
   const [loading, setLoading] = useState(true);
   const [tracker, setTracker] = useState<{ dayIdx: number; task: TaskDef } | null>(null);
 
-  useEffect(() => { fetchData(); }, []);
-
   const fetchData = async () => {
     try {
       const res = await fetch('/api/habits');
@@ -45,6 +43,12 @@ export function HabitsWidget() {
     } catch (e) { console.error('Failed to fetch', e); }
     finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    fetchData();
+    const id = setInterval(fetchData, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   const saveData = async (newDays: DailyHabit[]) => {
     try {
@@ -115,7 +119,7 @@ export function HabitsWidget() {
           {days.map((day, dayIdx) => (
             <div key={day.date} className="space-y-3">
               <p className="text-sm font-semibold text-slate-500 uppercase">{day.date} {isToday(day.date) && '(Today)'}</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 {TASKS.map(({ key, label, emoji, type }) => {
                   const value = getValue(day, key);
                   if (type === 'bool') {
@@ -155,9 +159,7 @@ export function HabitsWidget() {
       {/* Tracker popup */}
       {tracker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setTracker(null)} />
-          {/* Modal */}
           <div className="relative w-full max-w-sm rounded-2xl border border-white/[0.15] bg-slate-900/95 backdrop-blur-xl p-8 flex flex-col items-center gap-6">
             <p className="text-4xl">{tracker.task.emoji}</p>
             <p className="text-2xl font-semibold text-slate-100">{tracker.task.label}</p>
@@ -176,12 +178,7 @@ export function HabitsWidget() {
                 +
               </button>
             </div>
-            <button
-              onClick={() => setTracker(null)}
-              className="text-slate-500 text-sm hover:text-slate-300 transition-colors"
-            >
-              Done
-            </button>
+            <button onClick={() => setTracker(null)} className="text-slate-500 text-sm hover:text-slate-300 transition-colors">Done</button>
           </div>
         </div>
       )}
