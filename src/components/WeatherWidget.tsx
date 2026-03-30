@@ -86,19 +86,13 @@ function getCondition(code: number): string {
 }
 
 function formatHourFromISO(isoString: string): string {
-  const date = new Date(isoString);
+  // Parse "2026-03-30T09:00" format
+  const parts = isoString.split('T');
+  const timePart = parts[1] || '';
+  const hour = parseInt(timePart.split(':')[0], 10);
   const now = new Date();
-  const hour = date.getHours();
-  const diffMs = date.getTime() - now.getTime();
-  const diffMins = Math.round(diffMs / (1000 * 60));
-  
-  // "Now" only if this IS the current hour (diffMins == 0 means the slot's hour matches now)
-  if (diffMins === 0) return 'Now';
-  // Otherwise show the actual hour label
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
+  const isCurrentHour = now.getHours() === hour;
+  if (isCurrentHour) return 'Now';
   if (hour === 0) return '12 AM';
   if (hour === 12) return '12 PM';
   if (hour > 12) return `${hour - 12} PM`;
@@ -132,20 +126,12 @@ export function WeatherWidget() {
       const cc = data.current_condition[0];
       const weatherDays = data.weather || [];
 
-      // Build hourly forecast from wttr.in hourly data
+      // Build hourly forecast from wttr.in (3-hourly slots: 0, 3, 6, 9, 12, 15, 18, 21)
       const hourlyData: HourlyForecast[] = [];
       if (weatherDays[0]) {
         const hours = weatherDays[0].hourly || [];
-        // Find current hour index
-        let startIdx = 0;
         for (let i = 0; i < hours.length; i++) {
-          const h = parseInt(hours[i].time, 10);
-          if (h <= currentHour) startIdx = i;
-        }
-        for (let i = 0; i < 24; i++) {
-          const idx = (startIdx + i) % 24;
-          const h = hours[idx];
-          if (!h) continue;
+          const h = hours[i];
           const hourNum = parseInt(h.time, 10);
           hourlyData.push({
             time: weatherDays[0].date + 'T' + String(hourNum).padStart(2, '0') + ':00',
