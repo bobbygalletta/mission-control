@@ -7,7 +7,7 @@
     "dinner": true,
     "walk1": true,
     "walk2": true,
-    "walk3": true,
+    "walk3": false,
     "walk1Poop": false,
     "walk2Poop": true,
     "walk3Poop": false,

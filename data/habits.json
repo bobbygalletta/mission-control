@@ -4,7 +4,7 @@
     "water": 3,
     "stretch": 1,
     "laundry": true,
-    "bedMade": false,
+    "bedMade": true,
     "vacuum": 2,
     "breakfast": false,
     "lunch": true,
