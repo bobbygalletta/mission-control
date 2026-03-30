@@ -7,6 +7,7 @@ import { BillsWidget } from './components/BillsWidget';
 import { FinnlyWidget } from './components/FinnlyWidget';
 import { MusicWidget } from './components/MusicWidget';
 import { HabitsWidget } from './components/HabitsWidget';
+import { DoorDashWidget } from './components/DoorDashWidget';
 import { Background } from './components/Background';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useEffect } from 'react';
@@ -50,6 +51,7 @@ export default function App() {
           <CalendarWidget />
           <RemindersWidget />
           <MoneyWidget />
+          <DoorDashWidget />
           <BillsWidget />
           <FinnlyWidget />
           <MusicWidget />

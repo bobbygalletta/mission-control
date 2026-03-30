@@ -238,6 +238,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // DoorDash tracker API
+  // GET /api/doordash
+  if (get('/api/doordash')) {
+    res.end(JSON.stringify({ entries: readDataFile('doordash', []) }));
+    return;
+  }
+
+  // POST /api/doordash — add or delete
+  if (post('/api/doordash')) {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { action, item, id } = JSON.parse(body);
+        let entries = readDataFile('doordash', []);
+        if (action === 'add') {
+          entries.unshift(item);
+        } else if (action === 'delete') {
+          entries = entries.filter(e => e.id !== id);
+        }
+        writeDataFile('doordash', entries);
+        res.end(JSON.stringify({ ok: true, entries }));
+      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+    });
+    return;
+  }
+
   // GET /api/money
   if (get('/api/money')) {
     res.end(JSON.stringify({ money: readDataFile('money', []) }));
