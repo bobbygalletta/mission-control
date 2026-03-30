@@ -105,14 +105,8 @@ export function WeatherWidget() {
 
   const fetchWeather = async () => {
     try {
-      // Fetch both current + hourly from Open-Meteo (Knoxville TN lat/lon)
-      const res = await fetch(
-        'https://api.open-meteo.com/v1/forecast?latitude=35.96&longitude=-83.92' +
-        '&hourly=temperature_2m,weathercode,precipitation,windspeed_10m,uv_index,relativehumidity_2m' +
-        '&daily=temperature_2m_max,temperature_2m_min,weathercode,uv_index_max,precipitation_sum' +
-        '&current_weather=true&forecast_days=2&temperature_unit=fahrenheit&windspeed_unit=mph' +
-        '&precipitation_unit=inch&timezone=America%2FNew_York'
-      );
+      // Fetch via API server proxy (Mac may not reach open-meteo directly)
+      const res = await fetch('/api/weather');
       const data = await res.json();
       
       // Use browser's local time — API times are in ET (timezone=America/New_York), getHours() gives local hour in ET
