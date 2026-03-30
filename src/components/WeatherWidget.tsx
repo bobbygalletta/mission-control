@@ -86,12 +86,14 @@ function getCondition(code: number): string {
 }
 
 function formatHourFromISO(isoString: string): string {
-  // Parse "2026-03-30T12:00" — show "Now" for current hour, else hour label
+  // Parse "2026-03-30T12:00" — show "Now" only for today's current hour
   const parts = isoString.split('T');
   const hour = parseInt(parts[1]?.split(':')[0] ?? '0', 10);
+  const datePart = parts[0];
+  const today = new Date().toISOString().split('T')[0];
   const now = new Date();
   const currentHour = now.getHours();
-  if (Math.abs(hour - currentHour) <= 1) return 'Now';
+  if (datePart === today && Math.abs(hour - currentHour) <= 1) return 'Now';
   if (hour === 0) return '12AM';
   if (hour === 12) return '12PM';
   if (hour > 12) return `${hour - 12}PM`;
@@ -124,6 +126,11 @@ export function WeatherWidget() {
 
       const cc = data.current_condition[0];
       const weatherDays = data.weather || [];
+      const currentTempF = parseInt(cc.temp_F, 10);
+      const currentCondition = (cc.weatherDesc?.[0]?.value || 'Unknown').trim();
+      const currentWeatherCode = cc.weatherCode || '113';
+      const currentHumidity = parseInt(cc.humidity || '50', 10);
+      const currentUvIndex = parseInt(cc.UVIndex || '0', 10);
 
       // Build hourly from wttr.in (3-hour slots: minutes-since-midnight = 0, 300, 600...)
       // Interpolate to fill every hour, start from current hour
@@ -170,6 +177,14 @@ export function WeatherWidget() {
             humidity = before.humidity; weatherCode = before.weatherCode; weatherDesc = before.weatherDesc;
           }
           const isNow = di === 0 && h === currentHour;
+          // For the current hour, use actual current weather instead of interpolation
+          if (isNow) {
+            temp = currentTempF;
+            weatherDesc = currentCondition;
+            weatherCode = currentWeatherCode;
+            humidity = currentHumidity;
+            uvIdx = currentUvIndex;
+          }
           hourlyData.push({
             time: dayDate + 'T' + String(h).padStart(2, '0') + ':00',
             temp,
