@@ -236,6 +236,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/weather — proxy to wttr.in (free, no key)
+  if (get('/api/weather')) {
+    try {
+      const raw = execSync('curl -s "wttr.in/Knoxville?format=j1"', { timeout: 15000 });
+      res.end(raw);
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e) }));
+    }
+    return;
+  }
+
   // POST /api/bills/action
   if (post('/api/bills/action')) {
     let body = '';

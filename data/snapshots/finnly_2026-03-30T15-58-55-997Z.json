@@ -8,7 +8,7 @@
     "walk1": true,
     "walk2": false,
     "walk3": false,
-    "walk1Poop": true,
+    "walk1Poop": false,
     "walk2Poop": false,
     "walk3Poop": false,
     "treats": 0
