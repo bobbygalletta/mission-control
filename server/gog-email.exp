@@ -1,0 +1,8 @@
+#!/usr/bin/expect -f
+set timeout 15
+log_user 0
+set cmd_args [lrange $argv 0 end]
+eval spawn -noecho /opt/homebrew/Cellar/gogcli/0.11.0/bin/gog $cmd_args
+expect eof
+set outcome $expect_out(buffer)
+puts $outcome

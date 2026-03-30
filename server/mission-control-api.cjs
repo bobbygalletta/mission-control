@@ -5,6 +5,12 @@ const http = require('http');
 
 const PORT = 3001;
 const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
+const EXP_SCRIPT = path.join(__dirname, 'gog-email.exp');
+
+// Run gog command via expect (needed for PTY/TTY environment to access keychain)
+function runGog(...args) {
+  return execSync(`/usr/bin/expect ${EXP_SCRIPT} ${args.join(' ')}`, { timeout: 20000 }).toString().trim();
+}
 
 function readDataFile(name, fallback = []) {
   const file = path.join(DATA_DIR, `${name}.json`);
@@ -270,10 +276,10 @@ const server = http.createServer((req, res) => {
   // GET /api/emails — list inbox threads
   if (get('/api/emails')) {
     try {
-      const raw = execSync(`/usr/local/bin/gog gmail search "in:inbox" -j`, { timeout: 15000 }).toString().trim();
+      const raw = runGog('gmail', 'search', 'in:inbox', '-j');
       let data = { threads: [], nextPageToken: '' };
       try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = execSync(`/usr/local/bin/gog gmail search "in:inbox is:unread" -j`, { timeout: 15000 }).toString().trim();
+      const unreadRaw = runGog('gmail', 'search', 'in:inbox', 'is:unread', '-j');
       let unreadData = { threads: [] };
       try { unreadData = JSON.parse(unreadRaw); } catch {}
       const emails = (data.threads || []).map(t => ({
@@ -297,7 +303,7 @@ const server = http.createServer((req, res) => {
   if (get('/api/emails/thread/')) {
     const threadId = pathname.replace('/api/emails/thread/', '');
     try {
-      const raw = execSync(`/usr/local/bin/gog gmail thread "${threadId}"`, { timeout: 15000 }).toString().trim();
+      const raw = runGog('gmail', 'thread', threadId);
       // Strip email headers (To:, From:, Subject:, Date:, === Message, ===)
       let body = raw
         .replace(/^===.*?===\s*/gm, '')
