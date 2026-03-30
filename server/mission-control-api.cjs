@@ -28,7 +28,7 @@ function runGog(...args) {
   const cmd = `/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog ${args.join(' ')}`;
   const r = spawnSync('bash', ['-lc', cmd], {
     timeout: 20000, encoding: 'utf8',
-    env: { ...process.env, TERM: 'xterm-256color', HOME: '/Users/bobbygalletta' }
+    env: { ...process.env, TERM: 'xterm-256color', PATH: '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin' }
   });
   if (r.status !== 0) throw new Error(`gog exit ${r.status}`);
   return r.stdout.trim();
@@ -438,127 +438,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — wttr.in (reliable, no key needed)
+  // GET /api/weather — serves cached wttr data (15-min cache)
+  // Network fetch happens via LaunchAgent watchdog cron every 15 min
   if (get('/api/weather')) {
     const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
-      let raw = '';
-      let isWttr = false;
-      // Check cache (10 min)
-      try {
-        const stat = fs.statSync(cacheFile);
-        if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
-          raw = fs.readFileSync(cacheFile, 'utf8');
-          const test = JSON.parse(raw);
-          // Valid wttr cache has current_condition
-          if (test.current_condition) isWttr = true;
-          else throw new Error('not wttr');
-        }
-      } catch {}
-      // Fetch fresh if no valid cache
-      if (!raw || !isWttr) {
-        const r = spawnSync('bash', ['-lc', 'curl -s "wttr.in/Knoxville,TN?format=j1"'], {
-          timeout: 20000, encoding: 'utf8',
-          env: { ...process.env, TERM: 'xterm-256color', HOME: '/Users/bobbygalletta' }
-        });
-        raw = r.stdout.trim();
-        JSON.parse(raw); // validate
-        fs.writeFileSync(cacheFile, raw);
-      }
-      // Convert wttr to Open-Meteo format for widget compatibility
-      const wttr = JSON.parse(raw);
-      const cc = wttr.current_condition[0];
-      const weatherDays = wttr.weather || [];
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
-
-      // Build hourly from wttr (3-hour slots: minutes since midnight)
-      const allSlots = [];
-      for (const day of weatherDays) {
-        const [y, mo, dayNum] = day.date.split('-').map(Number);
-        const dayStart = new Date(y, mo - 1, dayNum);
-        for (const h of day.hourly || []) {
-          const minutes = parseInt(h.time, 10);
-          if (isNaN(minutes)) continue;
-          let slotHour = Math.floor(minutes / 60);
-          const slotMin = minutes % 60;
-          let slotDate = new Date(dayStart);
-          if (slotHour >= 24) { slotDate.setDate(slotDate.getDate() + 1); slotHour -= 24; }
-          const slotDateTime = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), slotHour, slotMin);
-          if (slotDateTime <= now && allSlots.length > 0) continue;
-          allSlots.push({
-            time: `${slotDate.toISOString().slice(0,10)}T${String(slotHour).padStart(2,'0')}:${String(slotMin).padStart(2,'0')}:00`,
-            temp: parseInt(h.tempF, 10),
-            code: parseInt(h.weatherCode || '113', 10),
-            precip: parseFloat(h.precipInches || '0'),
-            wind: parseInt(h.windspeedMiles || '0', 10),
-            uv: parseInt(h.uvIndex || '0', 10),
-            humidity: parseInt(h.humidity || '50', 10),
-          });
-        }
-      }
-      allSlots.sort((a, b) => new Date(a.time) - new Date(b.time));
-      // Prepend current weather as first slot if needed
-      if (allSlots.length === 0 || new Date(allSlots[0].time) > now) {
-        allSlots.unshift({
-          time: now.toISOString().slice(0, 16) + ':00',
-          temp: parseInt(cc.temp_F, 10),
-          code: parseInt(cc.weatherCode || '113', 10),
-          precip: 0,
-          wind: parseInt(cc.windspeedMiles || '0', 10),
-          uv: parseInt(cc.UVIndex || '0', 10),
-          humidity: parseInt(cc.humidity || '50', 10),
-        });
-      }
-      // Build daily
-      const dailySlots = [];
-      for (let di = 0; di < Math.min(2, weatherDays.length); di++) {
-        const day = weatherDays[di];
-        const d = new Date(now);
-        if (di === 1) d.setDate(d.getDate() + 1);
-        const daySlots = allSlots.filter(s => s.time.startsWith(d.toISOString().slice(0, 10)));
-        const temps = daySlots.map(s => s.temp);
-        const midday = daySlots.find(s => { const h = parseInt(s.time.split('T')[1].split(':')[0], 10); return h >= 11 && h <= 14; }) || daySlots[daySlots.length >> 1] || {};
-        dailySlots.push({
-          time: d.toISOString().slice(0, 10),
-          max: Math.max(...temps),
-          min: Math.min(...temps),
-          code: midday.code || 0,
-          uv: midday.uv || 0,
-          precip: daySlots.reduce((s, x) => s + x.precip, 0),
-        });
-      }
-
-      const result = {
-        current_weather: { temperature: parseInt(cc.temp_F, 10), windspeed: parseInt(cc.windspeedMiles || '0', 10), weathercode: parseInt(cc.weatherCode || '113', 10) },
-        hourly: {
-          time: allSlots.map(s => s.time),
-          temperature_2m: allSlots.map(s => s.temp),
-          weathercode: allSlots.map(s => s.code),
-          precipitation: allSlots.map(s => s.precip),
-          windspeed_10m: allSlots.map(s => s.wind),
-          uv_index: allSlots.map(s => s.uv),
-          relativehumidity_2m: allSlots.map(s => s.humidity),
-        },
-        daily: {
-          time: dailySlots.map(s => s.time),
-          temperature_2m_max: dailySlots.map(s => s.max),
-          temperature_2m_min: dailySlots.map(s => s.min),
-          weathercode: dailySlots.map(s => s.code),
-          uv_index_max: dailySlots.map(s => s.uv),
-          precipitation_sum: dailySlots.map(s => s.precip),
-        },
-      };
-      res.end(JSON.stringify(result));
-    } catch (e) {
-      // Fallback: serve whatever is cached
-      try { res.end(fs.readFileSync(cacheFile, 'utf8')); } catch {
-        res.writeHead(500);
-        res.end(JSON.stringify({ error: String(e) }));
-      }
+      const raw = fs.readFileSync(cacheFile, 'utf8');
+      res.end(raw);
+    } catch {
+      // Return empty valid structure if no cache
+      res.end(JSON.stringify({ current_condition: [{ temp_F: '--', weatherDesc: [{ value: 'Loading' }] }], weather: [] }));
     }
     return;
   }
 
-  // GET /api/emails
+  // GET /api/emails  // GET /api/emails  // GET /api/emails

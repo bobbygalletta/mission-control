@@ -98,9 +98,17 @@ export function WeatherWidget() {
 
   const fetchWeather = async () => {
     try {
-      // Fetch via API server proxy (Mac may not reach open-meteo directly)
-      const res = await fetch('/api/weather');
+      // Try Open-Meteo first (true hourly data)
+      const res = await fetch(
+        'https://api.open-meteo.com/v1/forecast?latitude=35.96&longitude=-83.92' +
+        '&hourly=temperature_2m,weathercode,precipitation,windspeed_10m,uv_index,relativehumidity_2m' +
+        '&daily=temperature_2m_max,temperature_2m_min,weathercode,uv_index_max,precipitation_sum' +
+        '&current_weather=true&forecast_days=2&temperature_unit=fahrenheit&windspeed_unit=mph' +
+        '&precipitation_unit=inch&timezone=America%2FNew_York'
+      );
       const data = await res.json();
+      if (data.error || !data.hourly) throw new Error('Open-Meteo failed');
+      processWeatherData(data);
       
       // Use browser's local time — API times are in ET (timezone=America/New_York), getHours() gives local hour in ET
       const now = new Date();
@@ -177,7 +185,15 @@ export function WeatherWidget() {
       });
       setError(null);
     } catch (e) {
-      setError('Weather unavailable');
+      // Fallback: try our API server (serves wttr.in cached data)
+      try {
+        const res = await fetch('/api/weather');
+        const data = await res.json();
+        if (data.error || !data.hourly) throw new Error('API fallback failed');
+        processWeatherData(data);
+      } catch {
+        setError('Weather unavailable');
+      }
     } finally {
       setLoading(false);
     }
