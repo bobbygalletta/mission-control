@@ -236,14 +236,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — proxy to wttr.in (free, no key)
+  // GET /api/weather — proxy to wttr.in with 10-min cache
   if (get('/api/weather')) {
+    const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
-      const raw = execSync('curl -s "wttr.in/Knoxville?format=j1"', { timeout: 15000 });
+      let cached = null;
+      try {
+        const stat = fs.statSync(cacheFile);
+        if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
+          cached = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+        }
+      } catch {}
+      if (cached) { res.end(JSON.stringify(cached)); return; }
+      const raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
+      fs.writeFileSync(cacheFile, raw);
       res.end(raw);
     } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e) }));
+      try { res.end(fs.readFileSync(cacheFile, 'utf8')); } catch {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: String(e) }));
+      }
     }
     return;
   }

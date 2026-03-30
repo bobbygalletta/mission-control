@@ -116,120 +116,73 @@ export function WeatherWidget() {
 
   const fetchWeather = async () => {
     try {
-      // Fetch via API server proxy (wttr.in)
       const res = await fetch('/api/weather');
       const data = await res.json();
-      if (data.error) { setError('Weather unavailable'); return; }
+      if (data.error || !data.hourly) { setError('Weather unavailable'); return; }
 
       const now = new Date();
       const currentHour = now.getHours();
+      const currentDate = now.getDate();
       const isNight = currentHour < 6 || currentHour > 20;
 
-      const cc = data.current_condition[0];
-      const weatherDays = data.weather || [];
+      const hourly = data.hourly;
+      const daily = data.daily;
 
-      // Build hourly forecast from wttr.in (3-hourly data)
-      // Interpolate to fill in every hour between known slots
-      const rawSlots: Array<{date: string; hour: number; data: Record<string,unknown>}> = [];
-      for (let dayIdx = 0; dayIdx < Math.min(2, weatherDays.length); dayIdx++) {
-        const day = weatherDays[dayIdx];
-        const hours = day.hourly || [];
-        for (const h of hours) {
-          const minutes = parseInt(h.time, 10);
-          const hour = Math.floor(minutes / 60);
-          if (hour > 23 || isNaN(hour)) continue;
-          rawSlots.push({ date: day.date, hour, data: h });
-        }
-      }
+      // Find first hourly slot for today
+      let startIdx = hourly.time.findIndex((t: string) => {
+        const d = new Date(t);
+        return d.getDate() === currentDate;
+      });
+      if (startIdx < 0) startIdx = 0;
 
-      // Interpolate: build all hours from 0-23 for each day using nearest known slots
+      // Build hourly (next 24 hours from now)
       const hourlyData: HourlyForecast[] = [];
-      for (let dayIdx = 0; dayIdx < Math.min(2, weatherDays.length); dayIdx++) {
-        const day = weatherDays[dayIdx];
-        for (let hour = 0; hour < 24; hour++) {
-          // Find the two nearest raw slots
-          const slotBefore = [...rawSlots].reverse().find(s => s.hour <= hour && s.date === day.date);
-          const slotAfter = rawSlots.find(s => s.hour > hour && s.date === day.date);
-
-          if (slotBefore && slotAfter) {
-            // Linear interpolation
-            const ratio = (hour - slotBefore.hour) / (slotAfter.hour - slotBefore.hour);
-            const temp = Math.round(
-              parseInt(slotBefore.data.tempF as string, 10) +
-              ratio * (parseInt(slotAfter.data.tempF as string, 10) - parseInt(slotBefore.data.tempF as string, 10))
-            );
-            const uvIdx = Math.round(
-              parseInt(slotBefore.data.uvIndex as string || '0', 10) +
-              ratio * (parseInt(slotAfter.data.uvIndex as string || '0', 10) - parseInt(slotBefore.data.uvIndex as string || '0', 10))
-            );
-            const precip = parseFloat(slotBefore.data.precipInches as string || '0') +
-              ratio * (parseFloat(slotAfter.data.precipInches as string || '0') - parseFloat(slotBefore.data.precipInches as string || '0'));
-            const humidity = Math.round(
-              parseInt(slotBefore.data.humidity as string || '50', 10) +
-              ratio * (parseInt(slotAfter.data.humidity as string || '50', 10) - parseInt(slotBefore.data.humidity as string || '50', 10))
-            );
-            hourlyData.push({
-              time: day.date + 'T' + String(hour).padStart(2, '0') + ':00',
-              temp,
-              condition: (slotBefore.data.weatherDesc as Array<{value:string}>)?.[0]?.value?.trim() || 'Unknown',
-              icon: getWeatherIconWttr((slotBefore.data.weatherCode as string) || '113', isNight && dayIdx === 0 && hour === 0),
-              uvIndex: uvIdx,
-              precip: Math.round(precip * 100) / 100,
-              humidity,
-            });
-          } else if (slotBefore) {
-            const h = slotBefore.data;
-            hourlyData.push({
-              time: day.date + 'T' + String(hour).padStart(2, '0') + ':00',
-              temp: parseInt(h.tempF as string, 10),
-              condition: (h.weatherDesc as Array<{value:string}>)?.[0]?.value?.trim() || 'Unknown',
-              icon: getWeatherIconWttr((h.weatherCode as string) || '113', isNight && dayIdx === 0 && hour === 0),
-              uvIndex: parseInt(h.uvIndex as string || '0', 10),
-              precip: parseFloat(h.precipInches as string || '0'),
-              humidity: parseInt(h.humidity as string || '50', 10),
-            });
-          }
-        }
-      }
-
-      // Build daily forecast (today + tomorrow)
-      const dailyData: DailyForecast[] = [];
-      for (let i = 0; i < Math.min(2, weatherDays.length); i++) {
-        const d = weatherDays[i];
-        const maxT = Math.max(...(d.hourly || []).map((h: Record<string,string>) => parseInt(h.tempF || '0', 10)));
-        const minT = Math.min(...(d.hourly || []).map((h: Record<string,string>) => parseInt(h.tempF || '999', 10)));
-        const avgHumidity = Math.round(
-          (d.hourly || []).reduce((s: number, h: Record<string,string>) => s + parseInt(h.humidity || '50', 10), 0) /
-          Math.max(1, (d.hourly || []).length)
-        );
-        const midday = d.hourly?.[12];
-        const weatherCode = midday?.weatherCode || '113';
-        dailyData.push({
-          day: formatDay(d.date, i),
-          high: maxT,
-          low: minT,
-          condition: midday?.weatherDesc?.[0]?.value?.trim() || 'Unknown',
-          icon: getWeatherIconWttr(weatherCode, false),
-          uvIndex: parseInt(midday?.uvIndex || '0', 10),
-          precip: parseFloat(d.hourly?.reduce((s: number, h: Record<string,string>) => s + parseFloat(h.precipMM || '0'), 0)?.toFixed(1) || '0'),
-          humidity: avgHumidity,
-          sunrise: d.sunrise?.[0] || '',
-          sunset: d.sunset?.[0] || '',
+      for (let i = 0; i < 24; i++) {
+        const idx = startIdx + i;
+        if (idx >= hourly.time.length) break;
+        const time = hourly.time[idx];
+        const d = new Date(time);
+        hourlyData.push({
+          time,
+          temp: Math.round(hourly.temperature_2m[idx]),
+          condition: getCondition(hourly.weathercode[idx]),
+          icon: getWeatherIcon(hourly.weathercode[idx], isNight && i === 0),
+          uvIndex: hourly.uv_index?.[idx] ?? 0,
+          precip: hourly.precipitation?.[idx] ?? 0,
+          humidity: hourly.relativehumidity_2m?.[idx] ?? 50,
         });
       }
 
+      // Build daily (today + tomorrow)
+      const dailyData: DailyForecast[] = [];
+      for (let i = 0; i < Math.min(2, daily.time?.length ?? 0); i++) {
+        dailyData.push({
+          day: formatDay(daily.time[i], i),
+          high: Math.round(daily.temperature_2m_max[i]),
+          low: Math.round(daily.temperature_2m_min[i]),
+          condition: getCondition(daily.weathercode?.[i * 24] ?? 0),
+          icon: getWeatherIcon(daily.weathercode?.[i * 24] ?? 0, false),
+          uvIndex: daily.uv_index_max?.[i] ?? 0,
+          precip: daily.precipitation_sum?.[i] ?? 0,
+          humidity: hourly.relativehumidity_2m?.[i * 24 + 12] ?? 50,
+          sunrise: daily.sunrise?.[i]?.split('T')[1]?.substring(0, 5) ?? '',
+          sunset: daily.sunset?.[i]?.split('T')[1]?.substring(0, 5) ?? '',
+        });
+      }
+
+      const cw = data.current_weather;
       setWeather({
-        temp: parseInt(cc.temp_F, 10),
-        feelsLike: parseInt(cc.FeelsLikeF || cc.temp_F, 10),
-        condition: cc.weatherDesc?.[0]?.value?.trim() || 'Unknown',
-        icon: getWeatherIconWttr(cc.weatherCode || '113', isNight),
-        location: data.nearest_area?.[0]?.areaName?.[0]?.value || 'Knoxville, TN',
-        humidity: parseInt(cc.humidity || '50', 10),
-        wind: parseInt(cc.windspeedMiles || '0', 10),
-        uvIndex: parseInt(cc.UVIndex || '0', 10),
-        precip: parseFloat(cc.precipInches || '0'),
-        pressure: parseInt(cc.pressure || '1013', 10),
-        visibility: parseInt(cc.visibilityMiles || '10', 10),
+        temp: Math.round(cw.temperature ?? 0),
+        feelsLike: Math.round(cw.temperature ?? 0),
+        condition: getCondition(cw.weathercode ?? 0),
+        icon: getWeatherIcon(cw.weathercode ?? 0, isNight),
+        location: 'Knoxville, TN',
+        humidity: hourly.relativehumidity_2m?.[startIdx] ?? 50,
+        wind: Math.round(cw.windspeed ?? 0),
+        uvIndex: hourly.uv_index?.[startIdx] ?? 0,
+        precip: hourly.precipitation?.[startIdx] ?? 0,
+        pressure: 0,
+        visibility: 10,
         hourly: hourlyData,
         daily: dailyData,
       });
