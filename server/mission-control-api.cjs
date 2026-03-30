@@ -469,58 +469,50 @@ const server = http.createServer((req, res) => {
       const hourlyUv = [];
       const hourlyHumidity = [];
 
-      for (let di = 0; di < 2; di++) {
-        const day = weatherDays[di];
-        if (!day) break;
-        const daySlots = (day.hourly || []).map(h => ({
-          hour: Math.floor(parseInt(h.time, 10) / 60),
-          temp: parseInt(h.tempF, 10),
-          code: wttrCodeToWMO(h.weatherCode || '113'),
-          precip: parseFloat(h.precipInches || '0'),
-          wind: parseInt(h.windspeedMiles || '0', 10),
-          uv: parseInt(h.uvIndex || '0', 10),
-          humidity: parseInt(h.humidity || '50', 10),
-        })).filter(s => s.hour <= 23);
-
-        const startH = di === 0 ? currentHour : 0;
-        for (let h = startH; h < 24; h++) {
-          const before = [...daySlots].reverse().find(s => s.hour <= h);
-          const after = daySlots.find(s => s.hour > h);
-          const t = (before && after) ? (h - before.hour) / (after.hour - before.hour) : 0;
-          // For current hour, use actual current weather temp instead of interpolation
-          let temp = before && after
-            ? Math.round(before.temp + t * (after.temp - before.temp))
-            : (before?.temp ?? 0);
-          const precip = before && after
-            ? Math.round((before.precip + t * (after.precip - before.precip)) * 100) / 100
-            : (before?.precip ?? 0);
-          const wind = before && after
-            ? Math.round(before.wind + t * (after.wind - before.wind))
-            : (before?.wind ?? 0);
-          const uv = before && after
-            ? Math.round(before.uv + t * (after.uv - before.uv))
-            : (before?.uv ?? 0);
-          const humidity = before && after
-            ? Math.round(before.humidity + t * (after.humidity - before.humidity))
-            : (before?.humidity ?? 50);
-          let code = before?.code ?? 0;
-          // Current hour: use actual current weather
-          if (di === 0 && h === currentHour) {
-            temp = parseInt(cc.temp_F, 10);
-            code = wttrCodeToWMO(cc.weatherCode || '113');
-          }
-
-          const d = new Date(now);
-          if (di === 1) d.setDate(d.getDate() + 1);
-          const dateStr = d.toISOString().split('T')[0];
-          hourlyTimes.push(`${dateStr}T${String(h).padStart(2, '0')}:00`);
-          hourlyTemp.push(temp);
-          hourlyWeathercode.push(code);
-          hourlyPrecip.push(precip);
-          hourlyWindspeed.push(wind);
-          hourlyUv.push(uv);
-          hourlyHumidity.push(humidity);
+      // Use raw 3-hour forecast slots in local time, skip past ones
+      const allSlots = [];
+      for (const day of weatherDays) {
+        for (const h of day.hourly || []) {
+          const minutes = parseInt(h.time, 10);
+          if (isNaN(minutes)) continue;
+          const slotHour = Math.floor(minutes / 60);
+          const slotMin = minutes % 60;
+          // Parse day.date as local date
+          const [y, mo, d] = day.date.split('-').map(Number);
+          const slotDateTime = new Date(y, mo - 1, d, slotHour, slotMin);
+          if (slotDateTime <= now && allSlots.length > 0) continue; // skip past slots
+          allSlots.push({
+            time: `${day.date}T${String(slotHour).padStart(2,'0')}:${String(slotMin).padStart(2,'0')}:00`,
+            temp: parseInt(h.tempF, 10),
+            code: wttrCodeToWMO(h.weatherCode || '113'),
+            precip: parseFloat(h.precipInches || '0'),
+            wind: parseInt(h.windspeedMiles || '0', 10),
+            uv: parseInt(h.uvIndex || '0', 10),
+            humidity: parseInt(h.humidity || '50', 10),
+          });
         }
+      }
+      // If no future slots yet, prepend current actual weather
+      if (allSlots.length === 0 || new Date(allSlots[0].time) > now) {
+        allSlots.unshift({
+          time: now.toISOString().slice(0, 16) + ':00',
+          temp: parseInt(cc.temp_F, 10),
+          code: wttrCodeToWMO(cc.weatherCode || '113'),
+          precip: 0,
+          wind: parseInt(cc.windspeedMiles || '0', 10),
+          uv: parseInt(cc.UVIndex || '0', 10),
+          humidity: parseInt(cc.humidity || '50', 10),
+        });
+      }
+      // Push to output
+      for (const slot of allSlots) {
+        hourlyTimes.push(slot.time);
+        hourlyTemp.push(slot.temp);
+        hourlyWeathercode.push(slot.code);
+        hourlyPrecip.push(slot.precip);
+        hourlyWindspeed.push(slot.wind);
+        hourlyUv.push(slot.uv);
+        hourlyHumidity.push(slot.humidity);
       }
 
       // Daily: today + tomorrow
@@ -550,6 +542,8 @@ const server = http.createServer((req, res) => {
           temperature: parseInt(cc.temp_F, 10),
           windspeed: parseInt(cc.windspeedMiles || '0', 10),
           weathercode: wttrCodeToWMO(cc.weatherCode || '113'),
+          uv_index: hourlyUv[0] || 0,
+          time: now.toISOString().slice(0, 16) + ':00',
         },
         hourly: {
           time: hourlyTimes,
