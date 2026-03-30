@@ -63,7 +63,7 @@ export function MusicWidget() {
         const v = parseInt(vol);
         if (!isNaN(v)) setVolume(v);
       } catch {}
-    }, 2000);
+    }, 15_000);
     return () => clearInterval(interval);
   }, []);
 
