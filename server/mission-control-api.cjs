@@ -438,75 +438,59 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — fetch from Open-Meteo (true hourly data)
+  // GET /api/weather — wttr.in (reliable, no key needed)
   if (get('/api/weather')) {
     const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
       let raw = '';
+      let isWttr = false;
+      // Check cache (10 min)
       try {
         const stat = fs.statSync(cacheFile);
         if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
           raw = fs.readFileSync(cacheFile, 'utf8');
-          // Validate it's real data
           const test = JSON.parse(raw);
-          if (!test.hourly) throw new Error('invalid cache');
+          // Valid wttr cache has current_condition
+          if (test.current_condition) isWttr = true;
+          else throw new Error('not wttr');
         }
       } catch {}
-      if (!raw) {
-        const url = 'https://api.open-meteo.com/v1/forecast?latitude=35.96&longitude=-83.92' +
-          '&hourly=temperature_2m,weathercode,precipitation,windspeed_10m,uv_index,relativehumidity_2m' +
-          '&daily=temperature_2m_max,temperature_2m_min,weathercode,uv_index_max,precipitation_sum,sunrise,sunset' +
-          '&current_weather=true&forecast_days=3&temperature_unit=fahrenheit&windspeed_unit=mph' +
-          '&precipitation_unit=inch&timezone=America%2FNew_York';
-        raw = execSync(`curl -s "${url}"`, { timeout: 15000 });
+      // Fetch fresh if no valid cache
+      if (!raw || !isWttr) {
+        const r = spawnSync('bash', ['-lc', 'curl -s "wttr.in/Knoxville,TN?format=j1"'], {
+          timeout: 20000, encoding: 'utf8',
+          env: { ...process.env, TERM: 'xterm-256color', HOME: '/Users/bobbygalletta' }
+        });
+        raw = r.stdout.trim();
+        JSON.parse(raw); // validate
         fs.writeFileSync(cacheFile, raw);
       }
-      res.end(raw);
-      // Convert wttr.in JSON to Open-Meteo format for the widget
+      // Convert wttr to Open-Meteo format for widget compatibility
       const wttr = JSON.parse(raw);
       const cc = wttr.current_condition[0];
       const weatherDays = wttr.weather || [];
       const now = new Date();
       const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
 
-      // Build Open-Meteo-style hourly array (one entry per hour, 0–23 today, 24–47 tomorrow)
-      const hourlyTimes = [];
-      const hourlyTemp = [];
-      const hourlyWeathercode = [];
-      const hourlyPrecip = [];
-      const hourlyWindspeed = [];
-      const hourlyUv = [];
-      const hourlyHumidity = [];
-
-      // Use raw 3-hour forecast slots, skip past ones
-      // Slots with hour >= 24 belong to the next calendar day
+      // Build hourly from wttr (3-hour slots: minutes since midnight)
       const allSlots = [];
-      const [curY, curMo, curD] = [now.getFullYear(), now.getMonth(), now.getDate()];
       for (const day of weatherDays) {
-        const [y, mo, d] = day.date.split('-').map(Number);
-        const dayStart = new Date(y, mo - 1, d);
+        const [y, mo, dayNum] = day.date.split('-').map(Number);
+        const dayStart = new Date(y, mo - 1, dayNum);
         for (const h of day.hourly || []) {
           const minutes = parseInt(h.time, 10);
           if (isNaN(minutes)) continue;
           let slotHour = Math.floor(minutes / 60);
           const slotMin = minutes % 60;
-          // Compute local date string — handle slots past midnight (>=24)
           let slotDate = new Date(dayStart);
-          if (slotHour >= 24) {
-            slotDate.setDate(slotDate.getDate() + 1);
-            slotHour -= 24;
-          }
-          const slotY = slotDate.getFullYear();
-          const slotMo = slotDate.getMonth() + 1;
-          const slotD = slotDate.getDate();
-          const dateStr = `${slotY}-${String(slotMo).padStart(2,'0')}-${String(slotD).padStart(2,'0')}`;
-          // Check if this slot is in the past
-          const slotDateTime = new Date(slotY, slotDate.getMonth(), slotD, slotHour, slotMin);
-          if (slotDateTime <= now) continue;
+          if (slotHour >= 24) { slotDate.setDate(slotDate.getDate() + 1); slotHour -= 24; }
+          const slotDateTime = new Date(slotDate.getFullYear(), slotDate.getMonth(), slotDate.getDate(), slotHour, slotMin);
+          if (slotDateTime <= now && allSlots.length > 0) continue;
           allSlots.push({
-            time: `${dateStr}T${String(slotHour).padStart(2,'0')}:${String(slotMin).padStart(2,'0')}:00`,
+            time: `${slotDate.toISOString().slice(0,10)}T${String(slotHour).padStart(2,'0')}:${String(slotMin).padStart(2,'0')}:00`,
             temp: parseInt(h.tempF, 10),
-            code: wttrCodeToWMO(h.weatherCode || '113'),
+            code: parseInt(h.weatherCode || '113', 10),
             precip: parseFloat(h.precipInches || '0'),
             wind: parseInt(h.windspeedMiles || '0', 10),
             uv: parseInt(h.uvIndex || '0', 10),
@@ -514,156 +498,67 @@ const server = http.createServer((req, res) => {
           });
         }
       }
-      // Sort by time
-      allSlots.sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
-
-      // Prepend current actual weather if no future slots yet or first slot is ahead of now
+      allSlots.sort((a, b) => new Date(a.time) - new Date(b.time));
+      // Prepend current weather as first slot if needed
       if (allSlots.length === 0 || new Date(allSlots[0].time) > now) {
         allSlots.unshift({
-          time: `${curY}-${String(curMo+1).padStart(2,'0')}-${String(curD).padStart(2,'0')}T${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:00`,
+          time: now.toISOString().slice(0, 16) + ':00',
           temp: parseInt(cc.temp_F, 10),
-          code: wttrCodeToWMO(cc.weatherCode || '113'),
+          code: parseInt(cc.weatherCode || '113', 10),
           precip: 0,
           wind: parseInt(cc.windspeedMiles || '0', 10),
           uv: parseInt(cc.UVIndex || '0', 10),
           humidity: parseInt(cc.humidity || '50', 10),
         });
       }
-      for (const slot of allSlots) {
-        hourlyTimes.push(slot.time);
-        hourlyTemp.push(slot.temp);
-        hourlyWeathercode.push(slot.code);
-        hourlyPrecip.push(slot.precip);
-        hourlyWindspeed.push(slot.wind);
-        hourlyUv.push(slot.uv);
-        hourlyHumidity.push(slot.humidity);
-      }
-
-      // Daily: today + tomorrow
-      const dailyTimes = [];
-      const dailyMax = [];
-      const dailyMin = [];
-      const dailyCode = [];
-      const dailyUvMax = [];
-      const dailyPrecipSum = [];
-      for (let di = 0; di < 2; di++) {
+      // Build daily
+      const dailySlots = [];
+      for (let di = 0; di < Math.min(2, weatherDays.length); di++) {
         const day = weatherDays[di];
-        if (!day) break;
         const d = new Date(now);
         if (di === 1) d.setDate(d.getDate() + 1);
-        dailyTimes.push(d.toISOString().split('T')[0]);
-        const temps = (day.hourly || []).map(h => parseInt(h.tempF, 10));
-        dailyMax.push(Math.max(...temps));
-        dailyMin.push(Math.min(...temps));
-        const middaySlot = day.hourly?.find(h => Math.floor(parseInt(h.time, 10) / 60) === 12) || day.hourly?.[day.hourly.length >> 1];
-        dailyCode.push(wttrCodeToWMO(middaySlot?.weatherCode || '113'));
-        dailyUvMax.push(parseInt(middaySlot?.uvIndex || '0', 10));
-        dailyPrecipSum.push((day.hourly || []).reduce((s, h) => s + parseFloat(h.precipInches || '0'), 0));
+        const daySlots = allSlots.filter(s => s.time.startsWith(d.toISOString().slice(0, 10)));
+        const temps = daySlots.map(s => s.temp);
+        const midday = daySlots.find(s => { const h = parseInt(s.time.split('T')[1].split(':')[0], 10); return h >= 11 && h <= 14; }) || daySlots[daySlots.length >> 1] || {};
+        dailySlots.push({
+          time: d.toISOString().slice(0, 10),
+          max: Math.max(...temps),
+          min: Math.min(...temps),
+          code: midday.code || 0,
+          uv: midday.uv || 0,
+          precip: daySlots.reduce((s, x) => s + x.precip, 0),
+        });
       }
 
       const result = {
-        current_weather: {
-          temperature: parseInt(cc.temp_F, 10),
-          windspeed: parseInt(cc.windspeedMiles || '0', 10),
-          weathercode: wttrCodeToWMO(cc.weatherCode || '113'),
-          uv_index: hourlyUv[0] || 0,
-          time: now.toISOString().slice(0, 16) + ':00',
-        },
+        current_weather: { temperature: parseInt(cc.temp_F, 10), windspeed: parseInt(cc.windspeedMiles || '0', 10), weathercode: parseInt(cc.weatherCode || '113', 10) },
         hourly: {
-          time: hourlyTimes,
-          temperature_2m: hourlyTemp,
-          weathercode: hourlyWeathercode,
-          precipitation: hourlyPrecip,
-          windspeed_10m: hourlyWindspeed,
-          uv_index: hourlyUv,
-          relativehumidity_2m: hourlyHumidity,
+          time: allSlots.map(s => s.time),
+          temperature_2m: allSlots.map(s => s.temp),
+          weathercode: allSlots.map(s => s.code),
+          precipitation: allSlots.map(s => s.precip),
+          windspeed_10m: allSlots.map(s => s.wind),
+          uv_index: allSlots.map(s => s.uv),
+          relativehumidity_2m: allSlots.map(s => s.humidity),
         },
         daily: {
-          time: dailyTimes,
-          temperature_2m_max: dailyMax,
-          temperature_2m_min: dailyMin,
-          weathercode: dailyCode,
-          uv_index_max: dailyUvMax,
-          precipitation_sum: dailyPrecipSum,
+          time: dailySlots.map(s => s.time),
+          temperature_2m_max: dailySlots.map(s => s.max),
+          temperature_2m_min: dailySlots.map(s => s.min),
+          weathercode: dailySlots.map(s => s.code),
+          uv_index_max: dailySlots.map(s => s.uv),
+          precipitation_sum: dailySlots.map(s => s.precip),
         },
       };
       res.end(JSON.stringify(result));
     } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e) }));
-    }
-    return;
-  }
-
-  // GET /api/emails — list inbox threads
-  if (get('/api/emails')) {
-    try {
-      const raw = runGog('gmail', 'search', 'in:inbox', '-j');
-      let data = { threads: [], nextPageToken: '' };
-      try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = runGog('gmail', 'search', 'in:inbox', 'is:unread', '-j');
-      let unreadData = { threads: [] };
-      try { unreadData = JSON.parse(unreadRaw); } catch {}
-      const emails = (data.threads || []).map(t => ({
-        id: t.id,
-        from: t.from,
-        subject: t.subject,
-        date: t.date,
-        snippet: t.snippet || '',
-        labels: t.labels || [],
-        unread: (unreadData.threads || []).some(u => u.id === t.id),
-      }));
-      res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
-    } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
-    }
-    return;
-  }
-
-  // GET /api/emails/thread/:id — get full email body
-  if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
-    const threadId = url.pathname.replace('/api/emails/thread/', '');
-    try {
-      const raw = runGog('gmail', 'thread', threadId, '-j', '--results-only');
-      let body = '';
-      try {
-        const data = JSON.parse(raw);
-        const messages = data?.thread?.messages || [];
-        for (const m of messages) {
-          const parts = m.payload?.parts || [];
-          let foundHtml = '', foundPlain = '';
-          for (const p of parts) {
-            if (p.body?.data) {
-              const b64 = p.body.data.replace(/-/g, '+').replace(/_/g, '/');
-              const pad = b64.length % 4;
-              const decoded = Buffer.from(b64 + '='.repeat(pad < 2 ? 2 - pad : 0), 'base64').toString('utf8');
-              if (p.mimeType === 'text/plain') foundPlain = decoded;
-              else if (p.mimeType === 'text/html') foundHtml = decoded;
-            }
-          }
-          body = foundPlain || stripHtml(foundHtml) || '';
-          if (body) break;
-        }
-        if (!body) throw new Error('no body');
-      } catch {
-        try {
-          const plain = runGog('gmail', 'thread', threadId);
-          body = cleanEmailText(plain.replace(/^===.*?===\s*/gm, '').replace(/^(From|To|Subject|Date):.*$/gm, '').replace(/^\s*[-=]{3,}.*$/gm, '').trim());
-        } catch { body = ''; }
+      // Fallback: serve whatever is cached
+      try { res.end(fs.readFileSync(cacheFile, 'utf8')); } catch {
+        res.writeHead(500);
+        res.end(JSON.stringify({ error: String(e) }));
       }
-      res.end(JSON.stringify({ body }));
-    } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e), body: '' }));
     }
     return;
   }
 
-  res.writeHead(404);
-  res.end(JSON.stringify({ error: 'Not found' }));
-});
-
-server.listen(PORT, () => {
-  console.log(`Mission Control API on http://localhost:${PORT}`);
-});
+  // GET /api/emails
