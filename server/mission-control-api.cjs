@@ -184,20 +184,45 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/habits
+  // GET /api/habits — returns only today's daily log (not historical days)
   if (get('/api/habits')) {
-    res.end(JSON.stringify({ habits: readDataFile('habits', []) }));
+    const all = readDataFile('habits', []);
+    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const DEFAULT_DAY = { date: todayStr, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false };
+    // Check if we need to roll over to a new day (past 3am)
+    const now = new Date();
+    const hour = now.getHours();
+    if (hour >= 3) {
+      // Already in new day — make sure today exists, drop yesterday
+      let today = all.find(h => h.date === todayStr);
+      if (!today) {
+        // Archive old data (keep habit registry items, drop daily log)
+        const habits = all.filter(h => !h.water && !h.breakfast); // keep non-daily entries
+        habits.unshift(DEFAULT_DAY);
+        writeDataFile('habits', habits);
+      }
+    }
+    const updated = readDataFile('habits', []);
+    const todayOnly = updated.filter(h => h.date === todayStr);
+    res.end(JSON.stringify({ habits: todayOnly.length > 0 ? todayOnly : [DEFAULT_DAY] }));
     return;
   }
 
-  // POST /api/habits — save full habits array (for Finnly daily log)
+  // POST /api/habits — save today's habits (preserves other days)
   if (post('/api/habits')) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
         const { habits } = JSON.parse(body);
-        writeDataFile('habits', habits);
+        const all = readDataFile('habits', []);
+        const todayStr = habits[0]?.date;
+        if (todayStr) {
+          const otherDays = all.filter(h => h.date !== todayStr);
+          writeDataFile('habits', [...otherDays, ...habits]);
+        } else {
+          writeDataFile('habits', habits);
+        }
         res.end(JSON.stringify({ ok: true, habits }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });
