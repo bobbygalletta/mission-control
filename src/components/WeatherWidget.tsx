@@ -86,17 +86,20 @@ function getCondition(code: number): string {
 }
 
 function formatHourFromISO(isoString: string): string {
-  // Parse "2026-03-30T09:00" format
+  // Parse "2026-03-30T09:00" or "2026-03-30T15:00" format
   const parts = isoString.split('T');
   const timePart = parts[1] || '';
   const hour = parseInt(timePart.split(':')[0], 10);
+  // wttr.in uses 0, 3, 6, 9, 12, 15, 18, 21 for 3-hourly intervals
+  if (hour > 23) return ''; // skip invalid hours
   const now = new Date();
-  const isCurrentHour = now.getHours() === hour;
-  if (isCurrentHour) return 'Now';
+  const currentHour = now.getHours();
+  // "Now" if within 90 mins of this slot
+  if (Math.abs(currentHour - hour) <= 1) return 'Now';
   if (hour === 0) return '12 AM';
   if (hour === 12) return '12 PM';
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
+  if (hour > 12) return `${hour - 12}PM`;
+  return `${hour}AM`;
 }
 
 function formatDay(dateStr: string, index: number): string {
@@ -126,18 +129,21 @@ export function WeatherWidget() {
       const cc = data.current_condition[0];
       const weatherDays = data.weather || [];
 
-      // Build hourly forecast from wttr.in (3-hourly slots: 0, 3, 6, 9, 12, 15, 18, 21)
+      // Build hourly forecast from wttr.in (3-hourly: 0, 3, 6, 9, 12, 15, 18, 21)
+      // Include today + tomorrow so there's always enough data
       const hourlyData: HourlyForecast[] = [];
-      if (weatherDays[0]) {
-        const hours = weatherDays[0].hourly || [];
+      for (let dayIdx = 0; dayIdx < Math.min(2, weatherDays.length); dayIdx++) {
+        const day = weatherDays[dayIdx];
+        const hours = day.hourly || [];
         for (let i = 0; i < hours.length; i++) {
           const h = hours[i];
           const hourNum = parseInt(h.time, 10);
+          if (hourNum > 23) continue; // skip invalid hours
           hourlyData.push({
-            time: weatherDays[0].date + 'T' + String(hourNum).padStart(2, '0') + ':00',
+            time: day.date + 'T' + String(hourNum).padStart(2, '0') + ':00',
             temp: parseInt(h.tempF, 10),
             condition: h.weatherDesc?.[0]?.value?.trim() || 'Unknown',
-            icon: getWeatherIconWttr(h.weatherCode, isNight && i === 0),
+            icon: getWeatherIconWttr(h.weatherCode, isNight && dayIdx === 0 && i === 0),
             uvIndex: parseInt(h.uvIndex || '0', 10),
             precip: parseFloat(h.precipInches || '0'),
             humidity: parseInt(h.humidity || '50', 10),
