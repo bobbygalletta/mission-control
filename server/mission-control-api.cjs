@@ -12,6 +12,28 @@ function runGog(...args) {
   return execSync(`/usr/bin/expect ${EXP_SCRIPT} ${args.join(' ')}`, { timeout: 20000 }).toString().trim();
 }
 
+// Strip HTML tags and decode common HTML entities
+function stripHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#\d+;/g, '')
+    .replace(/https?:\/\/[^\s<>"']+[?&#][\w=&%-]+/g, (url) => { try { const u = new URL(url); return u.origin + u.pathname; } catch { return url.split('?')[0].split('#')[0]; } })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function readDataFile(name, fallback = []) {
   const file = path.join(DATA_DIR, `${name}.json`);
   try {
@@ -324,19 +346,45 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/emails/thread/:id — get thread body (plain text, no images)
+  // GET /api/emails/thread/:id — get full email body (JSON mode, no truncation)
   if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
     const threadId = url.pathname.replace('/api/emails/thread/', '');
     try {
-      const raw = runGog('gmail', 'thread', threadId);
-      // Strip email headers (To:, From:, Subject:, Date:, === Message, ===)
-      let body = raw
-        .replace(/^===.*?===\s*/gm, '')
-        .replace(/^(From|To|Subject|Date):.*$/gm, '')
-        .replace(/^\s*[-=]{3,}.*$/gm, '')
-        .replace(/\bhttps?:\/\/[^\s]+/g, '') // strip URLs
-        .replace(/\s{3,}/g, '\n\n')
-        .trim();
+      const raw = runGog('gmail', 'thread', threadId, '-j', '--results-only');
+      let body = '';
+      try {
+        const data = JSON.parse(raw);
+        const messages = data?.thread?.messages || [];
+        for (const m of messages) {
+          const parts = m.payload?.parts || [];
+          let foundHtml = '';
+          let foundPlain = '';
+          for (const p of parts) {
+            if (p.body?.data) {
+              const b64 = p.body.data.replace(/-/g, '+').replace(/_/g, '/');
+              const pad = b64.length % 4;
+              const decoded = Buffer.from(b64 + '='.repeat(pad < 2 ? 2 - pad : 0), 'base64').toString('utf8');
+              if (p.mimeType === 'text/html') foundHtml = decoded;
+              else if (p.mimeType === 'text/plain') foundPlain = decoded;
+            }
+          }
+          // Prefer plain text, fall back to HTML
+          body = foundPlain || stripHtml(foundHtml) || '';
+          if (body) break;
+        }
+        if (!body) throw new Error('no body found');
+      } catch {
+        // Plain text fallback from gog plain output
+        try {
+          const plain = runGog('gmail', 'thread', threadId);
+          body = plain
+            .replace(/^===.*?===\s*/gm, '')
+            .replace(/^(From|To|Subject|Date):.*$/gm, '')
+            .replace(/^\s*[-=]{3,}.*$/gm, '')
+            .replace(/\s{3,}/g, '\n\n')
+            .trim();
+        } catch { body = ''; }
+      }
       res.end(JSON.stringify({ body }));
     } catch (e) {
       res.writeHead(500);
