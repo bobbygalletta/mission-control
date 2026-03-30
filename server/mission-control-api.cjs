@@ -6,7 +6,7 @@ const http = require('http');
 const PORT = 3001;
 const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
 
-// Run gog command via bash login shell (needed for keychain access + full output)
+// Run gog via bash login shell (needed for keychain/credential access)
 function runGog(...args) {
   const cmd = `/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog ${args.join(' ')}`;
   const r = spawnSync('bash', ['-lc', cmd], {
@@ -17,68 +17,40 @@ function runGog(...args) {
   return r.stdout.trim();
 }
 
-// Strip HTML tags and clean up email body
 function stripHtml(html) {
   if (!html) return '';
-  let text = html
+  return html
     .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<\/div>/gi, '\n')
     .replace(/<tr[^>]*>/gi, '\n')
-    .replace(/<\/tr>/gi, '')
     .replace(/<td[^>]*>/gi, '  ')
-    .replace(/<\/td>/gi, '')
     .replace(/<th[^>]*>/gi, '\n')
-    .replace(/<\/th>/gi, '')
     .replace(/<table[^>]*>/gi, '\n')
     .replace(/<\/table>/gi, '\n')
     .replace(/<img[^>]+>/gi, '')
     .replace(/<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
     .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#\d+;/g, '')
-    .replace(/[-_]{20,}\n*/g, '')
-    .replace(/SRC: \S+/g, '')
-    .replace(/^[*#]+/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  return text;
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/&#\d+;/g, '').replace(/[-_]{20,}\n*/g, '').replace(/^[*#]+/gm, '')
+    .replace(/\n{3,}/g, '\n\n').trim();
 }
 
-// Clean plain text email body — strip tracking URLs and noise
 function cleanEmailText(text) {
   if (!text) return '';
   return text
-    // Remove bracketed URLs, keeping clean domain+path
     .replace(/\[https?:\/\/[^\]]+\]/g, (m) => {
-      try {
-        const u = new URL(m.slice(1, -1));
-        return `[${u.origin}${u.pathname}]`;
-      } catch { return ''; }
+      try { const u = new URL(m.slice(1, -1)); return `[${u.origin}${u.pathname}]`; } catch { return ''; }
     })
-    // Remove raw tracking URLs
     .replace(/https?:\/\/\S+/g, (url) => {
-      try {
-        const u = new URL(url);
-        return `${u.origin}${u.pathname}`;
-      } catch { return ''; }
+      try { const u = new URL(url); return `${u.origin}${u.pathname}`; } catch { return ''; }
     })
-    // Remove empty brackets left over from removed URLs
     .replace(/\[\s*\]/g, '')
-    // Collapse multiple blank lines
     .replace(/\n{3,}/g, '\n\n')
-    // Trim trailing whitespace on each line, collapse multiple blank lines
-    .split('\n')
-    .map(l => l.trimEnd().replace(/\s+$/, '').replace(/ {2,}/g, ' '))
-    .filter((l, i, arr) => !(l === '' && arr[i-1] === ''))
-    .join('\n')
+    .split('\n').map(l => l.trimEnd()).filter((l, i, a) => !(l === '' && a[i-1] === '')).join('\n')
     .trim();
 }
 
@@ -236,30 +208,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — proxy to wttr.in with 10-min cache
-  if (get('/api/weather')) {
-    const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
-    try {
-      let cached = null;
-      try {
-        const stat = fs.statSync(cacheFile);
-        if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
-          cached = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-        }
-      } catch {}
-      if (cached) { res.end(JSON.stringify(cached)); return; }
-      const raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
-      fs.writeFileSync(cacheFile, raw);
-      res.end(raw);
-    } catch (e) {
-      try { res.end(fs.readFileSync(cacheFile, 'utf8')); } catch {
-        res.writeHead(500);
-        res.end(JSON.stringify({ error: String(e) }));
-      }
-    }
-    return;
-  }
-
   // POST /api/bills/action
   if (post('/api/bills/action')) {
     let body = '';
@@ -278,22 +226,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/habits — returns only today's daily log (not historical days)
+  // GET /api/habits — returns only today's daily log, auto-resets at 3am
   if (get('/api/habits')) {
     const all = readDataFile('habits', []);
     const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const DEFAULT_DAY = { date: todayStr, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false };
-    // Check if we need to roll over to a new day (past 3am)
     const now = new Date();
-    const hour = now.getHours();
-    if (hour >= 3) {
-      // Already in new day — make sure today exists, drop yesterday
+    if (now.getHours() >= 3) {
       let today = all.find(h => h.date === todayStr);
       if (!today) {
-        // Archive old data (keep habit registry items, drop daily log)
-        const habits = all.filter(h => !h.water && !h.breakfast); // keep non-daily entries
-        habits.unshift(DEFAULT_DAY);
-        writeDataFile('habits', habits);
+        const otherDays = all.filter(h => h.date !== todayStr);
+        otherDays.unshift(DEFAULT_DAY);
+        writeDataFile('habits', otherDays);
       }
     }
     const updated = readDataFile('habits', []);
@@ -391,79 +335,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Email API
-  // GET /api/emails — list inbox threads
-  if (get('/api/emails')) {
-    try {
-      const raw = runGog('gmail', 'search', 'in:inbox', '-j');
-      let data = { threads: [], nextPageToken: '' };
-      try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = runGog('gmail', 'search', 'in:inbox', 'is:unread', '-j');
-      let unreadData = { threads: [] };
-      try { unreadData = JSON.parse(unreadRaw); } catch {}
-      const emails = (data.threads || []).map(t => ({
-        id: t.id,
-        from: t.from,
-        subject: t.subject,
-        date: t.date,
-        snippet: t.snippet || '',
-        labels: t.labels || [],
-        unread: (unreadData.threads || []).some(u => u.id === t.id),
-      }));
-      res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
-    } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
-    }
-    return;
-  }
-
-  // GET /api/emails/thread/:id — get full email body (JSON mode, no truncation)
-  if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
-    const threadId = url.pathname.replace('/api/emails/thread/', '');
-    try {
-      const raw = runGog('gmail', 'thread', threadId, '-j', '--results-only');
-      let body = '';
-      try {
-        const data = JSON.parse(raw);
-        const messages = data?.thread?.messages || [];
-        for (const m of messages) {
-          const parts = m.payload?.parts || [];
-          let foundHtml = '';
-          let foundPlain = '';
-          for (const p of parts) {
-            if (p.body?.data) {
-              const b64 = p.body.data.replace(/-/g, '+').replace(/_/g, '/');
-              const pad = b64.length % 4;
-              const decoded = Buffer.from(b64 + '='.repeat(pad < 2 ? 2 - pad : 0), 'base64').toString('utf8');
-              if (p.mimeType === 'text/html') foundHtml = decoded;
-              else if (p.mimeType === 'text/plain') foundPlain = decoded;
-            }
-          }
-          // Prefer plain text, fall back to HTML
-          body = cleanEmailText(foundPlain) || stripHtml(foundHtml) || '';
-          if (body) break;
-        }
-        if (!body) throw new Error('no body found');
-      } catch {
-        // Plain text fallback from gog plain output
-        try {
-          const plain = runGog('gmail', 'thread', threadId);
-          body = cleanEmailText(plain
-            .replace(/^===.*?===\s*/gm, '')
-            .replace(/^(From|To|Subject|Date):.*$/gm, '')
-            .replace(/^\s*[-=]{3,}.*$/gm, '')
-            .trim());
-        } catch { body = ''; }
-      }
-      res.end(JSON.stringify({ body }));
-    } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e), body: '' }));
-    }
-    return;
-  }
-
   // GET /api/money
   if (get('/api/money')) {
     res.end(JSON.stringify({ money: readDataFile('money', []) }));
@@ -547,6 +418,71 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });
+    return;
+  }
+
+  // GET /api/emails — list inbox threads
+  if (get('/api/emails')) {
+    try {
+      const raw = runGog('gmail', 'search', 'in:inbox', '-j');
+      let data = { threads: [], nextPageToken: '' };
+      try { data = JSON.parse(raw); } catch {}
+      const unreadRaw = runGog('gmail', 'search', 'in:inbox', 'is:unread', '-j');
+      let unreadData = { threads: [] };
+      try { unreadData = JSON.parse(unreadRaw); } catch {}
+      const emails = (data.threads || []).map(t => ({
+        id: t.id,
+        from: t.from,
+        subject: t.subject,
+        date: t.date,
+        snippet: t.snippet || '',
+        labels: t.labels || [],
+        unread: (unreadData.threads || []).some(u => u.id === t.id),
+      }));
+      res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
+    }
+    return;
+  }
+
+  // GET /api/emails/thread/:id — get full email body
+  if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
+    const threadId = url.pathname.replace('/api/emails/thread/', '');
+    try {
+      const raw = runGog('gmail', 'thread', threadId, '-j', '--results-only');
+      let body = '';
+      try {
+        const data = JSON.parse(raw);
+        const messages = data?.thread?.messages || [];
+        for (const m of messages) {
+          const parts = m.payload?.parts || [];
+          let foundHtml = '', foundPlain = '';
+          for (const p of parts) {
+            if (p.body?.data) {
+              const b64 = p.body.data.replace(/-/g, '+').replace(/_/g, '/');
+              const pad = b64.length % 4;
+              const decoded = Buffer.from(b64 + '='.repeat(pad < 2 ? 2 - pad : 0), 'base64').toString('utf8');
+              if (p.mimeType === 'text/plain') foundPlain = decoded;
+              else if (p.mimeType === 'text/html') foundHtml = decoded;
+            }
+          }
+          body = foundPlain || stripHtml(foundHtml) || '';
+          if (body) break;
+        }
+        if (!body) throw new Error('no body');
+      } catch {
+        try {
+          const plain = runGog('gmail', 'thread', threadId);
+          body = cleanEmailText(plain.replace(/^===.*?===\s*/gm, '').replace(/^(From|To|Subject|Date):.*$/gm, '').replace(/^\s*[-=]{3,}.*$/gm, '').trim());
+        } catch { body = ''; }
+      }
+      res.end(JSON.stringify({ body }));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e), body: '' }));
+    }
     return;
   }
 

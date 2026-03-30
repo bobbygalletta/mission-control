@@ -44,20 +44,20 @@ export default function App() {
     <div className="min-h-screen h-full">
       <Background />
 
-      <div className="relative z-10 max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Header connectionState={connectionState} />
 
-        <main className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <main className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <WeatherWidget />
           <CalendarWidget />
           <RemindersWidget />
           <MoneyWidget />
-          <EmailWidget />
           <DoorDashWidget />
           <BillsWidget />
           <FinnlyWidget />
           <MusicWidget />
           <HabitsWidget />
+          <EmailWidget />
         </main>
 
         <footer className="mt-6 flex items-center justify-between px-1">
