@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mc-static-v1';
+const CACHE_NAME = 'mc-static-v2';
 
 // Install: activate immediately, don't wait
 self.addEventListener('install', () => self.skipWaiting());
@@ -7,6 +7,8 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     Promise.all([
+      // Delete all old caches so stale assets are not used
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))),
       self.clients.claim(),
       // Force refresh ALL open tabs when this worker activates
       self.clients.matchAll({ type: 'window' }).then((clients) => {
