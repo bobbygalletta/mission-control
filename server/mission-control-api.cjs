@@ -17,15 +17,25 @@ function runGog(...args) {
   return r.stdout.trim();
 }
 
-// Strip HTML tags and decode common HTML entities
+// Strip HTML tags and clean up email body
 function stripHtml(html) {
   if (!html) return '';
-  return html
+  let text = html
     .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n\n')
     .replace(/<\/div>/gi, '\n')
+    .replace(/<tr[^>]*>/gi, '\n')
+    .replace(/<\/tr>/gi, '')
+    .replace(/<td[^>]*>/gi, '  ')
+    .replace(/<\/td>/gi, '')
+    .replace(/<th[^>]*>/gi, '\n')
+    .replace(/<\/th>/gi, '')
+    .replace(/<table[^>]*>/gi, '\n')
+    .replace(/<\/table>/gi, '\n')
+    .replace(/<img[^>]+>/gi, '')
+    .replace(/<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
     .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -34,8 +44,41 @@ function stripHtml(html) {
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
     .replace(/&#\d+;/g, '')
-    .replace(/https?:\/\/[^\s<>"']+[?&#][\w=&%-]+/g, (url) => { try { const u = new URL(url); return u.origin + u.pathname; } catch { return url.split('?')[0].split('#')[0]; } })
+    .replace(/[-_]{20,}\n*/g, '')
+    .replace(/SRC: \S+/g, '')
+    .replace(/^[*#]+/gm, '')
     .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return text;
+}
+
+// Clean plain text email body — strip tracking URLs and noise
+function cleanEmailText(text) {
+  if (!text) return '';
+  return text
+    // Remove bracketed URLs, keeping clean domain+path
+    .replace(/\[https?:\/\/[^\]]+\]/g, (m) => {
+      try {
+        const u = new URL(m.slice(1, -1));
+        return `[${u.origin}${u.pathname}]`;
+      } catch { return ''; }
+    })
+    // Remove raw tracking URLs
+    .replace(/https?:\/\/\S+/g, (url) => {
+      try {
+        const u = new URL(url);
+        return `${u.origin}${u.pathname}`;
+      } catch { return ''; }
+    })
+    // Remove empty brackets left over from removed URLs
+    .replace(/\[\s*\]/g, '')
+    // Collapse multiple blank lines
+    .replace(/\n{3,}/g, '\n\n')
+    // Trim trailing whitespace on each line, collapse multiple blank lines
+    .split('\n')
+    .map(l => l.trimEnd().replace(/\s+$/, '').replace(/ {2,}/g, ' '))
+    .filter((l, i, arr) => !(l === '' && arr[i-1] === ''))
+    .join('\n')
     .trim();
 }
 
@@ -374,7 +417,7 @@ const server = http.createServer((req, res) => {
             }
           }
           // Prefer plain text, fall back to HTML
-          body = foundPlain || stripHtml(foundHtml) || '';
+          body = cleanEmailText(foundPlain) || stripHtml(foundHtml) || '';
           if (body) break;
         }
         if (!body) throw new Error('no body found');
@@ -382,12 +425,11 @@ const server = http.createServer((req, res) => {
         // Plain text fallback from gog plain output
         try {
           const plain = runGog('gmail', 'thread', threadId);
-          body = plain
+          body = cleanEmailText(plain
             .replace(/^===.*?===\s*/gm, '')
             .replace(/^(From|To|Subject|Date):.*$/gm, '')
             .replace(/^\s*[-=]{3,}.*$/gm, '')
-            .replace(/\s{3,}/g, '\n\n')
-            .trim();
+            .trim());
         } catch { body = ''; }
       }
       res.end(JSON.stringify({ body }));
