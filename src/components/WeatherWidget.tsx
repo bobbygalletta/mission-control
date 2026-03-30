@@ -86,15 +86,12 @@ function getCondition(code: number): string {
 }
 
 function formatHourFromISO(isoString: string): string {
-  // Parse "2026-03-30T09:00" or "2026-03-30T15:00" format
+  // Parse "2026-03-30T12:00" — show "Now" for current hour, else hour label
   const parts = isoString.split('T');
-  const timePart = parts[1] || '';
-  const hour = parseInt(timePart.split(':')[0], 10);
-  if (hour > 23) return '';
+  const hour = parseInt(parts[1]?.split(':')[0] ?? '0', 10);
   const now = new Date();
   const currentHour = now.getHours();
-  // "Now" if within 1.5 hours of this slot
-  if (Math.abs(currentHour - hour) <= 1) return 'Now';
+  if (Math.abs(hour - currentHour) <= 1) return 'Now';
   if (hour === 0) return '12AM';
   if (hour === 12) return '12PM';
   if (hour > 12) return `${hour - 12}PM`;
@@ -116,33 +113,32 @@ export function WeatherWidget() {
 
   const fetchWeather = async () => {
     try {
+      // Fetch via API server proxy (wttr.in)
       const res = await fetch('/api/weather');
       const data = await res.json();
       if (data.error) { setError('Weather unavailable'); return; }
 
       const now = new Date();
       const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
       const isNight = currentHour < 6 || currentHour > 20;
 
       const cc = data.current_condition[0];
       const weatherDays = data.weather || [];
 
-      // wttr.in gives 3-hour slots per day. Build hourly by interpolating between known slots.
-      // Collect all raw slots across days
-      type RawSlot = { dayIdx: number; slotHour: number; tempF: number; weatherCode: string; weatherDesc: string; uvIndex: number; precipInches: number; humidity: number };
-      const rawSlots: RawSlot[] = [];
+      // Build hourly from wttr.in (3-hour slots: minutes-since-midnight = 0, 300, 600...)
+      // Interpolate to fill every hour, start from current hour
+      const allSlots: Array<{day: number; slotHour: number; tempF: number; weatherCode: string; weatherDesc: string; uvIndex: number; precipInches: number; humidity: number}> = [];
       for (let di = 0; di < Math.min(3, weatherDays.length); di++) {
         const day = weatherDays[di];
         for (const h of day.hourly || []) {
-          const slotHour = Math.floor(parseInt(h.time, 10) / 60);
+          const slotHour = Math.floor(parseInt(h.time, 10) / 60); // minutes -> hour
           if (isNaN(slotHour) || slotHour > 23) continue;
-          rawSlots.push({
-            dayIdx: di,
+          allSlots.push({
+            day: di,
             slotHour,
             tempF: parseInt(h.tempF, 10),
             weatherCode: h.weatherCode || '113',
-            weatherDesc: h.weatherDesc?.[0]?.value?.trim() || 'Unknown',
+            weatherDesc: (h.weatherDesc?.[0]?.value || 'Unknown').trim(),
             uvIndex: parseInt(h.uvIndex || '0', 10),
             precipInches: parseFloat(h.precipInches || '0'),
             humidity: parseInt(h.humidity || '50', 10),
@@ -150,81 +146,65 @@ export function WeatherWidget() {
         }
       }
 
-      // Interpolate every hour starting from NOW, through end of today + tomorrow
-      // wttr.in gives 3-hour slots: we fill in every hour between them
       const hourlyData: HourlyForecast[] = [];
-      const allSlotsToday = rawSlots.filter(s => s.dayIdx === 0).sort((a, b) => a.slotHour - b.slotHour);
-      const allSlotsTomorrow = rawSlots.filter(s => s.dayIdx === 1).sort((a, b) => a.slotHour - b.slotHour);
-      const todayDate = weatherDays[0]?.date || '';
-      const tomorrowDate = weatherDays[1]?.date || '';
-
-      // Hours from now to midnight today
-      for (let h = currentHour; h < 24; h++) {
-        const before = [...allSlotsToday].reverse().find(s => s.slotHour <= h);
-        const after = allSlotsToday.find(s => s.slotHour > h);
-        let temp = before?.tempF ?? 0, uvIdx = before?.uvIndex ?? 0, precip = before?.precipInches ?? 0;
-        let humidity = before?.humidity ?? 50, weatherCode = before?.weatherCode ?? '113', weatherDesc = before?.weatherDesc ?? 'Unknown';
-        if (before && after) {
-          const t = (h - before.slotHour) / (after.slotHour - before.slotHour);
-          temp = Math.round(before.tempF + t * (after.tempF - before.tempF));
-          uvIdx = Math.round(before.uvIndex + t * (after.uvIndex - before.uvIndex));
-          precip = Math.round((before.precipInches + t * (after.precipInches - before.precipInches)) * 100) / 100;
-          humidity = Math.round(before.humidity + t * (after.humidity - before.humidity));
-          weatherCode = before.weatherCode;
-          weatherDesc = before.weatherDesc;
-        }
-        const isCurrentSlot = h === currentHour;
-        hourlyData.push({
-          time: todayDate + 'T' + String(h).padStart(2, '0') + ':00',
-          temp, condition: weatherDesc,
-          icon: getWeatherIconWttr(weatherCode, isNight && isCurrentSlot),
-          uvIndex: uvIdx, precip, humidity,
-        });
-      }
-
-      // All hours tomorrow
-      for (let h = 0; h < 24; h++) {
-        const before = [...allSlotsTomorrow].reverse().find(s => s.slotHour <= h);
-        const after = allSlotsTomorrow.find(s => s.slotHour > h);
-        let temp = before?.tempF ?? 0, uvIdx = before?.uvIndex ?? 0, precip = before?.precipInches ?? 0;
-        let humidity = before?.humidity ?? 50, weatherCode = before?.weatherCode ?? '113', weatherDesc = before?.weatherDesc ?? 'Unknown';
-        if (before && after) {
-          const t = (h - before.slotHour) / (after.slotHour - before.slotHour);
-          temp = Math.round(before.tempF + t * (after.tempF - before.tempF));
-          uvIdx = Math.round(before.uvIndex + t * (after.uvIndex - before.uvIndex));
-          precip = Math.round((before.precipInches + t * (after.precipInches - before.precipInches)) * 100) / 100;
-          humidity = Math.round(before.humidity + t * (after.humidity - before.humidity));
-          weatherCode = before.weatherCode;
-          weatherDesc = before.weatherDesc;
-        }
-        hourlyData.push({
-          time: tomorrowDate + 'T' + String(h).padStart(2, '0') + ':00',
-          temp, condition: weatherDesc,
-          icon: getWeatherIconWttr(weatherCode, false),
-          uvIndex: uvIdx, precip, humidity,
-        });
-      }
-
-      // Daily: high/low from hourly extremes
-      const dailyData: DailyForecast[] = [];
-      for (let di = 0; di < Math.min(2, weatherDays.length); di++) {
-        const daySlots = rawSlots.filter(s => s.dayIdx === di);
+      // Hours from now through end of today + all of tomorrow
+      for (let di = 0; di < 2; di++) {
+        const daySlots = allSlots.filter(s => s.day === di).sort((a, b) => a.slotHour - b.slotHour);
         if (!daySlots.length) continue;
-        const highs = daySlots.map(s => s.tempF);
-        const maxT = Math.max(...highs);
-        const minT = Math.min(...highs);
-        const middaySlot = daySlots.find(s => s.slotHour >= 11 && s.slotHour <= 14) || daySlots[daySlots.length >> 1];
-        const avgHum = Math.round(daySlots.reduce((s, x) => s + x.humidity, 0) / daySlots.length);
+        const dayDate = weatherDays[di].date;
+        const startH = di === 0 ? currentHour : 0;
+        for (let h = startH; h < 24; h++) {
+          const before = [...daySlots].reverse().find(s => s.slotHour <= h);
+          const after = daySlots.find(s => s.slotHour > h);
+          let temp = 0, uvIdx = 0, precip = 0, humidity = 50, weatherCode = '113', weatherDesc = 'Unknown';
+          if (before && after) {
+            const t = (h - before.slotHour) / (after.slotHour - before.slotHour);
+            temp = Math.round(before.tempF + t * (after.tempF - before.tempF));
+            uvIdx = Math.round(before.uvIndex + t * (after.uvIndex - before.uvIndex));
+            precip = Math.round((before.precipInches + t * (after.precipInches - before.precipInches)) * 100) / 100;
+            humidity = Math.round(before.humidity + t * (after.humidity - before.humidity));
+            weatherCode = before.weatherCode;
+            weatherDesc = before.weatherDesc;
+          } else if (before) {
+            temp = before.tempF; uvIdx = before.uvIndex; precip = before.precipInches;
+            humidity = before.humidity; weatherCode = before.weatherCode; weatherDesc = before.weatherDesc;
+          }
+          const isNow = di === 0 && h === currentHour;
+          hourlyData.push({
+            time: dayDate + 'T' + String(h).padStart(2, '0') + ':00',
+            temp,
+            condition: weatherDesc,
+            icon: getWeatherIconWttr(weatherCode, isNight && isNow),
+            uvIndex: uvIdx,
+            precip,
+            humidity,
+          });
+        }
+      }
+
+      // Build daily forecast (today + tomorrow)
+      const dailyData: DailyForecast[] = [];
+      for (let i = 0; i < Math.min(2, weatherDays.length); i++) {
+        const d = weatherDays[i];
+        const maxT = Math.max(...(d.hourly || []).map((h: Record<string,string>) => parseInt(h.tempF || '0', 10)));
+        const minT = Math.min(...(d.hourly || []).map((h: Record<string,string>) => parseInt(h.tempF || '999', 10)));
+        const avgHumidity = Math.round(
+          (d.hourly || []).reduce((s: number, h: Record<string,string>) => s + parseInt(h.humidity || '50', 10), 0) /
+          Math.max(1, (d.hourly || []).length)
+        );
+        const midday = d.hourly?.[12];
+        const weatherCode = midday?.weatherCode || '113';
         dailyData.push({
-          day: formatDay(weatherDays[di].date, di),
-          high: maxT, low: minT,
-          condition: middaySlot?.weatherDesc || 'Unknown',
-          icon: getWeatherIconWttr(middaySlot?.weatherCode || '113', false),
-          uvIndex: middaySlot?.uvIndex || 0,
-          precip: Math.round(daySlots.reduce((s, x) => s + x.precipInches, 0) * 100) / 100,
-          humidity: avgHum,
-          sunrise: weatherDays[di].astronomy?.[0]?.sunrise || '',
-          sunset: weatherDays[di].astronomy?.[0]?.sunset || '',
+          day: formatDay(d.date, i),
+          high: maxT,
+          low: minT,
+          condition: midday?.weatherDesc?.[0]?.value?.trim() || 'Unknown',
+          icon: getWeatherIconWttr(weatherCode, false),
+          uvIndex: parseInt(midday?.uvIndex || '0', 10),
+          precip: parseFloat(d.hourly?.reduce((s: number, h: Record<string,string>) => s + parseFloat(h.precipMM || '0'), 0)?.toFixed(1) || '0'),
+          humidity: avgHumidity,
+          sunrise: d.sunrise?.[0] || '',
+          sunset: d.sunset?.[0] || '',
         });
       }
 
@@ -253,7 +233,7 @@ export function WeatherWidget() {
 
   useEffect(() => {
     fetchWeather();
-    const id = setInterval(fetchWeather, 2_000);
+    const id = setInterval(fetchWeather, 60_000);
     return () => clearInterval(id);
   }, []);
 
