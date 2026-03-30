@@ -4,6 +4,27 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Full viewport — no overflow, no gaps */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Ensure the dark body bg fills the full viewport (covers any edge gaps) */
+body {
+  background-color: #0a0a12;
+}
+
+/* Remove any right-side scrollbar gap */
+::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
 /* Prevent scroll anchor from resetting list scroll position */
 .mc-no-scroll-anchor {
   overflow-anchor: none !important;

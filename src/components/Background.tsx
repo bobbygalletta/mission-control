@@ -2,7 +2,7 @@ import React from 'react';
 
 export const Background: React.FC = () => {
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
+    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0, width: '100vw', height: '100vh' }}>
       {/* Base gradient */}
       <div
         className="absolute inset-0"

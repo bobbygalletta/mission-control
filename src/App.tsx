@@ -39,7 +39,7 @@ export default function App() {
   // Auto-reload removed — was causing visible flash/refresh
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen h-full">
       <Background />
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
