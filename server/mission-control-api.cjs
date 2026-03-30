@@ -1,10 +1,75 @@
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
 const PORT = 3001;
 const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
+
+// wttr.in code -> WMO weather code
+function wttrCodeToWMO(code) {
+  const c = parseInt(code, 10);
+  // wttr.in: 113=clear, 116=partly cloudy, 119=cloudy, 122=overcast, 143=haze
+  // 176/179=sprinkles, 182/185=drizzle, 281/284=freezing drizzle, 299/302/305/308=rain
+  // 311/314/317/320/323/326/329/332/335/338=freezing rain, 350/353/356/359/362/365/368=rain
+  // 371/374/377=snow/ice, 386/389/392=thunderstorm, 395/398/395/392=snow
+  if (c === 113) return 0;   // clear
+  if (c === 116) return 1;   // mainly clear
+  if (c === 119 || c === 122) return 3; // cloudy/overcast -> 3
+  if (c === 143) return 45;  // haze -> fog
+  if ([176, 179, 182, 185, 281, 284, 299, 302, 305, 308, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 353, 356, 359, 362, 365, 368, 371, 374, 377].includes(c)) return 61; // rain
+  if ([386, 389, 392, 395].includes(c)) return 95; // thunderstorm
+  if ([227, 230, 233].includes(c)) return 71; // snow
+  return 0;
+}
+
+// Run gog via bash login shell (needed for keychain/credential access)
+function runGog(...args) {
+  const cmd = `/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog ${args.join(' ')}`;
+  const r = spawnSync('bash', ['-lc', cmd], {
+    timeout: 20000, encoding: 'utf8',
+    env: { ...process.env, TERM: 'xterm-256color', HOME: '/Users/bobbygalletta' }
+  });
+  if (r.status !== 0) throw new Error(`gog exit ${r.status}`);
+  return r.stdout.trim();
+}
+
+function stripHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<tr[^>]*>/gi, '\n')
+    .replace(/<td[^>]*>/gi, '  ')
+    .replace(/<th[^>]*>/gi, '\n')
+    .replace(/<table[^>]*>/gi, '\n')
+    .replace(/<\/table>/gi, '\n')
+    .replace(/<img[^>]+>/gi, '')
+    .replace(/<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/&#\d+;/g, '').replace(/[-_]{20,}\n*/g, '').replace(/^[*#]+/gm, '')
+    .replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function cleanEmailText(text) {
+  if (!text) return '';
+  return text
+    .replace(/\[https?:\/\/[^\]]+\]/g, (m) => {
+      try { const u = new URL(m.slice(1, -1)); return `[${u.origin}${u.pathname}]`; } catch { return ''; }
+    })
+    .replace(/https?:\/\/\S+/g, (url) => {
+      try { const u = new URL(url); return `${u.origin}${u.pathname}`; } catch { return ''; }
+    })
+    .replace(/\[\s*\]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .split('\n').map(l => l.trimEnd()).filter((l, i, a) => !(l === '' && a[i-1] === '')).join('\n')
+    .trim();
+}
 
 function readDataFile(name, fallback = []) {
   const file = path.join(DATA_DIR, `${name}.json`);
@@ -178,20 +243,41 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/habits
+  // GET /api/habits — returns only today's daily log, auto-resets at 3am
   if (get('/api/habits')) {
-    res.end(JSON.stringify({ habits: readDataFile('habits', []) }));
+    const all = readDataFile('habits', []);
+    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const DEFAULT_DAY = { date: todayStr, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false };
+    const now = new Date();
+    if (now.getHours() >= 3) {
+      let today = all.find(h => h.date === todayStr);
+      if (!today) {
+        const otherDays = all.filter(h => h.date !== todayStr);
+        otherDays.unshift(DEFAULT_DAY);
+        writeDataFile('habits', otherDays);
+      }
+    }
+    const updated = readDataFile('habits', []);
+    const todayOnly = updated.filter(h => h.date === todayStr);
+    res.end(JSON.stringify({ habits: todayOnly.length > 0 ? todayOnly : [DEFAULT_DAY] }));
     return;
   }
 
-  // POST /api/habits — save full habits array (for Finnly daily log)
+  // POST /api/habits — save today's habits (preserves other days)
   if (post('/api/habits')) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
         const { habits } = JSON.parse(body);
-        writeDataFile('habits', habits);
+        const all = readDataFile('habits', []);
+        const todayStr = habits[0]?.date;
+        if (todayStr) {
+          const otherDays = all.filter(h => h.date !== todayStr);
+          writeDataFile('habits', [...otherDays, ...habits]);
+        } else {
+          writeDataFile('habits', habits);
+        }
         res.end(JSON.stringify({ ok: true, habits }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });
@@ -349,6 +435,210 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });
+    return;
+  }
+
+  // GET /api/weather — fetch from wttr.in and convert to Open-Meteo format
+  if (get('/api/weather')) {
+    const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
+    try {
+      let raw = '';
+      try {
+        const stat = fs.statSync(cacheFile);
+        if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
+          raw = fs.readFileSync(cacheFile, 'utf8');
+        }
+      } catch {}
+      if (!raw) {
+        raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
+        fs.writeFileSync(cacheFile, raw);
+      }
+      // Convert wttr.in JSON to Open-Meteo format for the widget
+      const wttr = JSON.parse(raw);
+      const cc = wttr.current_condition[0];
+      const weatherDays = wttr.weather || [];
+      const now = new Date();
+      const currentHour = now.getHours();
+
+      // Build Open-Meteo-style hourly array (one entry per hour, 0–23 today, 24–47 tomorrow)
+      const hourlyTimes = [];
+      const hourlyTemp = [];
+      const hourlyWeathercode = [];
+      const hourlyPrecip = [];
+      const hourlyWindspeed = [];
+      const hourlyUv = [];
+      const hourlyHumidity = [];
+
+      for (let di = 0; di < 2; di++) {
+        const day = weatherDays[di];
+        if (!day) break;
+        const daySlots = (day.hourly || []).map(h => ({
+          hour: Math.floor(parseInt(h.time, 10) / 60),
+          temp: parseInt(h.tempF, 10),
+          code: wttrCodeToWMO(h.weatherCode || '113'),
+          precip: parseFloat(h.precipInches || '0'),
+          wind: parseInt(h.windspeedMiles || '0', 10),
+          uv: parseInt(h.uvIndex || '0', 10),
+          humidity: parseInt(h.humidity || '50', 10),
+        })).filter(s => s.hour <= 23);
+
+        const startH = di === 0 ? currentHour : 0;
+        for (let h = startH; h < 24; h++) {
+          const before = [...daySlots].reverse().find(s => s.hour <= h);
+          const after = daySlots.find(s => s.hour > h);
+          const t = (before && after) ? (h - before.hour) / (after.hour - before.hour) : 0;
+          // For current hour, use actual current weather temp instead of interpolation
+          let temp = before && after
+            ? Math.round(before.temp + t * (after.temp - before.temp))
+            : (before?.temp ?? 0);
+          const precip = before && after
+            ? Math.round((before.precip + t * (after.precip - before.precip)) * 100) / 100
+            : (before?.precip ?? 0);
+          const wind = before && after
+            ? Math.round(before.wind + t * (after.wind - before.wind))
+            : (before?.wind ?? 0);
+          const uv = before && after
+            ? Math.round(before.uv + t * (after.uv - before.uv))
+            : (before?.uv ?? 0);
+          const humidity = before && after
+            ? Math.round(before.humidity + t * (after.humidity - before.humidity))
+            : (before?.humidity ?? 50);
+          let code = before?.code ?? 0;
+          // Current hour: use actual current weather
+          if (di === 0 && h === currentHour) {
+            temp = parseInt(cc.temp_F, 10);
+            code = wttrCodeToWMO(cc.weatherCode || '113');
+          }
+
+          const d = new Date(now);
+          if (di === 1) d.setDate(d.getDate() + 1);
+          const dateStr = d.toISOString().split('T')[0];
+          hourlyTimes.push(`${dateStr}T${String(h).padStart(2, '0')}:00`);
+          hourlyTemp.push(temp);
+          hourlyWeathercode.push(code);
+          hourlyPrecip.push(precip);
+          hourlyWindspeed.push(wind);
+          hourlyUv.push(uv);
+          hourlyHumidity.push(humidity);
+        }
+      }
+
+      // Daily: today + tomorrow
+      const dailyTimes = [];
+      const dailyMax = [];
+      const dailyMin = [];
+      const dailyCode = [];
+      const dailyUvMax = [];
+      const dailyPrecipSum = [];
+      for (let di = 0; di < 2; di++) {
+        const day = weatherDays[di];
+        if (!day) break;
+        const d = new Date(now);
+        if (di === 1) d.setDate(d.getDate() + 1);
+        dailyTimes.push(d.toISOString().split('T')[0]);
+        const temps = (day.hourly || []).map(h => parseInt(h.tempF, 10));
+        dailyMax.push(Math.max(...temps));
+        dailyMin.push(Math.min(...temps));
+        const middaySlot = day.hourly?.find(h => Math.floor(parseInt(h.time, 10) / 60) === 12) || day.hourly?.[day.hourly.length >> 1];
+        dailyCode.push(wttrCodeToWMO(middaySlot?.weatherCode || '113'));
+        dailyUvMax.push(parseInt(middaySlot?.uvIndex || '0', 10));
+        dailyPrecipSum.push((day.hourly || []).reduce((s, h) => s + parseFloat(h.precipInches || '0'), 0));
+      }
+
+      const result = {
+        current_weather: {
+          temperature: parseInt(cc.temp_F, 10),
+          windspeed: parseInt(cc.windspeedMiles || '0', 10),
+          weathercode: wttrCodeToWMO(cc.weatherCode || '113'),
+        },
+        hourly: {
+          time: hourlyTimes,
+          temperature_2m: hourlyTemp,
+          weathercode: hourlyWeathercode,
+          precipitation: hourlyPrecip,
+          windspeed_10m: hourlyWindspeed,
+          uv_index: hourlyUv,
+          relativehumidity_2m: hourlyHumidity,
+        },
+        daily: {
+          time: dailyTimes,
+          temperature_2m_max: dailyMax,
+          temperature_2m_min: dailyMin,
+          weathercode: dailyCode,
+          uv_index_max: dailyUvMax,
+          precipitation_sum: dailyPrecipSum,
+        },
+      };
+      res.end(JSON.stringify(result));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e) }));
+    }
+    return;
+  }
+
+  // GET /api/emails — list inbox threads
+  if (get('/api/emails')) {
+    try {
+      const raw = runGog('gmail', 'search', 'in:inbox', '-j');
+      let data = { threads: [], nextPageToken: '' };
+      try { data = JSON.parse(raw); } catch {}
+      const unreadRaw = runGog('gmail', 'search', 'in:inbox', 'is:unread', '-j');
+      let unreadData = { threads: [] };
+      try { unreadData = JSON.parse(unreadRaw); } catch {}
+      const emails = (data.threads || []).map(t => ({
+        id: t.id,
+        from: t.from,
+        subject: t.subject,
+        date: t.date,
+        snippet: t.snippet || '',
+        labels: t.labels || [],
+        unread: (unreadData.threads || []).some(u => u.id === t.id),
+      }));
+      res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
+    }
+    return;
+  }
+
+  // GET /api/emails/thread/:id — get full email body
+  if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
+    const threadId = url.pathname.replace('/api/emails/thread/', '');
+    try {
+      const raw = runGog('gmail', 'thread', threadId, '-j', '--results-only');
+      let body = '';
+      try {
+        const data = JSON.parse(raw);
+        const messages = data?.thread?.messages || [];
+        for (const m of messages) {
+          const parts = m.payload?.parts || [];
+          let foundHtml = '', foundPlain = '';
+          for (const p of parts) {
+            if (p.body?.data) {
+              const b64 = p.body.data.replace(/-/g, '+').replace(/_/g, '/');
+              const pad = b64.length % 4;
+              const decoded = Buffer.from(b64 + '='.repeat(pad < 2 ? 2 - pad : 0), 'base64').toString('utf8');
+              if (p.mimeType === 'text/plain') foundPlain = decoded;
+              else if (p.mimeType === 'text/html') foundHtml = decoded;
+            }
+          }
+          body = foundPlain || stripHtml(foundHtml) || '';
+          if (body) break;
+        }
+        if (!body) throw new Error('no body');
+      } catch {
+        try {
+          const plain = runGog('gmail', 'thread', threadId);
+          body = cleanEmailText(plain.replace(/^===.*?===\s*/gm, '').replace(/^(From|To|Subject|Date):.*$/gm, '').replace(/^\s*[-=]{3,}.*$/gm, '').trim());
+        } catch { body = ''; }
+      }
+      res.end(JSON.stringify({ body }));
+    } catch (e) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: String(e), body: '' }));
+    }
     return;
   }
 

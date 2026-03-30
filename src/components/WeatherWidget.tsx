@@ -76,18 +76,11 @@ function formatHourFromISO(isoString: string): string {
   const hour = date.getHours();
   const diffMs = date.getTime() - now.getTime();
   const diffMins = Math.round(diffMs / (1000 * 60));
-  
-  // "Now" only if this IS the current hour (diffMins == 0 means the slot's hour matches now)
   if (diffMins === 0) return 'Now';
-  // Otherwise show the actual hour label
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
-  if (hour === 0) return '12 AM';
-  if (hour === 12) return '12 PM';
-  if (hour > 12) return `${hour - 12} PM`;
-  return `${hour} AM`;
+  if (hour === 0) return '12AM';
+  if (hour === 12) return '12PM';
+  if (hour > 12) return `${hour - 12}PM`;
+  return `${hour}AM`;
 }
 
 function formatDay(dateStr: string, index: number): string {
@@ -104,8 +97,9 @@ export function WeatherWidget() {
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
 
   const fetchWeather = async () => {
+    let data = null;
     try {
-      // Fetch both current + hourly from Open-Meteo (Knoxville TN lat/lon)
+      // Try Open-Meteo directly (browser can reach it, true hourly data)
       const res = await fetch(
         'https://api.open-meteo.com/v1/forecast?latitude=35.96&longitude=-83.92' +
         '&hourly=temperature_2m,weathercode,precipitation,windspeed_10m,uv_index,relativehumidity_2m' +
@@ -113,19 +107,31 @@ export function WeatherWidget() {
         '&current_weather=true&forecast_days=2&temperature_unit=fahrenheit&windspeed_unit=mph' +
         '&precipitation_unit=inch&timezone=America%2FNew_York'
       );
-      const data = await res.json();
-      
-      // Use browser's local time — API times are in ET (timezone=America/New_York), getHours() gives local hour in ET
+      data = await res.json();
+      if (!data?.hourly) throw new Error('No hourly data');
+    } catch {
+      // Fallback: our API server cache (serves wttr.in data)
+      try {
+        const res = await fetch('/api/weather');
+        data = await res.json();
+        if (!data?.hourly) throw new Error('No hourly data');
+      } catch {
+        setError('Weather unavailable');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Process weather data (runs after successful fetch from either source)
+    try {
       const now = new Date();
       const currentHourLocal = now.getHours();
       const currentDateLocal = now.getDate();
       const isNight = currentHourLocal < 6 || currentHourLocal > 20;
-      
+
       const current = data.current_weather;
       const hourly = data.hourly;
-      
-      // Find the first hourly slot where the hour has NOT yet passed
-      // API times are in ET, getHours() gives local ET hour — they should match
+
       let currentIndex = -1;
       for (let i = 0; i < hourly.time.length; i++) {
         const apiHour = parseInt(hourly.time[i].split('T')[1].split(':')[0], 10);
@@ -135,10 +141,8 @@ export function WeatherWidget() {
           break;
         }
       }
-      // Fallback: start at beginning if nothing found
       if (currentIndex === -1) currentIndex = 0;
-      
-      // Build hourly forecast (next 36 hours = rest of today + all of tomorrow for expanded day view)
+
       const hourlyData: HourlyForecast[] = [];
       for (let i = 0; i < 36; i++) {
         const idx = currentIndex + i;
@@ -154,8 +158,7 @@ export function WeatherWidget() {
           });
         }
       }
-      
-      // Build 2-day forecast (today + tomorrow)
+
       const dailyData: DailyForecast[] = [];
       for (let i = 0; i < 2; i++) {
         const code = data.daily.weathercode[i * 24] || 0;
@@ -172,10 +175,10 @@ export function WeatherWidget() {
           sunset: '',
         });
       }
-      
+
       setWeather({
         temp: Math.round(current.temperature),
-        feelsLike: Math.round(current.temperature), // Open-Meteo doesn't have feels-like
+        feelsLike: Math.round(current.temperature),
         condition: getCondition(current.weathercode),
         icon: getWeatherIcon(current.weathercode, isNight),
         location: 'Knoxville, TN',
