@@ -89,8 +89,14 @@ export function HabitsWidget() {
   };
 
   const isToday = (dateStr: string) => {
-    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return dateStr === today;
+    const parts = dateStr.match(/(\w+)\s+(\d+),\s+(\d+)/);
+    if (!parts) return false;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mon = months.indexOf(parts[1]);
+    const day = parseInt(parts[2]);
+    const yr = parseInt(parts[3]);
+    const d = new Date();
+    return d.getFullYear() === yr && d.getMonth() === mon && d.getDate() === day;
   };
 
   const getValue = (day: DailyHabit, key: string) => (day as Record<string, unknown>)[key];
