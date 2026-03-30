@@ -4,7 +4,7 @@
     "waterAM": true,
     "waterPM": true,
     "breakfast": true,
-    "dinner": true,
+    "dinner": false,
     "walk1": true,
     "walk2": true,
     "walk3": false,

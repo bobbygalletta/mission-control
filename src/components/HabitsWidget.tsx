@@ -105,7 +105,7 @@ export function HabitsWidget() {
           {days.map((day, dayIdx) => (
             <div key={day.date} className="space-y-3">
               <p className="text-sm font-semibold text-slate-500 uppercase">{day.date} {isToday(day.date) && '(Today)'}</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 {TASKS.map(({ key, label, emoji, type }) => {
                   const value = getValue(day, key) as boolean | number;
                   if (type === 'bool') {
@@ -113,9 +113,9 @@ export function HabitsWidget() {
                       <button
                         key={key}
                         onClick={() => toggleTask(dayIdx, key as keyof DailyHabit)}
-                        className="flex items-center gap-3 px-4 py-3 rounded text-sm font-medium transition-all border border-white/[0.06] hover:bg-white/[0.05]"
+                        className="flex items-center gap-4 px-4 py-3 rounded text-sm font-medium transition-all border border-white/[0.06] hover:bg-white/[0.05]"
                       >
-                        <span className="w-6 text-center">{emoji}</span>
+                        <span className="w-8 text-center text-lg">{emoji}</span>
                         <span className={value ? 'text-emerald-400' : 'text-slate-500'}>{label}</span>
                         {value && <span className="ml-auto text-emerald-400">✓</span>}
                       </button>
@@ -123,8 +123,8 @@ export function HabitsWidget() {
                   } else {
                     return (
                       <div key={key} className="flex items-center justify-between px-4 py-3 rounded border border-white/[0.06]">
-                        <span className="flex items-center gap-3 text-sm text-slate-400">
-                          <span className="w-6 text-center">{emoji}</span>
+                        <span className="flex items-center gap-4 text-sm text-slate-400">
+                          <span className="w-8 text-center text-lg">{emoji}</span>
                           <span>{label}</span>
                         </span>
                         <div className="flex items-center gap-3">

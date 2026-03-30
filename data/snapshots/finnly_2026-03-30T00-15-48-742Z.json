@@ -2,9 +2,9 @@
   {
     "date": "Mar 29, 2026",
     "waterAM": true,
-    "waterPM": true,
+    "waterPM": false,
     "breakfast": true,
-    "dinner": true,
+    "dinner": false,
     "walk1": true,
     "walk2": true,
     "walk3": false,
