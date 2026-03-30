@@ -146,6 +146,7 @@ const server = http.createServer((req, res) => {
           const listName = (list === 'reminders' || list === 'Reminders') ? 'Reminders' : (list === 'grocery' || list === 'Grocery') ? 'Grocery' : list;
           execSync(`remindctl add "${title}" --list "${listName}"`, { timeout: 5000 });
         }
+        else if (action === 'edit' && id && title) execSync(`remindctl edit "${id}" --title "${title}"`, { timeout: 5000 });
         else if (action === 'delete' && id) execSync(`remindctl delete "${id}"`, { timeout: 5000 });
         res.end(JSON.stringify({ ok: true }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }

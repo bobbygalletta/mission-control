@@ -173,6 +173,7 @@ export function RemindersWidget() {
   const [grocery, setGrocery] = useState<ReminderItem[]>([]);
   const [loading, setLoading] = useState(true);
   const firstFetch = useRef(true);
+  const pendingAction = useRef(false); // pause polling during save operations
 
   const fetchList = async (list: ListType): Promise<ReminderItem[]> => {
     const res = await fetch(list === 'grocery' ? `${API_BASE}/api/reminders/grocery` : `${API_BASE}/api/reminders`);
@@ -196,7 +197,9 @@ export function RemindersWidget() {
 
   useEffect(() => {
     fetchAll();
-    const interval = setInterval(fetchAll, 2000);
+    const interval = setInterval(() => {
+      if (!pendingAction.current) fetchAll();
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -212,19 +215,41 @@ export function RemindersWidget() {
   };
 
   const handleAdd = (list: ListType) => (title: string) => {
-    apiAction('add', list, { title }).then(() => fetchAll()).catch((e: unknown) => alert(e instanceof Error ? e.message : 'Failed to add'));
+    pendingAction.current = true;
+    apiAction('add', list, { title }).then(() => fetchAll()).catch((e: unknown) => alert(e instanceof Error ? e.message : 'Failed to add')).finally(() => { pendingAction.current = false; });
   };
 
   const handleComplete = (list: ListType) => (item: ReminderItem) => {
-    apiAction('complete', list, { id: item.id }).then(() => fetchAll()).catch((e: unknown) => alert(e instanceof Error ? e.message : 'Failed to complete'));
+    pendingAction.current = true;
+    // Optimistically update local state immediately
+    const update = (list === 'reminders' ? setReminders : setGrocery) as (fn: (prev: ReminderItem[]) => ReminderItem[]) => void;
+    update(prev => prev.filter(i => i.id !== item.id));
+    apiAction('complete', list, { id: item.id }).catch((e: unknown) => {
+      alert(e instanceof Error ? e.message : 'Failed to complete');
+      fetchAll();
+    }).finally(() => { pendingAction.current = false; });
   };
 
   const handleDelete = (list: ListType) => (id: string) => {
-    apiAction('delete', list, { id }).then(() => fetchAll()).catch((e: unknown) => alert(e instanceof Error ? e.message : 'Failed to delete'));
+    pendingAction.current = true;
+    // Optimistically update local state immediately
+    const update = (list === 'reminders' ? setReminders : setGrocery) as (fn: (prev: ReminderItem[]) => ReminderItem[]) => void;
+    update(prev => prev.filter(i => i.id !== id));
+    apiAction('delete', list, { id }).catch((e: unknown) => {
+      alert(e instanceof Error ? e.message : 'Failed to delete');
+      fetchAll();
+    }).finally(() => { pendingAction.current = false; });
   };
 
   const handleEdit = (list: ListType) => (id: string, title: string) => {
-    apiAction('edit', list, { id, title }).then(() => fetchAll()).catch((e: unknown) => alert(e instanceof Error ? e.message : 'Failed to edit'));
+    pendingAction.current = true;
+    // Optimistically update local state immediately
+    const update = (list === 'reminders' ? setReminders : setGrocery) as (fn: (prev: ReminderItem[]) => ReminderItem[]) => void;
+    update(prev => prev.map(i => i.id === id ? { ...i, title } : i));
+    apiAction('edit', list, { id, title }).catch((e: unknown) => {
+      alert(e instanceof Error ? e.message : 'Failed to edit');
+      fetchAll();
+    }).finally(() => { pendingAction.current = false; });
   };
 
   return (
