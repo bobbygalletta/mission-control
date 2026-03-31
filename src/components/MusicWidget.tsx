@@ -121,14 +121,12 @@ export function MusicWidget() {
     } catch {}
   };
 
-  const playTrack = async (name: string, artist?: string, album?: string) => {
+  const playTrack = async (name: string, artist?: string, _album?: string) => {
     setShowResults(false);
     setSearchQuery('');
     try {
       const escapedName = name.replace(/"/g, '\\"');
       const escapedArtist = artist ? artist.replace(/"/g, '\\"') : '';
-      let _playedArtist = artist || '';
-      let _playedAlbum = album || '';
 
       if (escapedArtist) {
         // Search for the specific track by name and artist

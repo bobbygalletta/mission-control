@@ -7,6 +7,7 @@ interface DashEntry {
   amount: number;
   description: string;
   orderNum: string;    // "DD-001" — resets each Sunday
+  weekId: string;
 }
 
 const fmt = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -24,7 +25,7 @@ function getWeekId(): string {
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() + 1 - (d.getDay() || 7));
   const yearStart = new Date(d.getFullYear(), 0, 1);
-  const weekNum = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   return `${d.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 }
 
@@ -61,7 +62,7 @@ function groupByWeek(entries: DashEntry[]): WeekGroup[] {
 
 export function DoorDashWidget() {
   const [entries, setEntries] = useState<DashEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [showHistory, setShowHistory] = useState(false);

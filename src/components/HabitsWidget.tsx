@@ -100,7 +100,7 @@ export function HabitsWidget() {
     return d.getFullYear() === yr && d.getMonth() === mon && d.getDate() === day;
   };
 
-  const getValue = (day: DailyHabit, key: string) => (day as Record<string, unknown>)[key];
+  const getValue = (day: DailyHabit, key: string) => (day as unknown as Record<string, unknown>)[key];
 
   const currentValue = tracker ? getValue(days[tracker.dayIdx], tracker.task.key) as number : 0;
 
@@ -123,7 +123,7 @@ export function HabitsWidget() {
         </div>
       ) : (
         <div className="p-4 space-y-6">
-          {days.filter(isToday).map((day, dayIdx) => (
+          {days.filter((d: DailyHabit) => isToday(d.date)).map((day, dayIdx) => (
             <div key={day.date} className="space-y-3">
               <p className="text-sm font-semibold text-slate-500 uppercase">{day.date}</p>
               <div className="grid grid-cols-2 gap-4">
