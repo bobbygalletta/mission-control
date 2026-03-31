@@ -378,6 +378,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/finnly/all — return all finnly history (for history modal)
+  if (get('/api/finnly/all')) {
+    try {
+      const all = readDataFile('finnly', []);
+      const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const history = all.filter(f => f.date !== todayStr);
+      res.end(JSON.stringify({ finnly: all, history }));
+    } catch { res.writeHead(500); res.end('{"error":"Failed"}'); }
+    return;
+  }
+
   // DoorDash tracker API
   // GET /api/doordash
   if (get('/api/doordash')) {
@@ -491,22 +502,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — fetch from wttr.in and convert to Open-Meteo format
+  // GET /api/weather — serve cached weather data (supports both wttr.in and Open-Meteo formats)
   if (get('/api/weather')) {
     const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
-      let raw = '';
-      try {
-        const stat = fs.statSync(cacheFile);
-        if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
-          raw = fs.readFileSync(cacheFile, 'utf8');
-        }
-      } catch {}
-      if (!raw) {
-        raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
-        fs.writeFileSync(cacheFile, raw);
+      const raw = fs.readFileSync(cacheFile, 'utf8');
+      const data = JSON.parse(raw);
+      // If cache is already Open-Meteo format (has current_weather at top level), serve directly
+      if (data.current_weather) {
+        res.end(raw);
+        return;
       }
-      // Convert wttr.in JSON to Open-Meteo format for the widget
+      // Otherwise cache is wttr.in format — try fresh wttr.in fetch below
+    } catch {}
+    // Fetch fresh wttr.in data and convert
+    try {
+      const raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
       const wttr = JSON.parse(raw);
       const cc = wttr.current_condition[0];
       const weatherDays = wttr.weather || [];

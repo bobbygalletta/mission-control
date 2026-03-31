@@ -56,6 +56,7 @@ export function FinnlyWidget() {
     return [];
   });
   const [showHistory, setShowHistory] = useState(false);
+  const [historyData, setHistoryData] = useState<FinnlyDay[]>([]);
 
   useEffect(() => {
     // Fetch from server (source of truth for 3am reset)
@@ -112,7 +113,20 @@ export function FinnlyWidget() {
     { key: 'walk3' as const, poop: 'walk3Poop', label: 'Evening Walk' },
   ];
 
-  const history = data.filter(d => !isToday(d.date)).slice(0, 14);
+  const history = historyData.slice(0, 14);
+
+  // Fetch history when modal opens
+  useEffect(() => {
+    if (showHistory) {
+      fetch('/api/finnly/all')
+        .then(r => r.json())
+        .then(d => {
+          const hist = (d.history || []).sort((a: FinnlyDay, b: FinnlyDay) => b.date.localeCompare(a.date));
+          setHistoryData(hist);
+        })
+        .catch(() => {});
+    }
+  }, [showHistory]);
 
   return (
     <>
