@@ -22,6 +22,7 @@ export function EmailWidget() {
   const [showAll, setShowAll] = useState(false);
 
   const fetchEmails = async () => {
+    setLoading(true);
     try {
       const res = await fetch('/api/emails');
       const data = await res.json();
@@ -35,7 +36,7 @@ export function EmailWidget() {
 
   useEffect(() => { fetchEmails(); }, []);
   useEffect(() => {
-    const id = setInterval(fetchEmails, 5000);
+    const id = setInterval(fetchEmails, 60000);
     return () => clearInterval(id);
   }, []);
 
@@ -55,6 +56,13 @@ export function EmailWidget() {
           <span className="px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold">{unread} new</span>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={fetchEmails}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            title="Refresh"
+          >
+            ↻
+          </button>
           {emails.length > 12 && (
             <button
               onClick={() => setShowAll(!showAll)}
