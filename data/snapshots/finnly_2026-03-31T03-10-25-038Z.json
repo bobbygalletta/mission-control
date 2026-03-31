@@ -1,17 +1,17 @@
 [
   {
     "date": "Mar 30, 2026",
-    "waterAM": false,
-    "waterPM": false,
-    "breakfast": false,
-    "dinner": false,
+    "waterAM": true,
+    "waterPM": true,
+    "breakfast": true,
+    "dinner": true,
     "walk1": true,
-    "walk2": false,
+    "walk2": true,
     "walk3": false,
-    "walk1Poop": false,
+    "walk1Poop": true,
     "walk2Poop": false,
     "walk3Poop": false,
-    "treats": 0
+    "treats": 2
   },
   {
     "date": "Mar 29, 2026",
