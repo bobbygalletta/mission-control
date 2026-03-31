@@ -129,23 +129,19 @@ export function CalendarWidget() {
         if (!d.events) return;
         const dayEvents = d.events.filter((e: CalendarEvent) => {
           if (!isFamily(e.calendar)) return false;
-          // For all-day events: show next 7 days
+          // All-day events: match exact date against viewDate
           if (e.allDay) {
             const eventParts = e.date.match(/^(\d+)\/(\d+)\/(\d+)$/);
             if (eventParts) {
               const eMonth = parseInt(eventParts[1]), eDay = parseInt(eventParts[2]), eYear = parseInt(eventParts[3]);
-              const now = new Date();
-              for (let d = 0; d <= 7; d++) {
-                const check = new Date(now);
-                check.setDate(check.getDate() + d);
-                if (check.getMonth() + 1 === eMonth && check.getDate() === eDay && check.getFullYear() === eYear) return true;
-              }
-              return false;
+              const vMonth = viewDate.getMonth() + 1, vDay = viewDate.getDate(), vYear = viewDate.getFullYear();
+              return eMonth === vMonth && eDay === vDay && eYear === vYear;
             }
+            return false;
           }
           const eDate = e.date.toLowerCase();
           const todayStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-          const todayStrShort = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+          const todayStrShort = new Date().toLocaleDatestring('en-US', { month: '2-digit', day: '2-digit' });
           const viewStr = viewDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
           const viewStrShort = viewDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
           if (label === 'today') return eDate.startsWith('today') || eDate.includes(todayStr) || eDate.includes(todayStrShort);
