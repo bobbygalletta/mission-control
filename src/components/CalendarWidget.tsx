@@ -129,6 +129,20 @@ export function CalendarWidget() {
         if (!d.events) return;
         const dayEvents = d.events.filter((e: CalendarEvent) => {
           if (!isFamily(e.calendar)) return false;
+          // For all-day events: show next 7 days
+          if (e.allDay) {
+            const eventParts = e.date.match(/^(\d+)\/(\d+)\/(\d+)$/);
+            if (eventParts) {
+              const eMonth = parseInt(eventParts[1]), eDay = parseInt(eventParts[2]), eYear = parseInt(eventParts[3]);
+              const now = new Date();
+              for (let d = 0; d <= 7; d++) {
+                const check = new Date(now);
+                check.setDate(check.getDate() + d);
+                if (check.getMonth() + 1 === eMonth && check.getDate() === eDay && check.getFullYear() === eYear) return true;
+              }
+              return false;
+            }
+          }
           const eDate = e.date.toLowerCase();
           const todayStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
           const todayStrShort = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
