@@ -141,7 +141,7 @@ export function CalendarWidget() {
           }
           const eDate = e.date.toLowerCase();
           const todayStr = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-          const todayStrShort = new Date().toLocaleDatestring('en-US', { month: '2-digit', day: '2-digit' });
+          const todayStrShort = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
           const viewStr = viewDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
           const viewStrShort = viewDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
           if (label === 'today') return eDate.startsWith('today') || eDate.includes(todayStr) || eDate.includes(todayStrShort);

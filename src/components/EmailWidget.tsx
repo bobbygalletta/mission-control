@@ -30,6 +30,7 @@ export function EmailWidget() {
         setUnread(data.unread || 0);
       }
     } catch (e) { console.error('Failed to fetch emails', e); }
+    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchEmails(); }, []);

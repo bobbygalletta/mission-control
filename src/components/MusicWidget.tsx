@@ -29,7 +29,7 @@ export function MusicWidget() {
   const [showResults, setShowResults] = useState(false);
   const [addedToPlaylist, setAddedToPlaylist] = useState(false);
   const MAX_HISTORY = 10;
-  const [playHistory, setPlayHistory] = useState<(Track | null)[]>(Array(MAX_HISTORY).fill(null));
+  const [playHistory] = useState<(Track | null)[]>(Array(MAX_HISTORY).fill(null));
   const [showHistory, setShowHistory] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addedSongRef = useRef<string | null>(null);
@@ -127,8 +127,8 @@ export function MusicWidget() {
     try {
       const escapedName = name.replace(/"/g, '\\"');
       const escapedArtist = artist ? artist.replace(/"/g, '\\"') : '';
-      let playedArtist = artist || '';
-      let playedAlbum = album || '';
+      let _playedArtist = artist || '';
+      let _playedAlbum = album || '';
 
       if (escapedArtist) {
         // Search for the specific track by name and artist

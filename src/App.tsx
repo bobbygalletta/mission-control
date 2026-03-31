@@ -11,8 +11,6 @@ import { DoorDashWidget } from './components/DoorDashWidget';
 import { EmailWidget } from './components/EmailWidget';
 import { Background } from './components/Background';
 import { useAgentStatus } from './hooks/useAgentStatus';
-import { useEffect } from 'react';
-
 export default function App() {
   const { connectionState } = useAgentStatus(2000);
 

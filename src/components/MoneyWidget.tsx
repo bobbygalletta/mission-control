@@ -59,11 +59,6 @@ export function MoneyWidget() {
     });
   }, []);
 
-  const currentEntries = entries.filter(e => {
-    // Show entries for selected account (tagged in description) or untagged
-    // Since the API doesn't have account field, we'll show all and let user filter
-    return true;
-  });
 
   // Use saved balance for selected account
   const balance = balances[account];

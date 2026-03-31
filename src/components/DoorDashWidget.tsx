@@ -49,7 +49,6 @@ function groupByWeek(entries: DashEntry[]): WeekGroup[] {
       const weekEntries = groups[weekId];
       const total = weekEntries.reduce((s, e) => s + e.amount, 0);
       // Label like "Week 12 · Mar 23 – Mar 29"
-      const first = weekEntries[weekEntries.length - 1]?.date || '';
       const last = weekEntries[0]?.date || '';
       return {
         weekId,
