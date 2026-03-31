@@ -9,7 +9,23 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <script>navigator.serviceWorker&&navigator.serviceWorker.register('/sw.js')</script>
+    <script>
+(function() {
+  if (!('serviceWorker' in navigator)) return;
+  var prev = sessionStorage.getItem('sw_ver') || '';
+  navigator.serviceWorker.register('/sw.js').then(function(reg) {
+    sessionStorage.setItem('sw_ver', '3');
+    if (prev && prev !== '3') window.location.reload();
+    reg.addEventListener('updatefound', function() {
+      var w = reg.installing;
+      if (!w) return;
+      w.addEventListener('statechange', function() {
+        if (w.state === 'activated' && w.scriptURL && w.scriptURL.indexOf('v=3') === -1) window.location.reload();
+      });
+    });
+  });
+})();
+    </script>
   </head>
   <body>
     <div id="root"></div>
