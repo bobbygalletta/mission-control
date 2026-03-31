@@ -89,8 +89,9 @@ export function HabitsWidget() {
   };
 
   const isToday = (dateStr: string) => {
-    const parts = dateStr.match(/(\w+)\s+(\d+),\s+(\d+)/);
-    if (!parts) return false;
+    if (typeof dateStr !== 'string') return true; // default to today if malformed
+    const parts = dateStr.match(/^(\w+)\s+(\d+),\s+(\d+)$/);
+    if (!parts) return true;
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const mon = months.indexOf(parts[1]);
     const day = parseInt(parts[2]);
