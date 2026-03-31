@@ -1,14 +1,14 @@
 [
   {
-    "date": "Mar 29, 2026",
-    "water": 4,
-    "stretch": 1,
-    "laundry": true,
-    "bedMade": true,
-    "vacuum": 2,
+    "date": "Mar 31, 2026",
+    "water": 0,
+    "stretch": 0,
+    "laundry": false,
+    "bedMade": false,
+    "vacuum": 0,
     "breakfast": false,
-    "lunch": true,
-    "dinner": true
+    "lunch": false,
+    "dinner": false
   },
   {
     "date": "Mar 30, 2026",
@@ -20,5 +20,16 @@
     "breakfast": true,
     "lunch": true,
     "dinner": false
+  },
+  {
+    "date": "Mar 29, 2026",
+    "water": 4,
+    "stretch": 1,
+    "laundry": true,
+    "bedMade": true,
+    "vacuum": 2,
+    "breakfast": false,
+    "lunch": true,
+    "dinner": true
   }
 ]
