@@ -104,11 +104,13 @@ const server = http.createServer(async (req, res) => {
 
   try {
     let data = fs.readFileSync(filePath);
-    // HTML: rewrite asset refs to include build-time version tag so browser always gets fresh content
+    // HTML: rewrite asset refs + SW URL to include dist version tag
     if (ext === '.html') {
-      const ver = Date.now();
+      // Version based on dist mtime — only changes when files are rebuilt
+      const ver = Math.floor(fs.statSync(DIST_DIR).mtimeMs);
       const html = data.toString('utf8')
-        .replace(/(src|href)="(\/[^"]+)\.(js|css)"/g, `$1="$2.$3?v=${ver}"`);
+        .replace(/(src|href)="(\/[^"]+)\.(js|css)"/g, `$1="$2.$3?v=${ver}"`)
+        .replace(/\/sw\.js(['"])/g, `/sw.js?v=${ver}$1`);
       res.writeHead(200, {
         'Content-Type': contentType,
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
