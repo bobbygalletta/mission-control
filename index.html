@@ -9,26 +9,34 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
     <script>
 (function() {
   if (!('serviceWorker' in navigator)) return;
-  var prev = sessionStorage.getItem('sw_ver') || '';
+  var KEY = 'mc_ver';
+  var prev = localStorage.getItem(KEY) || '';
   navigator.serviceWorker.register('/sw.js').then(function(reg) {
-    sessionStorage.setItem('sw_ver', '3');
-    if (prev && prev !== '3') window.location.reload();
+    // Extract version from the SW URL (set by prod server as ?v=dist_mtime)
+    var url = reg.active ? reg.active.scriptURL : '';
+    var m = url.match(/v=(\d+)/);
+    var cur = m ? m[1] : Date.now() + '';
+    localStorage.setItem(KEY, cur);
+    if (prev && prev !== cur) { window.location.reload(); return; }
     reg.addEventListener('updatefound', function() {
       var w = reg.installing;
       if (!w) return;
       w.addEventListener('statechange', function() {
-        if (w.state === 'activated' && w.scriptURL && w.scriptURL.indexOf('v=3') === -1) window.location.reload();
+        if (w.state === 'activated') {
+          var sv = localStorage.getItem(KEY) || '';
+          if (sv !== cur) { window.location.reload(); }
+        }
       });
     });
   });
 })();
     </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
