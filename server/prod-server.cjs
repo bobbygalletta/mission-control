@@ -103,14 +103,26 @@ const server = http.createServer(async (req, res) => {
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
   try {
-    const data = fs.readFileSync(filePath);
-    // No-cache for HTML, long cache for assets
-    const isHtml = ext === '.html';
-    res.writeHead(200, {
-      'Content-Type': contentType,
-      ...(isHtml ? { 'Cache-Control': 'no-cache, no-store, must-revalidate' } : { 'Cache-Control': 'public, max-age=31536000, immutable' }),
-    });
-    res.end(data);
+    let data = fs.readFileSync(filePath);
+    // HTML: rewrite asset refs to include build-time version tag so browser always gets fresh content
+    if (ext === '.html') {
+      const ver = Date.now();
+      const html = data.toString('utf8')
+        .replace(/\.(js|css)(['"])/g, `.$1?v=${ver}$2`)
+        .replace(/(['"]\/)assets\//g, `$1/assets/`);
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Last-Modified': new Date().toUTCString(),
+        'ETag': `"${ver}"`,
+      });
+      res.end(html);
+    } else {
+      res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'public, max-age=31536000, immutable' });
+      res.end(data);
+    }
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
