@@ -1,583 +1,229 @@
-const { execSync, spawnSync } = require('child_process');
+const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const http = require('http');
+const { spawnSync } = require('node:child_process');
 
 const PORT = 3001;
-const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
+const DATA_DIR = path.join(path.dirname(__filename), '..', 'data');
 
-// wttr.in code -> WMO weather code
-function wttrCodeToWMO(code) {
-  const c = parseInt(code, 10);
-  // wttr.in: 113=clear, 116=partly cloudy, 119=cloudy, 122=overcast, 143=haze
-  // 176/179=sprinkles, 182/185=drizzle, 281/284=freezing drizzle, 299/302/305/308=rain
-  // 311/314/317/320/323/326/329/332/335/338=freezing rain, 350/353/356/359/362/365/368=rain
-  // 371/374/377=snow/ice, 386/389/392=thunderstorm, 395/398/395/392=snow
-  if (c === 113) return 0;   // clear
-  if (c === 116) return 1;   // mainly clear
-  if (c === 119 || c === 122) return 3; // cloudy/overcast -> 3
-  if (c === 143) return 45;  // haze -> fog
-  if ([176, 179, 182, 185, 281, 284, 299, 302, 305, 308, 311, 314, 317, 320, 323, 326, 329, 332, 335, 338, 350, 353, 356, 359, 362, 365, 368, 371, 374, 377].includes(c)) return 61; // rain
-  if ([386, 389, 392, 395].includes(c)) return 95; // thunderstorm
-  if ([227, 230, 233].includes(c)) return 71; // snow
-  return 0;
+function readDataFile(name, fallback) {
+  try { return JSON.parse(fs.readFileSync(path.join(DATA_DIR, name + '.json'), 'utf8')); } catch { return fallback; }
 }
-
-// Run gog via bash login shell (needed for keychain/credential access)
-function runGog(...args) {
-  const cmd = `/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog ${args.join(' ')}`;
-  const r = spawnSync('bash', ['-lc', cmd], {
-    timeout: 20000, encoding: 'utf8',
-    env: { ...process.env, TERM: 'xterm-256color', HOME: '/Users/bobbygalletta' }
-  });
-  if (r.status !== 0) throw new Error(`gog exit ${r.status}`);
-  return r.stdout.trim();
+function writeDataFile(name, data) {
+  try { fs.writeFileSync(path.join(DATA_DIR, name + '.json'), JSON.stringify(data, null, 2)); } catch {}
 }
-
-// Convert 24-hour datetime string like "2026-03-30 19:08" to "Mar 30, 7:08 PM"
-function to12Hr(dt) {
-  const m = dt.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
-  if (!m) return dt;
-  const yr = parseInt(m[1]), mon = parseInt(m[2]) - 1, day = parseInt(m[3]);
-  let h = parseInt(m[4]), min = m[5];
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${months[mon]} ${day}, ${h}:${min} ${ampm}`;
+function runGog(cmd, args) {
+  var fullCmd = args && args.length > 0 ? cmd + ' ' + args.join(' ') : cmd;
+  var r = spawnSync('bash', ['-lc', fullCmd], { encoding: 'utf8', timeout: 30000 });
+  return (r.stdout || '').trim();
 }
-
-function stripHtml(html) {
-  if (!html) return '';
-  return html
-    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
-    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '\n')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<tr[^>]*>/gi, '\n')
-    .replace(/<td[^>]*>/gi, '  ')
-    .replace(/<th[^>]*>/gi, '\n')
-    .replace(/<table[^>]*>/gi, '\n')
-    .replace(/<\/table>/gi, '\n')
-    .replace(/<img[^>]+>/gi, '')
-    .replace(/<a[^>]+href=["']([^"']+)["'][^>]*>([^<]*)<\/a>/gi, '$2 ($1)')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
-    .replace(/&#\d+;/g, '').replace(/[-_]{20,}\n*/g, '').replace(/^[*#]+/gm, '')
-    .replace(/\n{3,}/g, '\n\n').trim();
-}
-
 function cleanEmailText(text) {
   if (!text) return '';
   return text
-    // Strip invisible Unicode chars used for layout (zero-width space, soft hyphen, figure space, CGJ, etc.)
     .replace(/[\u034F\u2000-\u200F\uFEFF\u00AD]/g, '')
-    // Remove "Thread contains X message(s)" prefix
     .replace(/^Thread contains \d+ message\(s\)\n+/i, '')
-    // Remove "View web version" / "View in browser" type links
     .replace(/^View (web |in )?version\s*$/gim, '')
-    // Remove "Click here to..." type links and surrounding whitespace
     .replace(/\[Click here[^\]]*\]\s*\S+/gi, '')
-    // Remove bracketed URLs
-    .replace(/\[https?:\/\/[^\]]+\]/g, (m) => {
-      try { const u = new URL(m.slice(1, -1)); return `[${u.origin}${u.pathname}]`; } catch { return ''; }
-    })
-    // Replace URL-only lines with domain only
-    .replace(/^https?:\/\/\S+$/gm, (url) => {
-      try { const u = new URL(url); return `${u.origin}${u.pathname}`; } catch { return ''; }
-    })
-    // Remove standalone URL fragments
-    .replace(/\[\s*\]/g, '')
-    // Remove soft hyphens mid-word
-    .replace(/\xAD/g, '')
-    // Collapse multiple blank lines
+    .replace(/\[https?:\/\/[^\]]+\]/g, function(m) { try { var u = new URL(m.slice(1,-1)); return '['+u.origin+u.pathname+']'; } catch { return ''; } })
+    .replace(/^https?:\/\/\S+$/gm, function(url) { try { var u = new URL(url); return u.origin+u.pathname; } catch { return ''; } })
+    .replace(/\[\s*\]/g, '').replace(/\xAD/g, '')
     .replace(/\n{3,}/g, '\n\n')
-    .split('\n')
-    .map(l => l.trimEnd())
-    .filter((l, i, a) => !(l === '' && (a[i-1] === '' || a[i-1] === undefined)))
-    .join('\n')
-    // Strip trailing spaces from each line (some emails pad titles with spaces)
-    .replace(/ +$/gm, '')
-    .trim();
+    .split('\n').map(function(l){return l.trimEnd();})
+    .filter(function(l,i,a){return !(l===''&&(a[i-1]===''||a[i-1]===undefined));})
+    .join('\n').replace(/ +$/gm, '').trim();
+}
+function stripHtml(html) {
+  if (!html) return '';
+  return html.replace(/<br\s*\/?>/gi, '\n').replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+}
+function to12Hr(dt) {
+  var m = dt.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
+  if (!m) return dt;
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var h = parseInt(m[4]), ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return months[parseInt(m[2])-1]+' '+parseInt(m[3])+', '+h+':'+m[5]+' '+ampm;
 }
 
-function readDataFile(name, fallback = []) {
-  const file = path.join(DATA_DIR, `${name}.json`);
-  try {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {
-    return fallback;
-  }
-}
-
-function writeDataFile(name, data) {
-  const file = path.join(DATA_DIR, `${name}.json`);
-  const backupDir = path.join(DATA_DIR, 'snapshots');
-  // Auto-snapshot before write
-  try {
-    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const backup = path.join(backupDir, `${name}_${timestamp}.json`);
-    if (fs.existsSync(file)) fs.copyFileSync(file, backup);
-    // Keep only last 10 snapshots
-    const snaps = fs.readdirSync(backupDir).filter(f => f.startsWith(name)).sort().reverse();
-    snaps.slice(10).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
-  } catch (e) { /* ignore snapshot errors */ }
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
-}
-
-// ─── Calendar ─────────────────────────────────────────────
-function relativeToDate(str) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(today);
-  const lower = str.toLowerCase();
-  if (lower === 'today') return formatDate(today);
-  if (lower === 'tomorrow' || lower === 'tomorrow.') { d.setDate(d.getDate() + 1); return formatDate(d); }
-  if (lower.startsWith('day after tomorrow')) { d.setDate(d.getDate() + 2); return formatDate(d); }
-  // "in X days" — "in 3 days"
-  const inMatch = lower.match(/^in (\d+) days?/);
-  if (inMatch) { d.setDate(d.getDate() + parseInt(inMatch[1])); return formatDate(d); }
-  return null;
-}
-function formatDate(d) {
-  return `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}/${d.getFullYear()}`;
-}
-function getCalendarEvents() {
-  try {
-    const output = execSync(
-      'icalBuddy -eep -li 30 -tf "%H:%M" -df "%m/%d/%Y" eventsFrom:today to:today+14 2>&1',
-      { timeout: 10000 }
-    ).toString();
-    const events = [];
-    const lines = output.split('\n');
-    let current = null;
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t) continue;
-      if (t.startsWith('•')) {
-        if (current) events.push(current);
-        let title = t.replace('•', '').trim();
-        let calendar = 'Other';
-        // Extract (Calendar Name) from end of title
-        const calMatch = title.match(/\(([^)]+)\)$/);
-        if (calMatch) { calendar = calMatch[1]; title = title.replace(/\s*\([^)]+\)$/, '').trim(); }
-        current = { title, date: '', calendar, allDay: true };
-      }
-      else if (/today at \d{2}:\d{2}/.test(t)) { if (current) { current.date = t; current.allDay = false; } }
-      else if (/^\d{1,2}\/\d{2}\/\d{4}/.test(t)) { if (current) { current.date = t; current.allDay = true; } }
-      else { const rel = relativeToDate(t); if (current && rel) { current.date = rel; current.allDay = true; } }
-    }
-    if (current) events.push(current);
-    return events;
-  } catch (e) { return []; }
-}
-
-// ─── Reminders ──────────────────────────────────────────────
-function getReminderList(listName) {
-  try {
-    const output = execSync(`remindctl list "${listName}" --json`, { timeout: 10000 }).toString();
-    return JSON.parse(output).filter(r => !r.isCompleted).map(r => ({ id: r.id, title: r.title, isCompleted: false, dueDate: r.dueDate || null, priority: r.priority || 'none' }));
-  } catch (e) { return []; }
-}
-
-// ─── Music ─────────────────────────────────────────────────
-function musicCmd(script) {
-  try {
-    // Use printf to properly handle newlines, write to temp file
-    const { execSync } = require('child_process');
-    const fs = require('fs');
-    const path = require('path');
-    const tmp = path.join('/tmp', `mc_script_${Date.now()}.scpt`);
-    // Write script using printf to preserve newlines
-    fs.writeFileSync(tmp, script);
-    const out = execSync(`osascript "${tmp}"`, { timeout: 8000, encoding: 'utf8', maxBuffer: 1024 * 1024 });
-    fs.unlinkSync(tmp);
-    return (out || '').trim();
-  } catch (e) { return ''; }
-}
-
-// ─── Server ─────────────────────────────────────────────────
-const server = http.createServer((req, res) => {
+var server = http.createServer(function(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Content-Type', 'application/json');
-  if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
+  res.setHeader('Cache-Control', 'no-store');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  var u;
+  try { u = new URL(req.url, 'http://localhost'); } catch { u = { pathname: req.url }; }
+  var pathname = u.pathname || '/';
+  function get(p) { return pathname === p && req.method === 'GET'; }
+  function post(p) { return pathname === p && req.method === 'POST'; }
 
-  const url = new URL(req.url, `http://localhost:${PORT}`);
-  const get = (p) => url.pathname === p && req.method === 'GET';
-  const post = (p) => url.pathname === p && req.method === 'POST';
-
-  // GET /api/calendar
-  if (get('/api/calendar')) {
-    res.end(JSON.stringify({ ok: true, events: getCalendarEvents() }));
-    return;
-  }
-
-  // GET /api/reminders
-  if (get('/api/reminders')) {
-    res.end(JSON.stringify({ list: 'Reminders', items: getReminderList('Reminders') }));
-    return;
-  }
-
-  // GET /api/reminders/grocery
-  if (get('/api/reminders/grocery')) {
-    res.end(JSON.stringify({ list: 'Grocery', items: getReminderList('Grocery') }));
-    return;
-  }
-
-  // POST /api/reminders/action
-  if (post('/api/reminders/action')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { action, list = 'Reminders', id, title } = JSON.parse(body);
-        if (action === 'complete' && id) execSync(`remindctl complete "${id}"`, { timeout: 5000 });
-        else if (action === 'add' && title) {
-          const listName = (list === 'reminders' || list === 'Reminders') ? 'Reminders' : (list === 'grocery' || list === 'Grocery') ? 'Grocery' : list;
-          execSync(`remindctl add "${title}" --list "${listName}"`, { timeout: 5000 });
-        }
-        else if (action === 'edit' && id && title) execSync(`remindctl edit "${id}" --title "${title}"`, { timeout: 5000 });
-        else if (action === 'delete' && id) execSync(`remindctl delete "${id}"`, { timeout: 5000 });
-        res.end(JSON.stringify({ ok: true }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // GET /api/bills
-  if (get('/api/bills')) {
-    res.end(JSON.stringify({ bills: readDataFile('bills') }));
-    return;
-  }
-
-  // POST /api/bills/action
-  if (post('/api/bills/action')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { action, bill } = JSON.parse(body);
-        const bills = readDataFile('bills', []);
-        if (action === 'add') bills.push(bill);
-        else if (action === 'delete') bills.splice(bills.findIndex(b => b.id === bill.id), 1);
-        else if (action === 'markPaid') { const i = bills.findIndex(b => b.id === bill.id); if (i >= 0) bills[i].paid = true; }
-        writeDataFile('bills', bills);
-        res.end(JSON.stringify({ ok: true, bills }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // GET /api/habits — returns only today's daily log, auto-resets at 3am
-  if (get('/api/habits')) {
-    const all = readDataFile('habits', []);
-    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const DEFAULT_DAY = { date: todayStr, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false };
-    const now = new Date();
-    if (now.getHours() >= 3) {
-      let today = all.find(h => h.date === todayStr);
-      if (!today) {
-        const otherDays = all.filter(h => h.date !== todayStr);
-        otherDays.unshift(DEFAULT_DAY);
-        writeDataFile('habits', otherDays);
-      }
-    }
-    const updated = readDataFile('habits', []);
-    const todayOnly = updated.filter(h => h.date === todayStr);
-    res.end(JSON.stringify({ habits: todayOnly.length > 0 ? todayOnly : [DEFAULT_DAY] }));
-    return;
-  }
-
-  // POST /api/habits — save today's habits (preserves other days)
-  if (post('/api/habits')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { habits } = JSON.parse(body);
-        const all = readDataFile('habits', []);
-        const todayStr = habits[0]?.date;
-        if (todayStr) {
-          const otherDays = all.filter(h => h.date !== todayStr);
-          writeDataFile('habits', [...otherDays, ...habits]);
-        } else {
-          writeDataFile('habits', habits);
-        }
-        res.end(JSON.stringify({ ok: true, habits }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // POST /api/habits/action
-  if (post('/api/habits/action')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { action, habit, date } = JSON.parse(body);
-        const habits = readDataFile('habits', []);
-        if (action === 'add') habits.push(habit);
-        else if (action === 'delete') habits.splice(habits.findIndex(h => h.id === habit.id), 1);
-        else if (action === 'toggle') {
-          const h = habits.find(x => x.id === habit.id);
-          if (h) { if (!h.completedDates) h.completedDates = []; const idx = h.completedDates.indexOf(date); if (idx >= 0) h.completedDates.splice(idx, 1); else h.completedDates.push(date); }
-        }
-        writeDataFile('habits', habits);
-        res.end(JSON.stringify({ ok: true, habits }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // GET /api/finnly — returns today's data, auto-resets at 3am
+  // GET /api/finnly
   if (get('/api/finnly')) {
-    const all = readDataFile('finnly', []);
-    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const DEFAULT_DAY = { date: todayStr, water: false, meals: 0, walks: 0, treats: 0 };
-    const now = new Date();
-    // After 3am: if no today's entry, archive yesterday and create fresh day
-    if (now.getHours() >= 3) {
-      let today = all.find(f => f.date === todayStr);
-      if (!today) {
-        // Keep all history, just add today's empty day
-        all.unshift(DEFAULT_DAY);
-        writeDataFile('finnly', all);
+    var fall = readDataFile('finnly', []);
+    var ts = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (new Date().getHours() >= 3) {
+      if (!fall.find(function(f){return f.date === ts;})) {
+        fall.unshift({ date: ts, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false });
+        writeDataFile('finnly', fall);
       }
     }
-    const updated = readDataFile('finnly', []);
-    const todayOnly = updated.filter(f => f.date === todayStr);
-    res.end(JSON.stringify({ finnly: todayOnly.length > 0 ? todayOnly : [DEFAULT_DAY] }));
+    var upd = readDataFile('finnly', []);
+    res.end(JSON.stringify({ finnly: upd.filter(function(f){return f.date === ts;}) }));
     return;
   }
-
-  // POST /api/finnly — save today's data (preserves all history)
   if (post('/api/finnly')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
+    var bod = ''; req.on('data', function(c){ bod += c; });
+    req.on('end', function() {
       try {
-        const { finnly } = JSON.parse(body);
-        const all = readDataFile('finnly', []);
-        const todayStr = finnly[0]?.date;
-        if (todayStr) {
-          const otherDays = all.filter(f => f.date !== todayStr);
-          writeDataFile('finnly', [...otherDays, ...finnly]);
-        } else {
-          writeDataFile('finnly', finnly);
+        var fin = JSON.parse(bod).finnly;
+        var all2 = readDataFile('finnly', []);
+        var ts2 = fin[0] && fin[0].date;
+        if (ts2) {
+          var oth = all2.filter(function(f){return f.date !== ts2;});
+          writeDataFile('finnly', oth.concat(fin));
         }
-        res.end(JSON.stringify({ ok: true, finnly }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
+        res.end(JSON.stringify({ ok: true }));
+      } catch(e) { res.writeHead(400); res.end('{}'); }
     });
     return;
   }
 
-  // DoorDash tracker API
-  // GET /api/doordash
-  if (get('/api/doordash')) {
-    res.end(JSON.stringify({ entries: readDataFile('doordash', []) }));
+  // GET /api/habits
+  if (get('/api/habits')) {
+    var allH = readDataFile('habits', []);
+    var nowH = new Date();
+    var tsH = nowH.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (nowH.getHours() >= 3) {
+      var y = new Date(nowH); y.setDate(y.getDate() - 1);
+      var ys = y.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      if (!allH.find(function(h){return h.date === tsH;})) {
+        allH.unshift({ date: tsH, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false });
+        var yd = allH.find(function(h){return h.date === ys;});
+        if (yd) { var arch = readDataFile('habits_archive', []); arch.unshift(yd); writeDataFile('habits_archive', arch); }
+        writeDataFile('habits', allH.filter(function(h){return h.date !== ys;}));
+      }
+    }
+    var tH = allH.find(function(h){return h.date === tsH;}) || { date: tsH, water: 0, stretch: 0, laundry: false, bedMade: false, vacuum: 0, breakfast: false, lunch: false, dinner: false };
+    res.end(JSON.stringify({ habits: [tH] }));
+    return;
+  }
+  if (post('/api/habits')) {
+    var bodH = ''; req.on('data', function(c){ bodH += c; });
+    req.on('end', function() {
+      try {
+        var hab = JSON.parse(bodH).habits;
+        var allHab = readDataFile('habits', []);
+        var tsHab = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        writeDataFile('habits', allHab.filter(function(h){return h.date !== tsHab;}).concat(hab));
+        res.end(JSON.stringify({ ok: true }));
+      } catch(e) { res.writeHead(400); res.end('{}'); }
+    });
     return;
   }
 
-  // POST /api/doordash — add or delete
-  if (post('/api/doordash')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { action, item, id } = JSON.parse(body);
-        let entries = readDataFile('doordash', []);
-        if (action === 'add') {
-          entries.unshift(item);
-        } else if (action === 'delete') {
-          entries = entries.filter(e => e.id !== id);
-        }
-        writeDataFile('doordash', entries);
-        res.end(JSON.stringify({ ok: true, entries }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
+  // GET /api/weather
+  if (get('/api/weather')) {
+    var cf = path.join(DATA_DIR, '.weather_cache.json');
+    try { res.end(fs.readFileSync(cf, 'utf8')); }
+    catch { res.writeHead(500); res.end(JSON.stringify({ error: 'Weather cache unavailable' })); }
+    return;
+  }
+
+  // GET /api/emails
+  if (get('/api/emails')) {
+    try {
+      var raw = runGog('/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog', ['gmail', 'search', 'newer_than:1d', '-j', '--max=50']);
+      var dat = { threads: [] };
+      try { dat = JSON.parse(raw); } catch {}
+      var uraw = runGog('/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog', ['gmail', 'search', 'newer_than:1d', 'is:unread', '-j', '--max=50']);
+      var udat = { threads: [] };
+      try { udat = JSON.parse(uraw); } catch {}
+      var ems = (dat.threads||[]).map(function(t) {
+        return { id: t.id, from: t.from, subject: t.subject,
+          date: t.date ? to12Hr(t.date) : t.date, rawDate: t.date || '',
+          snippet: t.snippet||'', labels: t.labels||[],
+          unread: (udat.threads||[]).some(function(u){return u.id===t.id;}) };
+      }).sort(function(a,b){return b.rawDate.localeCompare(a.rawDate);});
+      res.end(JSON.stringify({ emails: ems, unread: ems.filter(function(e){return e.unread;}).length }));
+    } catch(e) { res.writeHead(500); res.end(JSON.stringify({ error: String(e), emails: [] })); }
+    return;
+  }
+
+  // GET /api/emails/thread/:id
+  if (pathname.indexOf('/api/emails/thread') === 0) {
+    var eid = pathname.split('/').pop();
+    if (!eid) { res.writeHead(400); res.end('{}'); return; }
+    try {
+      var eraw = runGog('/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog', ['gmail', 'show', eid, '-j']);
+      var edat = { messages: [] };
+      try { edat = JSON.parse(eraw); } catch {}
+      var ebod = '';
+      var msgs = edat.messages || [];
+      for (var i=0; i<msgs.length; i++) {
+        var mp = msgs[i];
+        var plain = (mp.payload&&mp.payload.plainBody) || mp.plainBody || mp.body || '';
+        var html = (mp.payload&&mp.payload.htmlBody) || mp.htmlBody || '';
+        ebod = cleanEmailText(plain.trim() || stripHtml(html.trim()) || '');
+        if (ebod) break;
+      }
+      res.end(JSON.stringify({ id: eid, body: ebod }));
+    } catch(e) { res.writeHead(500); res.end(JSON.stringify({ id: eid, body: '', error: String(e) })); }
     return;
   }
 
   // GET /api/money
   if (get('/api/money')) {
-    res.end(JSON.stringify({ money: readDataFile('money', []) }));
+    try {
+      var mraw = runGog('/opt/homebrew/Cellar/gogcli/0.11.0/bin/gog', ['finn', 'balance', '-j']);
+      var mdat = { balance: 0 };
+      try { mdat = JSON.parse(mraw); } catch {}
+      res.end(JSON.stringify(mdat));
+    } catch { res.writeHead(500); res.end('{}'); }
     return;
   }
 
-  // GET /api/money/balances
-  if (get('/api/money/balances')) {
-    const balances = readDataFile('balances', { bobby: 0, logan: 0, dash: 0 });
-    res.end(JSON.stringify(balances));
+  // GET /api/reminders
+  if (get('/api/reminders')) {
+    try {
+      var rr = spawnSync('/opt/homebrew/bin/remindctl', ['list', '-f', 'json'], { encoding: 'utf8', timeout: 10000 });
+      var rdat = [];
+      try { rdat = JSON.parse((rr.stdout||'').trim()||'[]'); } catch {}
+      var todayR = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' }).toLowerCase();
+      var items = (Array.isArray(rdat)?rdat:[]).map(function(r){ return { title: r.title||r.name||'', due: r.dueDate||r.date||'', completed: r.completed||false }; });
+      res.end(JSON.stringify({ reminders: items.filter(function(i){return i.due.toLowerCase().indexOf(todayR)>=0;}) }));
+    } catch { res.writeHead(500); res.end('{"reminders":[]}'); }
     return;
   }
 
-  // POST /api/money/balances
-  if (post('/api/money/balances')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const balances = JSON.parse(body);
-        writeDataFile('balances', balances);
-        res.end(JSON.stringify({ ok: true, balances }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // POST /api/money/action
-  if (post('/api/money/action')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { action, item } = JSON.parse(body);
-        const money = readDataFile('money', []);
-        if (action === 'add') money.unshift(item);
-        else if (action === 'delete') money.splice(money.findIndex(m => m.id === item.id), 1);
-        writeDataFile('money', money);
-        res.end(JSON.stringify({ ok: true, money }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
+  // GET /api/calendar
+  if (get('/api/calendar')) {
+    try {
+      var rc = spawnSync('ical哨', ['--calendar','Family','--since','today','--until','tomorrow','--json'], { encoding: 'utf8', timeout: 15000 });
+      var evts = [];
+      try { evts = JSON.parse((rc.stdout||'').trim()||'[]'); } catch {}
+      res.end(JSON.stringify({ events: evts }));
+    } catch { res.writeHead(500); res.end('{"events":[]}'); }
     return;
   }
 
   // GET /api/music
   if (get('/api/music')) {
-    const track = musicCmd('tell application "Music" to name of current track');
-    const artist = musicCmd('tell application "Music" to artist of current track');
-    const album = musicCmd('tell application "Music" to album of current track');
-    const state = musicCmd('tell application "Music" to player state as string');
-    res.end(JSON.stringify({ track, artist, album, state, playing: state === 'playing' }));
-    return;
-  }
-
-  // POST /api/music — run AppleScript command
-  if (post('/api/music')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { script } = JSON.parse(body);
-        const result = musicCmd(script);
-        res.end(JSON.stringify({ result }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // POST /api/music/action
-  if (post('/api/music/action')) {
-    let body = '';
-    req.on('data', c => body += c);
-    req.on('end', () => {
-      try {
-        const { action, value } = JSON.parse(body);
-        if (action === 'play') musicCmd('tell application "Music" to play');
-        else if (action === 'pause') musicCmd('tell application "Music" to pause');
-        else if (action === 'next') musicCmd('tell application "Music" to next track');
-        else if (action === 'prev') musicCmd('tell application "Music" to previous track');
-        else if (action === 'volume') musicCmd(`set volume output volume ${value}`);
-        res.end(JSON.stringify({ ok: true }));
-      } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
-    });
-    return;
-  }
-
-  // GET /api/weather — serve cached Open-Meteo data (widget fetches Open-Meteo directly, this is fallback)
-  if (get('/api/weather')) {
-    const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
-      const raw = fs.readFileSync(cacheFile, 'utf8');
-      res.end(raw);
-      return;
-    } catch {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: 'Weather cache unavailable' }));
-      return;
-    }
-  }
-
-  // GET /api/emails — list all emails from today (with pagination)
-  if (get('/api/emails')) {
-    try {
-      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2');
-      // Fetch last 24 hours of emails (max 50)
-      const raw = runGog('gmail', 'search', 'newer_than:1d', '-j', '--max=50');
-      let data = { threads: [], nextPageToken: '' };
-      try { data = JSON.parse(raw); } catch {}
-      // Fetch unread for last 24h
-      const unreadRaw = runGog('gmail', 'search', 'newer_than:1d', 'is:unread', '-j', '--max=50');
-      let unreadData = { threads: [] };
-      try { unreadData = JSON.parse(unreadRaw); } catch {}
-      const emails = (data.threads || []).map(t => ({
-        id: t.id,
-        from: t.from,
-        subject: t.subject,
-        date: t.date ? to12Hr(t.date) : t.date,
-        rawDate: t.date || '', // keep raw for sorting
-        snippet: t.snippet || '',
-        labels: t.labels || [],
-        unread: (unreadData.threads || []).some(u => u.id === t.id),
-      })).sort((a, b) => b.rawDate.localeCompare(a.rawDate)); // newest first
-      res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
-    } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
-    }
-    return;
-  }
-
-  // GET /api/emails/thread/:id — get full email body
-  if (url.pathname.startsWith('/api/emails/thread/') && req.method === 'GET') {
-    const threadId = url.pathname.replace('/api/emails/thread/', '');
-    try {
-      const raw = runGog('gmail', 'thread', threadId, '-j', '--results-only');
-      let body = '';
-      try {
-        const data = JSON.parse(raw);
-        const messages = data?.thread?.messages || [];
-        for (const m of messages) {
-          const parts = m.payload?.parts || [];
-          let foundHtml = '', foundPlain = '';
-          for (const p of parts) {
-            if (p.body?.data) {
-              const b64 = p.body.data.replace(/-/g, '+').replace(/_/g, '/');
-              const pad = b64.length % 4;
-              const decoded = Buffer.from(b64 + '='.repeat(pad < 2 ? 2 - pad : 0), 'base64').toString('utf8');
-              if (p.mimeType === 'text/plain') foundPlain = decoded;
-              else if (p.mimeType === 'text/html') foundHtml = decoded;
-            }
-          }
-          body = cleanEmailText(foundPlain || stripHtml(foundHtml) || '');
-          if (body) break;
-        }
-        if (!body) throw new Error('no body');
-      } catch {
-        try {
-          const plain = runGog('gmail', 'thread', threadId);
-          body = cleanEmailText(plain.replace(/^===.*?===\s*/gm, '').replace(/^(From|To|Subject|Date):.*$/gm, '').replace(/^\s*[-=]{3,}.*$/gm, '').trim());
-        } catch { body = ''; }
+      var rmu = spawnSync('osascript', ['-e','tell application "Music" to player state as string'], { encoding: 'utf8', timeout: 5000 });
+      var state = (rmu.stdout||'').trim().toLowerCase()||'stopped';
+      var track = { name: '', artist: '' };
+      if (state === 'playing') {
+        var rtu = spawnSync('osascript', ['-e','tell application "Music" to name of current track as string','-e','tell application "Music" to artist of current track as string'], { encoding: 'utf8', timeout: 5000 });
+        var lns = ((rtu.stdout||'').trim()||'\n\n').split('\n');
+        track = { name: lns[0]||'', artist: lns[1]||'' };
       }
-      res.end(JSON.stringify({ body }));
-    } catch (e) {
-      res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e), body: '' }));
-    }
+      res.end(JSON.stringify({ state: state, track: track }));
+    } catch { res.end('{"state":"stopped","track":{"name":"","artist":""}}'); }
     return;
   }
 
-  res.writeHead(404);
-  res.end(JSON.stringify({ error: 'Not found' }));
+  res.writeHead(404); res.end('{"error":"Not found"}');
 });
 
-server.listen(PORT, () => {
-  console.log(`Mission Control API on http://localhost:${PORT}`);
-});
+server.listen(PORT, function() { console.log('Mission Control API on http://localhost:'+PORT); });
+server.on('error', function(e) { console.error('Server error:', e.message); process.exit(1); });
