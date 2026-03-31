@@ -3,6 +3,22 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
+// Register service worker — forces all tabs to reload when new version deployed
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then((reg) => {
+    reg.addEventListener('updatefound', () => {
+      const worker = reg.installing;
+      if (!worker) return;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated') {
+          // New SW activated — force this tab to reload so new code runs
+          window.location.reload();
+        }
+      });
+    });
+  });
+}
+
 // Error boundary to catch render crashes
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
