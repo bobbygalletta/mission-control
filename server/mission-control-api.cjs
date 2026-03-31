@@ -596,13 +596,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/emails — list inbox threads
+  // GET /api/emails — list all emails from the last 24 hours
   if (get('/api/emails')) {
     try {
-      const raw = runGog('gmail', 'search', 'in:inbox', '-j');
+      const raw = runGog('gmail', 'search', 'newer_than:1d', '-j');
       let data = { threads: [], nextPageToken: '' };
       try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = runGog('gmail', 'search', 'in:inbox', 'is:unread', '-j');
+      const unreadRaw = runGog('gmail', 'search', 'newer_than:1d', 'is:unread', '-j');
       let unreadData = { threads: [] };
       try { unreadData = JSON.parse(unreadRaw); } catch {}
       const emails = (data.threads || []).map(t => ({
