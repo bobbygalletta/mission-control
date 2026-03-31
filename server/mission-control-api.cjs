@@ -611,10 +611,11 @@ const server = http.createServer((req, res) => {
   // GET /api/emails — list all emails from the last 24 hours
   if (get('/api/emails')) {
     try {
-      const raw = runGog('gmail', 'search', 'newer_than:1d', '-j');
+      const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2');
+      const raw = runGog('gmail', 'search', `after:${today}`, '-j');
       let data = { threads: [], nextPageToken: '' };
       try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = runGog('gmail', 'search', 'newer_than:1d', 'is:unread', '-j');
+      const unreadRaw = runGog('gmail', 'search', `after:${today}`, 'is:unread', '-j');
       let unreadData = { threads: [] };
       try { unreadData = JSON.parse(unreadRaw); } catch {}
       const emails = (data.threads || []).map(t => ({
