@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Recipe Rip</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#FFF; --surface:#F7F7F7; --border:#E5E5E5;
+      --text:#1A1A1A; --text-sec:#6B6B6B; --text-muted:#9B9B9B;
+      --accent:#FF6B35; --green:#22C55E; --red:#EF4444;
+      --r:16px;
+    }
+    body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100dvh; }
+    .header { position:sticky; top:0; z-index:100; background:rgba(255,255,255,0.92); backdrop-filter:blur(16px); border-bottom:1px solid var(--border); padding:0 20px; }
+    .header-inner { max-width:600px; margin:0 auto; height:60px; display:flex; align-items:center; }
+    .logo { display:flex; align-items:center; gap:8px; cursor:pointer; }
+    .logo-icon { width:36px; height:36px; background:var(--accent); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+    .logo-text { font-size:18px; font-weight:700; letter-spacing:-0.3px; }
+    .main { max-width:600px; margin:0 auto; padding:0 20px 40px; }
+    .input-section { padding:24px 0 16px; }
+    .input-label { font-size:13px; font-weight:600; color:var(--text-sec); margin-bottom:10px; }
+    .input-row { display:flex; gap:10px; }
+    .url-input { flex:1; height:52px; border:1.5px solid var(--border); border-radius:14px; padding:0 16px; font-size:15px; font-family:inherit; background:var(--bg); color:var(--text); outline:none; transition:border-color 0.15s; }
+    .url-input:focus { border-color:var(--accent); }
+    .rip-btn { height:52px; padding:0 22px; background:var(--accent); color:white; border:none; border-radius:14px; font-size:15px; font-weight:600; font-family:inherit; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
+    .rip-btn:hover { background:#e85a2a; }
+    .rip-btn:disabled { opacity:0.5; }
+    .tabs { display:flex; gap:4px; background:var(--surface); border-radius:12px; padding:4px; margin-bottom:20px; }
+    .tab { flex:1; height:38px; border:none; border-radius:9px; background:transparent; font-size:14px; font-weight:500; font-family:inherit; color:var(--text-muted); cursor:pointer; }
+    .tab.active { background:var(--bg); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+    .tab-badge { background:var(--accent); color:white; border-radius:10px; padding:1px 7px; font-size:12px; font-weight:600; margin-left:4px; }
+    .loading-wrap { display:flex; flex-direction:column; align-items:center; padding:60px 20px; gap:16px; }
+    .spinner { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+    .loading-text { font-size:14px; color:var(--text-sec); }
+    .error-box { background:#FEF2F2; border:1px solid #FECACA; border-radius:var(--r); padding:20px; margin:20px 0; font-size:14px; color:var(--red); }
+    .recipe-hero { position:relative; }
+    .recipe-hero img { width:100%; height:220px; object-fit:cover; border-radius:16px 16px 0 0; }
+    .recipe-hero-placeholder { width:100%; height:160px; background:linear-gradient(135deg,#FFF0EB,#FFE4D6); border-radius:16px 16px 0 0; display:flex; align-items:center; justify-content:center; font-size:64px; }
+    .recipe-source { position:absolute; bottom:12px; right:12px; background:rgba(0,0,0,0.55); color:white; font-size:11px; padding:4px 8px; border-radius:8px; }
+    .recipe-body { padding:20px; }
+    .recipe-title { font-size:22px; font-weight:700; line-height:1.25; margin-bottom:8px; letter-spacing:-0.3px; }
+    .recipe-author { font-size:13px; color:var(--text-muted); margin-bottom:14px; }
+    .recipe-meta { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+    .meta-chip { background:var(--surface); border-radius:8px; padding:5px 10px; font-size:12px; font-weight:500; color:var(--text-sec); }
+    .section-title { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; padding-top:4px; }
+    .ingredients-list { list-style:none; display:flex; flex-direction:column; gap:2px; margin-bottom:24px; }
+    .ingredients-list li { padding:10px 14px; background:var(--surface); border-radius:10px; font-size:15px; line-height:1.4; }
+    .instructions-list { list-style:none; display:flex; flex-direction:column; gap:12px; margin-bottom:24px; }
+    .instructions-list li { display:flex; gap:12px; font-size:15px; line-height:1.55; }
+    .step-num { width:28px; height:28px; border-radius:50%; background:var(--accent); color:white; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .save-bar { position:sticky; bottom:0; left:0; right:0; background:rgba(255,255,255,0.95); backdrop-filter:blur(16px); border-top:1px solid var(--border); padding:12px 20px; padding-bottom:max(12px,env(safe-area-inset-bottom)); max-width:600px; margin:0 auto; }
+    .save-btn { width:100%; height:52px; background:var(--accent); color:white; border:none; border-radius:14px; font-size:16px; font-weight:600; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+    .save-btn.saved { background:var(--green); }
+    .saved-list { display:flex; flex-direction:column; gap:12px; padding-top:8px; }
+    .saved-card { background:var(--surface); border-radius:16px; padding:16px; cursor:pointer; transition:background 0.15s; display:flex; gap:14px; align-items:flex-start; }
+    .saved-card:hover { background:#EFEFEF; }
+    .saved-thumb { width:64px; height:64px; border-radius:10px; object-fit:cover; flex-shrink:0; }
+    .saved-thumb-placeholder { width:64px; height:64px; border-radius:10px; flex-shrink:0; background:linear-gradient(135deg,#FFF0EB,#FFE4D6); display:flex; align-items:center; justify-content:center; font-size:28px; }
+    .saved-info { flex:1; min-width:0; }
+    .saved-title { font-size:15px; font-weight:600; margin-bottom:4px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .saved-meta { font-size:12px; color:var(--text-muted); display:flex; gap:8px; flex-wrap:wrap; }
+    .saved-actions { flex-shrink:0; }
+    .mini-btn { width:34px; height:34px; border-radius:8px; border:1px solid var(--border); background:var(--bg); display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; }
+    .mini-btn.delete:hover { background:#FEF2F2; border-color:#FECACA; }
+    .empty-state { text-align:center; padding:60px 20px; }
+    .empty-icon { font-size:56px; margin-bottom:16px; }
+    .empty-title { font-size:18px; font-weight:600; margin-bottom:8px; }
+    .empty-desc { font-size:14px; color:var(--text-muted); line-height:1.5; }
+    .back-btn { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:500; color:var(--accent); background:none; border:none; cursor:pointer; padding:16px 0; font-family:inherit; }
+    .search-wrap { position:relative; margin-bottom:16px; }
+    .search-input { width:100%; height:46px; border:1.5px solid var(--border); border-radius:12px; padding:0 16px 0 44px; font-size:15px; font-family:inherit; background:var(--surface); color:var(--text); outline:none; }
+    .search-input:focus { border-color:var(--accent); background:var(--bg); }
+    .search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:16px; }
+    .toast { position:fixed; bottom:90px; left:50%; transform:translateX(-50%) translateY(20px); background:#1A1A1A; color:white; padding:12px 20px; border-radius:12px; font-size:14px; font-weight:500; white-space:nowrap; opacity:0; transition:all 0.25s; pointer-events:none; z-index:200; }
+    .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .desc { font-size:14px; color:var(--text-sec); line-height:1.6; margin-bottom:20px; }
+    .recent-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .recent-label { font-size:13px; font-weight:600; color:var(--text-sec); }
+    .view-all { font-size:12px; color:var(--accent); background:none; border:none; cursor:pointer; font-family:inherit; font-weight:500; }
+    @media(max-width:480px){ .main{padding:0 16px 40px} .recipe-title{font-size:20px} }
+  </style>
+</head>
+<body>
+<header class="header">
+  <div class="header-inner">
+    <div class="logo" id="logoBtn">
+      <div class="logo-icon">🍴</div>
+      <span class="logo-text">Recipe Rip</span>
+    </div>
+  </div>
+</header>
+<main class="main" id="app"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+// ── State ───────────────────────────────────────────
+const STORAGE_KEY = 'recipe_rip_saved_v2';
+let state = { view:'home', recipe:null, saved:JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'), searchQuery:'' };
+let toastTimer = null;
+
+// ── Helpers ─────────────────────────────────────────
+function clean(s){ if(!s)return''; return String(s).replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' ').trim(); }
+function getHost(url){ try{return new URL(url).hostname.replace('www.','')}catch{return''} }
+function formatTime(iso){ if(!iso)return''; try{ const m=iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/); if(!m)return''; return[m[1]&&m[1]+'d',m[2]&&m[2]+'h',m[3]&&m[3]+'m'].filter(Boolean).join(' '); }catch{return''} }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+function saveSaved(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state.saved)); }
+function isSaved(id){ return state.saved.some(r=>r._id===id); }
+function deleteSaved(id,e){ e.stopPropagation(); state.saved=state.saved.filter(r=>r._id!==id); saveSaved(); showToast('Deleted'); render(); }
+
+// ── API ─────────────────────────────────────────────
+// Use CORS proxy + direct fetch to recipe sites
+async function ripRecipe(url){
+  if(!url||!url.startsWith('http')){ showToast('Enter a full URL starting with https://'); return; }
+  state.view='loading'; state.loadingUrl=url; render();
+  try{
+    // Use allorigins CORS proxy
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+    const resp = await fetch(proxyUrl);
+    if(!resp.ok) throw new Error('Failed to fetch page');
+    const data = await resp.json();
+    const html = data.contents;
+    const recipe = extractRecipe(html, url);
+    if(!recipe) throw new Error('No recipe found on this page. Try a different URL.');
+    recipe._id = Date.now().toString();
+    recipe._saved = isSaved(recipe._id);
+    state.recipe = recipe;
+    state.view = 'detail';
+  }catch(e){
+    state.errorMsg = e.message;
+    state.view = 'error';
+  }
+  render();
+}
+
+// ── Extraction ──────────────────────────────────────
+function extractRecipe(html, url){
+  // Try JSON-LD first
+  const ldMatches = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
+  for(const match of ldMatches){
+    try{
+      const json = JSON.parse(cleanHtmlEntities(match.replace(/<[^>]+>/g,'')));
+      const recipe = findRecipeInJSON(json);
+      if(recipe) return recipe;
+    }catch{}
+  }
+  // Microdata fallback
+  const fromMatch = html.match(/itemprop=["'](?:name|recipeIngredient|recipeInstructions)["'][^>]*>([^<]+)/gi);
+  if(fromMatch && fromMatch.length > 2) {
+    const title = html.match(/itemprop=["']name["'][^>]*>([^<]+)/)?.[1]?.trim() || '';
+    const ingredients = [...html.matchAll(/itemprop=["']recipeIngredient["'][^>]*>([^<]+)/gi)].map(m=>m[1].trim()).filter(Boolean);
+    const instructions = [...html.matchAll(/itemprop=["']recipeInstructions["'][^>]*>([^<]+)/gi)].map(m=>m[1].trim()).filter(Boolean);
+    if(title || ingredients.length) return { title, ingredients, instructions, sourceUrl:url, sourceHost:getHost(url) };
+  }
+  // Heuristic
+  const title = (html.match(/<h1[^>]*class=["'][^"']*recipe[^"']*["'][^>]*>([^<]+)/i)?.[1] || html.match(/<h1[^>]*class=["'][^"']*entry-title[^"']*["'][^>]*>([^<]+)/i)?.[1] || html.match(/<title>([^<]+)/i)?.[1] || '').trim().split('|')[0].split('–')[0].trim();
+  const ingredients = [...html.matchAll(/(?:class|id)=["'][^"']*(?:ingredient|recipe-ingredient)[^"']*["'][^>]*>[\s\S]*?<li>([^<]+)/gi)].map(m=>m[1].trim()).filter(s=>s.length<200);
+  const instructions = [...html.matchAll(/(?:class|id)=["'][^"']*(?:instruction|step|direction)[^"']*["'][^>]*>[\s\S]*?<li>([^<]+)/gi)].map(m=>m[1].trim()).filter(s=>s.length>10);
+  if(title||ingredients.length) return { title, ingredients:ingredients.slice(0,30), instructions:instructions.slice(0,50), sourceUrl:url, sourceHost:getHost(url) };
+  return null;
+}
+function findRecipeInJSON(data){
+  if(!data) return null;
+  if(Array.isArray(data)){ for(const item of data){ const f=findRecipeInJSON(item); if(f)return f; } return null; }
+  if(typeof data==='object'){
+    const t = data['@type'];
+    if(t==='Recipe'||(Array.isArray(t)&&t.includes('Recipe'))){
+      const img = data.image;
+      return {
+        title: data.name||'',
+        author: typeof data.author==='object'?data.author.name:data.author||'',
+        description: data.description||'',
+        image: Array.isArray(img)?img[0]:typeof img==='string'?img:img?.url||'',
+        prepTime:data.prepTime||'', cookTime:data.cookTime||'', totalTime:data.totalTime||'',
+        servings: data.recipeYield||data.yield||'',
+        cuisine: data.recipeCuisine||'', category: data.recipeCategory||'',
+        ingredients: (data.recipeIngredient||[]).map(i=>typeof i==='string'?i:i.text||i.name||''),
+        instructions: flattenInstructions(data.recipeInstructions||[]),
+        sourceUrl:'', sourceHost:''
+      };
+    }
+    if(data['@graph']) return findRecipeInJSON(data['@graph']);
+    if(data.mainEntityOfPage) return findRecipeInJSON(data.mainEntityOfPage);
+  }
+  return null;
+}
+function flattenInstructions(instr){
+  if(typeof instr==='string') return instr.split(/\n+/).map(s=>s.trim()).filter(s=>s.length>5);
+  return instr.map(i=>{
+    if(typeof i==='string') return i.trim();
+    if(i['@type']==='HowToSection'&&i.itemListElement) return i.itemListElement.map(s=>typeof s==='string'?s.trim():(s.text||s.name||'').trim()).filter(Boolean);
+    return (i.text||i.name||'').trim();
+  }).flat().filter(s=>s.length>5);
+}
+function cleanHtmlEntities(s){ return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&nbsp;/g,' '); }
+
+// ── Render ──────────────────────────────────────────
+function render(){
+  const app = document.getElementById('app');
+  const V = state.view;
+  const R = state.recipe;
+  const savedCount = state.saved.length;
+  const filtered = state.searchQuery ? state.saved.filter(r=>(r.title||'').toLowerCase().includes(state.searchQuery.toLowerCase())||(r.ingredients||[]).some(i=>i.toLowerCase().includes(state.searchQuery.toLowerCase()))) : state.saved;
+
+  if(V==='loading'){
+    app.innerHTML=`<div class="loading-wrap"><div class="spinner"></div><p class="loading-text">Extracting recipe…</p><p class="loading-text" style="font-size:12px;color:var(--text-muted);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clean(state.loadingUrl||'')}</p></div>`;
+    return;
+  }
+  if(V==='error'){
+    app.innerHTML=`
+      <div class="input-section"><div class="input-row">
+        <input class="url-input" id="urlInput2" type="url" placeholder="https://www.seriouseats.com/recipe…" onkeydown="if(event.key==='Enter')ripRecipe(this.value)" autofocus>
+        <button class="rip-btn" onclick="ripRecipe(document.getElementById('urlInput2').value)">Rip It ↵</button>
+      </div></div>
+      <div class="error-box"><p>${clean(state.errorMsg||'Something went wrong')}</p></div>
+      <div class="empty-state"><div class="empty-icon">🔍</div><p class="empty-title">No recipe found</p><p class="empty-desc">Try Serious Eats, AllRecipes, NYT Cooking, or Bon Appetit.</p></div>`;
+    return;
+  }
+  if(V==='detail'&&R){
+    const steps = Array.isArray(R.instructions)?R.instructions:[];
+    const ings = Array.isArray(R.ingredients)?R.ingredients:[];
+    app.innerHTML=`
+      <button class="back-btn" onclick="state.view='home';state.recipe=null;render()">← Back</button>
+      ${R.image?`<div class="recipe-hero"><img src="${clean(R.image)}" alt="${clean(R.title)}" onerror="this.outerHTML='<div class=recipe-hero-placeholder>🍽️</div>'"><span class="recipe-source">${getHost(R.sourceUrl)}</span></div>`:`<div class="recipe-hero-placeholder">🍽️</div>`}
+      <div class="recipe-body">
+        <h1 class="recipe-title">${clean(R.title)}</h1>
+        ${R.author?`<p class="recipe-author">by ${clean(R.author)}</p>`:''}
+        <div class="recipe-meta">
+          ${(R.totalTime||R.cookTime||R.prepTime)?`<span class="meta-chip">⏱ ${formatTime(R.totalTime)||formatTime(R.cookTime)||formatTime(R.prepTime)||'—'}</span>`:''}
+          ${R.servings?`<span class="meta-chip">👥 ${clean(R.servings)}</span>`:''}
+          ${R.cuisine?`<span class="meta-chip">🌍 ${clean(R.cuisine)}</span>`:''}
+        </div>
+        ${R.description?`<p class="desc">${clean(R.description)}</p>`:''}
+        ${ings.length?`<p class="section-title">Ingredients</p><ul class="ingredients-list">${ings.map(i=>`<li>${clean(i)}</li>`).join('')}</ul>`:''}
+        ${steps.length?`<p class="section-title">Instructions</p><ol class="instructions-list">${steps.map((s,i)=>`<li><span class="step-num">${i+1}</span><span>${clean(s)}</span></li>`).join('')}</ol>`:''}
+      </div>
+      <div class="save-bar">
+        <button class="save-btn ${R._saved?'saved':''}" onclick="toggleSave()">${R._saved?'✓ Saved':'+ Save Recipe'}</button>
+      </div>`;
+    return;
+  }
+  if(V==='saved'){
+    app.innerHTML=`
+      <button class="back-btn" onclick="state.view='home';render()">← Home</button>
+      ${savedCount>0?`<div class="search-wrap"><span class="search-icon">🔍</span><input class="search-input" type="search" placeholder="Search recipes…" value="${clean(state.searchQuery)}" oninput="state.searchQuery=this.value;render()"></div>`:''}
+      ${savedCount===0?`<div class="empty-state"><div class="empty-icon">📖</div><p class="empty-title">No saved recipes yet</p><p class="empty-desc">Rip a recipe and tap "Save Recipe" to keep it here forever.</p></div>`:''}
+      ${savedCount>0&&filtered.length===0?`<div class="empty-state"><div class="empty-icon">🔍</div><p class="empty-title">No matches</p></div>`:''}
+      ${filtered.length?`<div class="saved-list">${filtered.map(r=>`<div class="saved-card" onclick="showDetail2('${r._id}')">
+        ${r.image?`<img class="saved-thumb" src="${clean(r.image)}" alt="" onerror="this.style.display='none'">`:`<div class="saved-thumb-placeholder">🍽️</div>`}
+        <div class="saved-info"><p class="saved-title">${clean(r.title)}</p><div class="saved-meta"><span>${r.ingredients?.length||0} ingredients</span><span>${getHost(r.sourceUrl)}</span></div></div>
+        <div class="saved-actions"><button class="mini-btn delete" onclick="deleteSaved('${r._id}',event)" title="Delete">🗑</button></div>
+      </div>`).join('')}</div>`:''}`;
+    return;
+  }
+  // Home
+  app.innerHTML=`
+    <div class="input-section">
+      <p class="input-label">Paste a recipe URL</p>
+      <div class="input-row">
+        <input class="url-input" id="urlInput" type="url" placeholder="https://www.seriouseats.com/recipe…" onkeydown="if(event.key==='Enter')ripRecipe(this.value)" autofocus>
+        <button class="rip-btn" onclick="ripRecipe(document.getElementById('urlInput').value)">Rip It ↵</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active">Rip</button>
+      <button class="tab" onclick="state.view='saved';render()">Saved${savedCount>0?'<span class="tab-badge">'+savedCount+'</span>':''}</button>
+    </div>
+    ${savedCount>0?`<div style="margin-bottom:20px">
+      <div class="recent-header"><p class="recent-label">Recent Saves</p><button class="view-all" onclick="state.view='saved';render()">View all →</button></div>
+      <div class="saved-list">${state.saved.slice(0,3).map(r=>`<div class="saved-card" onclick="showDetail2('${r._id}')">
+        ${r.image?`<img class="saved-thumb" src="${clean(r.image)}" alt="" onerror="this.style.display='none'">`:`<div class="saved-thumb-placeholder">🍽️</div>`}
+        <div class="saved-info"><p class="saved-title">${clean(r.title)}</p><div class="saved-meta"><span>${r.ingredients?.length||0} ingredients</span><span>${getHost(r.sourceUrl)}</span></div></div>
+      </div>`).join('')}</div>
+    </div>`:''}
+    <div class="empty-state" style="padding:40px 0">
+      <div class="empty-icon">🍴</div>
+      <p class="empty-title">Stop reading. Start cooking.</p>
+      <p class="empty-desc">Paste any recipe URL above — Serious Eats, NYT Cooking, AllRecipes, Bon Appetit and more. Get just the recipe. No ads, no life story.</p>
+    </div>`;
+}
+
+function showDetail2(id){
+  const r = state.saved.find(s=>s._id===id);
+  if(r){ state.recipe=r; state.view='detail'; render(); }
+}
+function toggleSave(){
+  if(!state.recipe) return;
+  const id = state.recipe._id;
+  if(isSaved(id)){
+    state.saved = state.saved.filter(r=>r._id!==id);
+    showToast('Removed');
+  } else {
+    state.saved.unshift({...state.recipe});
+    showToast('Recipe saved!');
+  }
+  state.recipe._saved = !isSaved(id);
+  saveSaved();
+  render();
+}
+
+// Init
+document.getElementById('logoBtn').onclick = () => { state.view='home'; state.recipe=null; render(); };
+render();
+</script>
+</body>
+</html>

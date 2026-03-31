@@ -708,10 +708,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  res.writeHead(404);
-  res.end(JSON.stringify({ error: 'Not found' }));
+
+  // GET /recipe-rip — serve the Recipe Rip HTML app (static file)
+  if (get('/recipe-rip') || get('/recipe-rip.html')) {
+    var rrFile = path.join(path.dirname(__dirname), 'recipe-rip', 'index.html');
+    try {
+      var rrHtml = fs.readFileSync(rrFile, 'utf8');
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.end(rrHtml);
+    } catch(e) {
+      res.writeHead(404); res.end('Recipe Rip not found');
+    }
+    return;
+  }
+
+  res.writeHead(404); res.end('{"error":"Not found"}');
 });
 
-server.listen(PORT, () => {
-  console.log(`Mission Control API on http://localhost:${PORT}`);
-});
+server.listen(PORT, () => { console.log('Mission Control API on http://localhost:'+PORT); });
+server.on('error', (e) => { console.error('Server error:', e.message); process.exit(1); });
