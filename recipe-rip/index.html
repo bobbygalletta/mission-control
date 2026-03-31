@@ -163,7 +163,7 @@ function extractRecipe(html, url){
   for(const match of ldMatches){
     try{
       const json = JSON.parse(cleanHtmlEntities(match.replace(/<[^>]+>/g,'')));
-      const recipe = findRecipeInJSON(json);
+      const recipe = findRecipeInJSON(json, url);
       if(recipe) return recipe;
     }catch{}
   }
@@ -182,9 +182,9 @@ function extractRecipe(html, url){
   if(title||ingredients.length) return { title, ingredients:ingredients.slice(0,30), instructions:instructions.slice(0,50), sourceUrl:url, sourceHost:getHost(url) };
   return null;
 }
-function findRecipeInJSON(data){
+function findRecipeInJSON(data, url){
   if(!data) return null;
-  if(Array.isArray(data)){ for(const item of data){ const f=findRecipeInJSON(item); if(f)return f; } return null; }
+  if(Array.isArray(data)){ for(const item of data){ const f=findRecipeInJSON(item, url); if(f)return f; } return null; }
   if(typeof data==='object'){
     const t = data['@type'];
     if(t==='Recipe'||(Array.isArray(t)&&t.includes('Recipe'))){
@@ -199,11 +199,11 @@ function findRecipeInJSON(data){
         cuisine: data.recipeCuisine||'', category: data.recipeCategory||'',
         ingredients: (data.recipeIngredient||[]).map(i=>typeof i==='string'?i:i.text||i.name||''),
         instructions: flattenInstructions(data.recipeInstructions||[]),
-        sourceUrl:'', sourceHost:''
+        sourceUrl: url, sourceHost:getHost(url)
       };
     }
-    if(data['@graph']) return findRecipeInJSON(data['@graph']);
-    if(data.mainEntityOfPage) return findRecipeInJSON(data.mainEntityOfPage);
+    if(data['@graph']) return findRecipeInJSON(data['@graph'], url);
+    if(data.mainEntityOfPage) return findRecipeInJSON(data.mainEntityOfPage, url);
   }
   return null;
 }
@@ -244,7 +244,7 @@ function render(){
     const ings = (Array.isArray(R.ingredients)?R.ingredients:[]).map(i=>clean(i)).filter(s=>s.length>0);
     app.innerHTML=`
       <button class="back-btn" onclick="state.view='home';state.recipe=null;render()">← Back</button>
-      ${R.image?`<div class="recipe-hero"><img src="${clean(R.image)}" alt="${clean(R.title)}" onerror="this.outerHTML='<div class=recipe-hero-placeholder>🍽️</div>'"><span class="recipe-source">${getHost(R.sourceUrl)}</span></div>`:`<div class="recipe-hero-placeholder">🍽️</div>`}
+      ${R.image?`<div class="recipe-hero"><img src="${clean(R.image)}" alt="${clean(R.title)}" onerror="this.outerHTML='<div class=recipe-hero-placeholder>🍽️</div>'"><a href="${clean(R.sourceUrl)}" target="_blank" rel="noopener noreferrer" class="recipe-source" style="text-decoration:none;color:white">${getHost(R.sourceUrl)} ↗</a></div>`:`<div class="recipe-hero-placeholder">🍽️</div>`}
       <div class="recipe-body">
         <h1 class="recipe-title">${clean(R.title)}</h1>
         ${R.author?`<p class="recipe-author">by ${clean(R.author)}</p>`:''}
@@ -257,6 +257,7 @@ function render(){
         ${ings.length?`<p class="section-title">Ingredients</p><ul class="ingredients-list">${ings.map((i,idx)=>`<li id="ing-${idx}" class="ing-item ${(state.checked[state.recipe._id+'-'+idx])?'checked':''}" onclick="toggleIng('${state.recipe._id}',${idx})"><span class="check-icon">${(state.checked[state.recipe._id+'-'+idx])?'&#10003;':'&#9675;'}</span>${clean(i)}</li>`).join('')}</ul>`:''}
         ${steps.length?`<p class="section-title">Instructions</p><ol class="instructions-list">${steps.map((s,i)=>`<li><span class="step-num">${i+1}</span><span>${clean(s)}</span></li>`).join('')}</ol>`:''}
       </div>
+      <div style="display:flex;gap:8px;padding:0 0 8px"><a href="${clean(R.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="flex:1;height:44px;background:#F7F7F7;border:1.5px solid #E5E5E5;border-radius:12px;font-size:14px;font-weight:500;font-family:inherit;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none">↗ Open Original</a></div>
       <div class="save-bar">
         <button class="save-btn ${R._saved?'saved':''}" onclick="toggleSave()">${R._saved?'✓ Saved':'+ Save Recipe'}</button>
       </div>`;
@@ -270,7 +271,7 @@ function render(){
       ${savedCount>0&&filtered.length===0?`<div class="empty-state"><div class="empty-icon">🔍</div><p class="empty-title">No matches</p></div>`:''}
       ${filtered.length?`<div class="saved-list">${filtered.map(r=>`<div class="saved-card" onclick="showDetail2('${r._id}')">
         ${r.image?`<img class="saved-thumb" src="${clean(r.image)}" alt="" onerror="this.style.display='none'">`:`<div class="saved-thumb-placeholder">🍽️</div>`}
-        <div class="saved-info"><p class="saved-title">${clean(r.title)}</p><div class="saved-meta"><span>${r.ingredients?.length||0} ingredients</span><span>${getHost(r.sourceUrl)}</span></div></div>
+        <div class="saved-info"><p class="saved-title">${clean(r.title)}</p><div class="saved-meta"><span>${r.ingredients?.length||0} ingredients</span><a href="${clean(r.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted);text-decoration:underline;font-size:11px">${getHost(r.sourceUrl)} ↗</a></div></div>
         <div class="saved-actions"><button class="mini-btn delete" onclick="deleteSaved('${r._id}',event)" title="Delete">🗑</button></div>
       </div>`).join('')}</div>`:''}`;
     return;
@@ -292,7 +293,7 @@ function render(){
       <div class="recent-header"><p class="recent-label">Recent Saves</p><button class="view-all" onclick="state.view='saved';render()">View all →</button></div>
       <div class="saved-list">${state.saved.slice(0,3).map(r=>`<div class="saved-card" onclick="showDetail2('${r._id}')">
         ${r.image?`<img class="saved-thumb" src="${clean(r.image)}" alt="" onerror="this.style.display='none'">`:`<div class="saved-thumb-placeholder">🍽️</div>`}
-        <div class="saved-info"><p class="saved-title">${clean(r.title)}</p><div class="saved-meta"><span>${r.ingredients?.length||0} ingredients</span><span>${getHost(r.sourceUrl)}</span></div></div>
+        <div class="saved-info"><p class="saved-title">${clean(r.title)}</p><div class="saved-meta"><span>${r.ingredients?.length||0} ingredients</span><a href="${clean(r.sourceUrl)}" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted);text-decoration:underline;font-size:11px">${getHost(r.sourceUrl)} ↗</a></div></div>
       </div>`).join('')}</div>
     </div>`:''}
     <div class="empty-state" style="padding:40px 0">
