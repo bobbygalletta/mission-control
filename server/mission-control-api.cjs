@@ -491,145 +491,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/weather — fetch from wttr.in and convert to Open-Meteo format
+  // GET /api/weather — serve cached Open-Meteo data (widget fetches Open-Meteo directly, this is fallback)
   if (get('/api/weather')) {
     const cacheFile = path.join(DATA_DIR, '.weather_cache.json');
     try {
-      let raw = '';
-      try {
-        const stat = fs.statSync(cacheFile);
-        if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) {
-          raw = fs.readFileSync(cacheFile, 'utf8');
-        }
-      } catch {}
-      if (!raw) {
-        raw = execSync('curl -s "wttr.in/Knoxville,TN?format=j1"', { timeout: 15000 });
-        fs.writeFileSync(cacheFile, raw);
-      }
-      // Convert wttr.in JSON to Open-Meteo format for the widget
-      const wttr = JSON.parse(raw);
-      const cc = wttr.current_condition[0];
-      const weatherDays = wttr.weather || [];
-      const now = new Date();
-      const currentHour = now.getHours();
-
-      // Build Open-Meteo-style hourly array (one entry per hour, 0–23 today, 24–47 tomorrow)
-      const hourlyTimes = [];
-      const hourlyTemp = [];
-      const hourlyWeathercode = [];
-      const hourlyPrecip = [];
-      const hourlyWindspeed = [];
-      const hourlyUv = [];
-      const hourlyHumidity = [];
-
-      for (let di = 0; di < 2; di++) {
-        const day = weatherDays[di];
-        if (!day) break;
-        const daySlots = (day.hourly || []).map(h => ({
-          hour: Math.floor(parseInt(h.time, 10) / 60),
-          temp: parseInt(h.tempF, 10),
-          code: wttrCodeToWMO(h.weatherCode || '113'),
-          precip: parseFloat(h.precipInches || '0'),
-          wind: parseInt(h.windspeedMiles || '0', 10),
-          uv: parseInt(h.uvIndex || '0', 10),
-          humidity: parseInt(h.humidity || '50', 10),
-        })).filter(s => s.hour <= 23);
-
-        const startH = di === 0 ? currentHour : 0;
-        for (let h = startH; h < 24; h++) {
-          const before = [...daySlots].reverse().find(s => s.hour <= h);
-          const after = daySlots.find(s => s.hour > h);
-          const t = (before && after) ? (h - before.hour) / (after.hour - before.hour) : 0;
-          // For current hour, use actual current weather temp instead of interpolation
-          let temp = before && after
-            ? Math.round(before.temp + t * (after.temp - before.temp))
-            : (before?.temp ?? 0);
-          const precip = before && after
-            ? Math.round((before.precip + t * (after.precip - before.precip)) * 100) / 100
-            : (before?.precip ?? 0);
-          const wind = before && after
-            ? Math.round(before.wind + t * (after.wind - before.wind))
-            : (before?.wind ?? 0);
-          const uv = before && after
-            ? Math.round(before.uv + t * (after.uv - before.uv))
-            : (before?.uv ?? 0);
-          const humidity = before && after
-            ? Math.round(before.humidity + t * (after.humidity - before.humidity))
-            : (before?.humidity ?? 50);
-          let code = before?.code ?? 0;
-          // Current hour: use actual current weather
-          if (di === 0 && h === currentHour) {
-            temp = parseInt(cc.temp_F, 10);
-            code = wttrCodeToWMO(cc.weatherCode || '113');
-          }
-
-          const d = new Date(now);
-          if (di === 1) d.setDate(d.getDate() + 1);
-          const dateStr = d.toISOString().split('T')[0];
-          hourlyTimes.push(`${dateStr}T${String(h).padStart(2, '0')}:00`);
-          hourlyTemp.push(temp);
-          hourlyWeathercode.push(code);
-          hourlyPrecip.push(precip);
-          hourlyWindspeed.push(wind);
-          hourlyUv.push(uv);
-          hourlyHumidity.push(humidity);
-        }
-      }
-
-      // Daily: today + tomorrow
-      const dailyTimes = [];
-      const dailyMax = [];
-      const dailyMin = [];
-      const dailyCode = [];
-      const dailyUvMax = [];
-      const dailyPrecipSum = [];
-      for (let di = 0; di < 2; di++) {
-        const day = weatherDays[di];
-        if (!day) break;
-        const d = new Date(now);
-        if (di === 1) d.setDate(d.getDate() + 1);
-        dailyTimes.push(d.toISOString().split('T')[0]);
-        const temps = (day.hourly || []).map(h => parseInt(h.tempF, 10));
-        dailyMax.push(Math.max(...temps));
-        dailyMin.push(Math.min(...temps));
-        const middaySlot = day.hourly?.find(h => Math.floor(parseInt(h.time, 10) / 60) === 12) || day.hourly?.[day.hourly.length >> 1];
-        dailyCode.push(wttrCodeToWMO(middaySlot?.weatherCode || '113'));
-        dailyUvMax.push(parseInt(middaySlot?.uvIndex || '0', 10));
-        dailyPrecipSum.push((day.hourly || []).reduce((s, h) => s + parseFloat(h.precipInches || '0'), 0));
-      }
-
-      const result = {
-        current_weather: {
-          temperature: parseInt(cc.temp_F, 10),
-          windspeed: parseInt(cc.windspeedMiles || '0', 10),
-          weathercode: wttrCodeToWMO(cc.weatherCode || '113'),
-        },
-        hourly: {
-          time: hourlyTimes,
-          temperature_2m: hourlyTemp,
-          weathercode: hourlyWeathercode,
-          precipitation: hourlyPrecip,
-          windspeed_10m: hourlyWindspeed,
-          uv_index: hourlyUv,
-          relativehumidity_2m: hourlyHumidity,
-        },
-        daily: {
-          time: dailyTimes,
-          temperature_2m_max: dailyMax,
-          temperature_2m_min: dailyMin,
-          weathercode: dailyCode,
-          uv_index_max: dailyUvMax,
-          precipitation_sum: dailyPrecipSum,
-        },
-      };
-      res.end(JSON.stringify(result));
-    } catch (e) {
+      const raw = fs.readFileSync(cacheFile, 'utf8');
+      res.end(raw);
+      return;
+    } catch {
       res.writeHead(500);
-      res.end(JSON.stringify({ error: String(e) }));
+      res.end(JSON.stringify({ error: 'Weather cache unavailable' }));
+      return;
     }
-    return;
-  }
-
   // GET /api/emails — list all emails from today (with pagination)
   if (get('/api/emails')) {
     try {
