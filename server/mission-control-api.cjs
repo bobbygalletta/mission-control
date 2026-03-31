@@ -625,10 +625,11 @@ const server = http.createServer((req, res) => {
         from: t.from,
         subject: t.subject,
         date: t.date ? to12Hr(t.date) : t.date,
+        rawDate: t.date || '', // keep raw for sorting
         snippet: t.snippet || '',
         labels: t.labels || [],
         unread: (unreadData.threads || []).some(u => u.id === t.id),
-      }));
+      })).sort((a, b) => b.rawDate.localeCompare(a.rawDate)); // newest first
       res.end(JSON.stringify({ emails, unread: emails.filter(e => e.unread).length }));
     } catch (e) {
       res.writeHead(500);
