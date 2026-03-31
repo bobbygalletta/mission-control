@@ -182,7 +182,7 @@ function parseMicrodata(html) {
 
 function htmlIngredients(html) {
   var res = [], seen = {};
-  // Lists in ingredient containers
+  // 1. Strict ingredient-specific containers (most reliable)
   var lbs = html.match(/<(?:ul|ol)[^>]*class=["'][^"']*(?:ingredient|recipe-ingredient)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ul|ol)>/gi) || [];
   for (var b = 0; b < lbs.length; b++) {
     var items = lbs[b].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
@@ -191,12 +191,15 @@ function htmlIngredients(html) {
       if (s && s.length < 200 && !seen[s]) { seen[s] = true; res.push(s); }
     }
   }
-  // Measurement-based heuristic
-  var mre = /\d+\s*(?:cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|lb|pound|clove|piece|slice|bunch|can|jar|package|pkg|small|medium|large|pinch|dash|bay|head|stalk|strip)/i;
+  // 2. Strict measurement-based fallback — must start with a quantity/number
+  // Handles: 1 cup, 1/2 tsp, 1 1/2 cups, 3-4 cloves, (15-oz) can, pinch, sprig, etc.
+  // Must start with: digit, fraction, or prep word — followed by a measurement term
+  var mre2 = /^(?:\d[\d\s\/\.\-\(\)]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|bunche?s?|cans?|jars?|packages?|pkgs?|small|medium|large|pinch(?:es)?|dashes?|bay|heads?|stalks?|strips?|sprigs?|inch(?:es)?|tails?|links?|rashers?|quart|gall?ons?|liters?|grams?|kgs?|mgs?|heads?|bunche?s?)|[\u00BC-\u00BE\u2150-\u215E]\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?)|fresh\s|chopped\s|sliced\s|diced\s|minced\s|grated\s|ground\s|peeled\s|pkg|can\s|jar\s|bunch\s)/i;
   var allLis = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
-  for (var li = 0; li < allLis.length && res.length < 60; li++) {
+  for (var li = 0; li < allLis.length && res.length < 80; li++) {
     var txt = clean(allLis[li].replace(/<[^>]+>/g, '')).trim();
-    if (txt.length > 2 && txt.length < 200 && !seen[txt] && (mre.test(txt) || txt.split(' ').length < 8)) {
+    // Must match strict measurement pattern at the START
+    if (txt.length > 2 && txt.length < 250 && !seen[txt] && mre2.test(txt)) {
       seen[txt] = true; res.push(txt);
     }
   }
