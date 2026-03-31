@@ -340,7 +340,7 @@ const server = http.createServer((req, res) => {
   if (get('/api/finnly')) {
     const all = readDataFile('finnly', []);
     const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const DEFAULT_DAY = { date: todayStr, water: false, meals: 0, walks: 0, treats: 0 };
+    const DEFAULT_DAY = { date: todayStr, waterAM: false, waterPM: false, breakfast: false, dinner: false, walk1: false, walk2: false, walk3: false, walk1Poop: false, walk2Poop: false, walk3Poop: false, treats: 0 };
     const now = new Date();
     // After 3am: if no today's entry, archive yesterday and create fresh day
     if (now.getHours() >= 3) {

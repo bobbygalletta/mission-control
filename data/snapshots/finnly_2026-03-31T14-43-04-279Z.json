@@ -1,17 +1,31 @@
 [
   {
-    "date": "Mar 30, 2026",
-    "waterAM": true,
+    "date": "Mar 31, 2026",
+    "waterAM": false,
     "waterPM": false,
-    "breakfast": true,
+    "breakfast": false,
     "dinner": false,
-    "walk1": true,
+    "walk1": false,
     "walk2": false,
     "walk3": false,
+    "walk1Poop": false,
+    "walk2Poop": false,
+    "walk3Poop": false,
+    "treats": 0
+  },
+  {
+    "date": "Mar 30, 2026",
+    "waterAM": true,
+    "waterPM": true,
+    "breakfast": true,
+    "dinner": true,
+    "walk1": true,
+    "walk2": true,
+    "walk3": true,
     "walk1Poop": true,
     "walk2Poop": false,
     "walk3Poop": false,
-    "treats": 1
+    "treats": 2
   },
   {
     "date": "Mar 29, 2026",

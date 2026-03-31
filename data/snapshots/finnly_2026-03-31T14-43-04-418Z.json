@@ -31,14 +31,14 @@
     "date": "Mar 31, 2026",
     "waterAM": true,
     "waterPM": false,
-    "breakfast": true,
+    "breakfast": false,
     "dinner": false,
-    "walk1": true,
+    "walk1": false,
     "walk2": false,
     "walk3": false,
     "walk1Poop": false,
     "walk2Poop": false,
     "walk3Poop": false,
-    "treats": 1
+    "treats": 0
   }
 ]

@@ -2,16 +2,16 @@
   {
     "date": "Mar 30, 2026",
     "waterAM": true,
-    "waterPM": false,
+    "waterPM": true,
     "breakfast": true,
-    "dinner": false,
+    "dinner": true,
     "walk1": true,
-    "walk2": false,
-    "walk3": false,
+    "walk2": true,
+    "walk3": true,
     "walk1Poop": true,
     "walk2Poop": false,
     "walk3Poop": false,
-    "treats": 0
+    "treats": 2
   },
   {
     "date": "Mar 29, 2026",
@@ -26,5 +26,19 @@
     "walk2Poop": true,
     "walk3Poop": false,
     "treats": 2
+  },
+  {
+    "date": "Mar 31, 2026",
+    "waterAM": true,
+    "waterPM": false,
+    "breakfast": true,
+    "dinner": false,
+    "walk1": true,
+    "walk2": false,
+    "walk3": false,
+    "walk1Poop": false,
+    "walk2Poop": false,
+    "walk3Poop": false,
+    "treats": 0
   }
 ]
