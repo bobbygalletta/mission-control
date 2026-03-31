@@ -182,24 +182,25 @@ function parseMicrodata(html) {
 
 function htmlIngredients(html) {
   var res = [], seen = {};
+  // Junk patterns — these are nav/junk items, not ingredients
+  var junk = /^(?:log\s?in|sign\s?up|register|print\s?(?:recipe)?|jump\s?to\s?recipe|save\s?recipe|share\s?recipe|rate\s?this\s?recipe|about\s?the\s?author|subscribe|newsletter|comment|related\s?(?:recipes?|posts?|articles?)|popular\s?now|advertisement|social\s?share|back\s?to\s?top|skip\s?to\s?(?:content|recipe|ingredients|instr)|air\s?fryer(?:\s?(?:basket|receptacle|pans?|trays?|rack))?$)/i;
+
   // 1. Strict ingredient-specific containers (most reliable)
   var lbs = html.match(/<(?:ul|ol)[^>]*class=["'][^"']*(?:ingredient|recipe-ingredient)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ul|ol)>/gi) || [];
   for (var b = 0; b < lbs.length; b++) {
     var items = lbs[b].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
     for (var l = 0; l < items.length; l++) {
       var s = clean(items[l].replace(/<[^>]+>/g, '')).trim();
-      if (s && s.length < 200 && !seen[s]) { seen[s] = true; res.push(s); }
+      if (s && s.length < 200 && !seen[s] && !junk.test(s)) { seen[s] = true; res.push(s); }
     }
   }
   // 2. Strict measurement-based fallback — must start with a quantity/number
   // Handles: 1 cup, 1/2 tsp, 1 1/2 cups, 3-4 cloves, (15-oz) can, pinch, sprig, etc.
-  // Must start with: digit, fraction, or prep word — followed by a measurement term
-  var mre2 = /^(?:\d[\d\s\/\.\-\(\)]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|bunche?s?|cans?|jars?|packages?|pkgs?|small|medium|large|pinch(?:es)?|dashes?|bay|heads?|stalks?|strips?|sprigs?|inch(?:es)?|tails?|links?|rashers?|quart|gall?ons?|liters?|grams?|kgs?|mgs?|heads?|bunche?s?)|[\u00BC-\u00BE\u2150-\u215E]\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?)|fresh\s|chopped\s|sliced\s|diced\s|minced\s|grated\s|ground\s|peeled\s|pkg|can\s|jar\s|bunch\s)/i;
+  var mre2 = /^(?:\d[\d\s\/\.\-\(\)]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|bunche?s?|cans?|jars?|packages?|pkgs?|small|medium|large|pinch(?:es)?|dashes?|bay\b|heads?\b|stalks?\b|strips?\b|sprigs?\b|inch(?:es)?\b|tails?\b|links?\b|rashers?\b|quart\b|gall?ons?\b|liters?\b|grams?\b|kgs?\b|mgs?\b|bunche?s?\b)|[\u00BC-\u00BE\u2150-\u215E]\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?\b)|fresh\s|chopped\s|sliced\s|diced\s|minced\s|grated\s|ground\s|peeled\s|pinch\b|pinches\b|pkg\b|can\s|jar\s|bunch\s)/i;
   var allLis = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
   for (var li = 0; li < allLis.length && res.length < 80; li++) {
     var txt = clean(allLis[li].replace(/<[^>]+>/g, '')).trim();
-    // Must match strict measurement pattern at the START
-    if (txt.length > 2 && txt.length < 250 && !seen[txt] && mre2.test(txt)) {
+    if (txt.length > 2 && txt.length < 250 && !seen[txt] && mre2.test(txt) && !junk.test(txt)) {
       seen[txt] = true; res.push(txt);
     }
   }
@@ -208,13 +209,20 @@ function htmlIngredients(html) {
 
 function htmlInstructions(html) {
   var res = [], seen = {};
+  // Prefilter: list items that look like ingredients (should go in the ingredient list, not instructions)
+  function looksLikeIngredient(s) {
+    // Matches things like "1 cup flour", "2 eggs", "1/2 tsp salt", "3 cloves garlic"
+    // Pattern: starts with a quantity/number/fraction followed by a cooking measurement or count word
+    return /^(?:\d[\d\s\/\.\-\(\)]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|bunche?s?|cans?|jars?|packages?|pkgs?|small|medium|large|heads?|stalks?\b|strips?\b|sprigs?\b|bay\b|inch(?:es)?\b|tails?\b|links?\b|rashers?\b|quart\b|gall?ons?\b|liters?\b|grams?\b|kgs?\b|mgs?\b)|[\u00BC-\u00BE\u2150-\u215E]\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?\b)|fresh\s|chopped\s|sliced\s|diced\s|minced\s|grated\s|ground\s|peeled\s|pinch(?:es)?\b|pkg\b|can\s|jar\s|bunch\s)/i.test(s);
+  }
+
   // 1. Ordered/unordered lists in instruction/step containers
   var ibs = html.match(/<(?:ol|ul)[^>]*class=["'][^"']*(?:instruction|step|direction|procedure|method|recipe)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ol|ul)>/gi) || [];
   for (var b = 0; b < ibs.length; b++) {
     var items = ibs[b].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
     for (var l = 0; l < items.length; l++) {
       var s = clean(items[l].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
-      if (s && s.length > 8 && !seen[s.slice(0, 25)]) { seen[s.slice(0, 25)] = true; res.push(s); }
+      if (s && s.length > 8 && !seen[s.slice(0, 25)] && !looksLikeIngredient(s)) { seen[s.slice(0, 25)] = true; res.push(s); }
     }
   }
   // 2. Microdata itemprop="recipeInstructions"
@@ -223,14 +231,14 @@ function htmlInstructions(html) {
     var items2 = microInstr[m].match(/<(?:li|p|div)[^>]*>([\s\S]*?)<\/(?:li|p|div)>/gi) || [];
     for (var mi = 0; mi < items2.length; mi++) {
       var s = clean(items2[mi].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
-      if (s && s.length > 8 && !seen[s.slice(0, 25)]) { seen[s.slice(0, 25)] = true; res.push(s); }
+      if (s && s.length > 8 && !seen[s.slice(0, 25)] && !looksLikeIngredient(s)) { seen[s.slice(0, 25)] = true; res.push(s); }
     }
   }
   // 3. Individual step divs/paragraphs
   var sds = html.match(/<(?:div|span|p)[^>]*class=["'][^"']*(?:step|instruction|direction)[^"']*["'][^>]*>([\s\S]{15,})<\/(?:div|span|p)>/gi) || [];
   for (var s = 0; s < sds.length && res.length < 80; s++) {
     var txt = clean(sds[s].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
-    if (txt.length > 15 && txt.length < 2000 && !seen[txt.slice(0, 30)]) { seen[txt.slice(0, 30)] = true; res.push(txt); }
+    if (txt.length > 15 && txt.length < 2000 && !seen[txt.slice(0, 30)] && !looksLikeIngredient(txt)) { seen[txt.slice(0, 30)] = true; res.push(txt); }
   }
   // 4. Plugin formats: WPRM, Tasty, etc.
   var plugins = html.match(/class=["'][^"']*(?:wprm|tasty|recipe)[^"']*(?:instruction|step|direction)[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi) || [];
@@ -238,7 +246,7 @@ function htmlInstructions(html) {
     var wItems = plugins[p].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
     for (var wl = 0; wl < wItems.length; wl++) {
       var ws = clean(wItems[wl].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
-      if (ws && ws.length > 8 && !seen[ws.slice(0, 20)]) { seen[ws.slice(0, 20)] = true; res.push(ws); }
+      if (ws && ws.length > 8 && !seen[ws.slice(0, 20)] && !looksLikeIngredient(ws)) { seen[ws.slice(0, 20)] = true; res.push(ws); }
     }
   }
   return res;
