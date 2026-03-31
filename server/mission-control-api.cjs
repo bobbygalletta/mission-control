@@ -336,20 +336,42 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/finnly
+  // GET /api/finnly — returns today's data, auto-resets at 3am
   if (get('/api/finnly')) {
-    res.end(JSON.stringify({ finnly: readDataFile('finnly', []) }));
+    const all = readDataFile('finnly', []);
+    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const DEFAULT_DAY = { date: todayStr, water: false, meals: 0, walks: 0, treats: 0 };
+    const now = new Date();
+    // After 3am: if no today's entry, archive yesterday and create fresh day
+    if (now.getHours() >= 3) {
+      let today = all.find(f => f.date === todayStr);
+      if (!today) {
+        // Keep all history, just add today's empty day
+        all.unshift(DEFAULT_DAY);
+        writeDataFile('finnly', all);
+      }
+    }
+    const updated = readDataFile('finnly', []);
+    const todayOnly = updated.filter(f => f.date === todayStr);
+    res.end(JSON.stringify({ finnly: todayOnly.length > 0 ? todayOnly : [DEFAULT_DAY] }));
     return;
   }
 
-  // POST /api/finnly
+  // POST /api/finnly — save today's data (preserves all history)
   if (post('/api/finnly')) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
       try {
         const { finnly } = JSON.parse(body);
-        writeDataFile('finnly', finnly);
+        const all = readDataFile('finnly', []);
+        const todayStr = finnly[0]?.date;
+        if (todayStr) {
+          const otherDays = all.filter(f => f.date !== todayStr);
+          writeDataFile('finnly', [...otherDays, ...finnly]);
+        } else {
+          writeDataFile('finnly', finnly);
+        }
         res.end(JSON.stringify({ ok: true, finnly }));
       } catch (e) { res.writeHead(400); res.end(JSON.stringify({ error: e.message })); }
     });

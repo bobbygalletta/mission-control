@@ -43,10 +43,22 @@ const emptyDay = (date: string): FinnlyDay => ({
 });
 
 export function FinnlyWidget() {
-  const [data, setData] = useState<FinnlyDay[]>([]);
+  // Load today's data from localStorage first (instant), then sync with server
+  const [data, setData] = useState<FinnlyDay[]>(() => {
+    try {
+      const saved = localStorage.getItem(FINNLY_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Only use localStorage if it's from today
+        if (Array.isArray(parsed) && parsed[0] && isToday(parsed[0].date)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
+    // Fetch from server (source of truth for 3am reset)
     fetch('/api/finnly')
       .then(r => r.json())
       .then(serverData => {
@@ -54,26 +66,24 @@ export function FinnlyWidget() {
           setData(serverData.finnly || serverData);
         }
       })
-      .catch(() => {
-        const saved = localStorage.getItem(FINNLY_KEY);
-        if (saved) setData(JSON.parse(saved));
-      });
+      .catch(() => {});
     const interval = setInterval(() => {
       fetch('/api/finnly')
         .then(r => r.json())
-        .then(serverData => { if (serverData && Array.isArray(serverData)) setData(serverData.finnly || serverData); })
+        .then(serverData => { if (serverData && (Array.isArray(serverData) || Array.isArray(serverData.finnly))) setData(serverData.finnly || serverData); })
         .catch(() => {});
     }, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  const sync = (newData: FinnlyDay[]) => {
-    setData(newData);
-    localStorage.setItem(FINNLY_KEY, JSON.stringify(newData));
+  const sync = (todayEntry: FinnlyDay) => {
+    setData([todayEntry]);
+    // Only save today's data to localStorage (not all history)
+    localStorage.setItem(FINNLY_KEY, JSON.stringify([todayEntry]));
     fetch('/api/finnly', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ finnly: newData }),
+      body: JSON.stringify({ finnly: [todayEntry] }),
     }).catch(() => {});
   };
 
@@ -86,16 +96,13 @@ export function FinnlyWidget() {
   const toggle = (field: keyof FinnlyDay) => {
     const t = todayData();
     const updated: FinnlyDay = { ...t, [field]: !t[field] };
-    const rest = data.filter(d => !isToday(d.date));
-    sync([updated, ...rest]);
+    sync(updated);
   };
 
   const giveTreat = () => {
     const t = todayData();
-    const currentTreats = t.treats || 0;
-    const updated: FinnlyDay = { ...t, treats: currentTreats + 1 };
-    const rest = data.filter(d => !isToday(d.date));
-    sync([updated, ...rest]);
+    const updated: FinnlyDay = { ...t, treats: (t.treats || 0) + 1 };
+    sync(updated);
   };
 
   const t = todayData();
