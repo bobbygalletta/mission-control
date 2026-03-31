@@ -1,51 +1,65 @@
-// Recipe extraction engine v4
+// Recipe extraction engine v4 — fixed JSON-LD parse + rich HTML supplement
+
 function extractRecipe(html, url) {
   var r = { title: "", ingredients: [], instructions: [], sourceUrl: url, sourceHost: getHost(url) };
 
-  // Strategy 1: JSON-LD (schema.org Recipe) — most reliable
   var ld = parseJSONLD(html);
+  var hi = htmlIngredients(html);
+  var hs = htmlInstructions(html);
+
   if (ld) {
     r.title = ld.title || r.title;
-    r.ingredients = ld.ingredients.length > 0 ? ld.ingredients : [];
-    r.instructions = ld.instructions.length > 0 ? ld.instructions : [];
-    // If JSON-LD is sparse, supplement from HTML
-    if (r.ingredients.length < 2 || r.instructions.length < 3) {
-      var hi = htmlIngredients(html);
-      var hs = htmlInstructions(html);
-      if (r.ingredients.length < 2 && hi.length > r.ingredients.length) r.ingredients = hi;
-      if (r.instructions.length < 3 && hs.length > r.instructions.length) {
-        for (var k = 0; k < hs.length; k++) {
-          if (!r.instructions.some(function(s) { return s.indexOf(hs[k].slice(0, 25)) >= 0; }))
-            r.instructions.push(hs[k]);
+    // Pick whichever ingredient list is richer
+    r.ingredients = (ld.ingredients.length >= hi.length) ? ld.ingredients : hi;
+
+    // Instructions strategy:
+    // If HTML is rich (>= 6 steps), prefer it — JSON-LD often truncates to summaries
+    // Otherwise use JSON-LD as base and supplement from HTML
+    if (hs.length >= 6) {
+      // HTML is rich — deduplicate and strip "Step N:" prefixes
+      var seen = {};
+      r.instructions = [];
+      for (var i = 0; i < hs.length; i++) {
+        var raw = hs[i].replace(/^(?:Step\s*)\d+[\.:]\s*/i, '').trim();
+        if (raw.length > 5 && !seen[raw.slice(0, 25)]) {
+          seen[raw.slice(0, 25)] = true;
+          r.instructions.push(raw);
         }
+      }
+    } else {
+      // HTML sparse — use JSON-LD, supplement from HTML
+      r.instructions = ld.instructions.length > 0 ? ld.instructions : [];
+      for (var j = 0; j < hs.length; j++) {
+        var raw2 = hs[j].replace(/^(?:Step\s*)\d+[\.:]\s*/i, '').trim();
+        if (!r.instructions.some(function(s) { return s.indexOf(raw2.slice(0, 25)) >= 0; }))
+          r.instructions.push(raw2);
+      }
+    }
+  } else {
+    // No JSON-LD — use HTML
+    r.ingredients = hi;
+    var seen2 = {};
+    r.instructions = [];
+    for (var k = 0; k < hs.length; k++) {
+      var raw3 = hs[k].replace(/^(?:Step\s*)\d+[\.:]\s*/i, '').trim();
+      if (raw3.length > 5 && !seen2[raw3.slice(0, 25)]) {
+        seen2[raw3.slice(0, 25)] = true;
+        r.instructions.push(raw3);
       }
     }
   }
 
-  // Strategy 2: Microdata
-  if (!r.title || r.ingredients.length === 0) {
-    var mh = parseMicrodata(html);
-    if (mh.title || mh.ingredients.length > 0) {
-      r.title = r.title || mh.title;
-      r.ingredients = r.ingredients.length > 0 ? r.ingredients : mh.ingredients;
-      r.instructions = r.instructions.length > 0 ? r.instructions : mh.instructions;
-    }
-  }
-
-  // Clean
+  // Final clean
   r.ingredients = r.ingredients.map(clean).filter(function(s) { return s.length > 1 && s.length < 300; });
   r.instructions = r.instructions.map(clean).filter(function(s) { return s.length > 5; });
   return r;
 }
 
 function parseJSONLD(html) {
-  // Try with id attribute first (group 1 = id, group 2 = content)
   var ms = html.match(/<script[^>]*\sid=["']?[^"'\s>]+[^>]*\stype=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
-  // Try without id attribute (group 1 = content)
   var ms2 = html.match(/<script[^>]*\stype=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi) || [];
   var all = ms.concat(ms2);
   for (var i = 0; i < all.length; i++) {
-    // Extract just the JSON content (last captured group)
     var m = all[i].match(/<script[^>]*>([\s\S]*?)<\/script>/i);
     if (!m) continue;
     var block = m[1].trim();
@@ -92,14 +106,8 @@ function findRecipeInJSON(data) {
         instructions: flatInstr(data.recipeInstructions || [])
       };
     }
-    if (data['@graph']) {
-      var g = findRecipeInJSON(data['@graph']);
-      if (g) return g;
-    }
-    if (data.mainEntityOfPage) {
-      var me = findRecipeInJSON(data.mainEntityOfPage);
-      if (me) return me;
-    }
+    if (data['@graph']) { var g = findRecipeInJSON(data['@graph']); if (g) return g; }
+    if (data.mainEntityOfPage) { var me = findRecipeInJSON(data.mainEntityOfPage); if (me) return me; }
   }
   return null;
 }
@@ -115,7 +123,6 @@ function flatIngr(arr) {
     else if (x && typeof x === 'object') {
       var s2 = clean(x.text || x.name || x.recipeIngredient || '');
       if (s2) out.push(s2);
-      // Also check nested itemListElement for HowToSection inside ingredient list
       if (x.itemListElement && Array.isArray(x.itemListElement)) {
         for (var j = 0; j < x.itemListElement.length; j++) {
           var s3 = clean(x.itemListElement[j].text || x.itemListElement[j].name || '');
@@ -140,16 +147,14 @@ function flatInstr(arr) {
     else if (x && typeof x === 'object') {
       var tp = x['@type'] || '';
       if (tp === 'HowToSection') {
-        // Section title + all steps inside
-        if (x.name) out.push('--- ' + clean(x.name) + ' ---');
+        // Recurse into section steps (don't add section name as a step)
         if (x.itemListElement) {
           var sub = flatInstr(x.itemListElement);
           for (var j = 0; j < sub.length; j++) out.push(sub[j]);
         }
-      } else if (tp === 'HowToStep') {
+      } else if (tp === 'HowToStep' || tp === 'HowToDirection') {
         var s2 = clean(x.text || x.name || '');
         if (s2) out.push(s2);
-        // Some plugins nest steps inside itemListElement even in HowToStep
         if (x.itemListElement) {
           var sub2 = flatInstr(x.itemListElement);
           for (var k = 0; k < sub2.length; k++) out.push(sub2[k]);
@@ -177,7 +182,7 @@ function parseMicrodata(html) {
 
 function htmlIngredients(html) {
   var res = [], seen = {};
-  // Look for lists inside recipe/ingredient containers
+  // Lists in ingredient containers
   var lbs = html.match(/<(?:ul|ol)[^>]*class=["'][^"']*(?:ingredient|recipe-ingredient)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ul|ol)>/gi) || [];
   for (var b = 0; b < lbs.length; b++) {
     var items = lbs[b].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
@@ -186,10 +191,10 @@ function htmlIngredients(html) {
       if (s && s.length < 200 && !seen[s]) { seen[s] = true; res.push(s); }
     }
   }
-  // Any li that looks like an ingredient (has measurement patterns)
+  // Measurement-based heuristic
   var mre = /\d+\s*(?:cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|lb|pound|clove|piece|slice|bunch|can|jar|package|pkg|small|medium|large|pinch|dash|bay|head|stalk|strip)/i;
   var allLis = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
-  for (var li = 0; li < allLis.length && res.length < 50; li++) {
+  for (var li = 0; li < allLis.length && res.length < 60; li++) {
     var txt = clean(allLis[li].replace(/<[^>]+>/g, '')).trim();
     if (txt.length > 2 && txt.length < 200 && !seen[txt] && (mre.test(txt) || txt.split(' ').length < 8)) {
       seen[txt] = true; res.push(txt);
@@ -200,27 +205,36 @@ function htmlIngredients(html) {
 
 function htmlInstructions(html) {
   var res = [], seen = {};
-  // Ordered/unordered lists in instruction containers
+  // 1. Ordered/unordered lists in instruction/step containers
   var ibs = html.match(/<(?:ol|ul)[^>]*class=["'][^"']*(?:instruction|step|direction|procedure|method|recipe)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ol|ul)>/gi) || [];
   for (var b = 0; b < ibs.length; b++) {
     var items = ibs[b].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
     for (var l = 0; l < items.length; l++) {
-      var s = clean(items[l].replace(/<[^>]+>/g, '')).trim();
+      var s = clean(items[l].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
       if (s && s.length > 8 && !seen[s.slice(0, 25)]) { seen[s.slice(0, 25)] = true; res.push(s); }
     }
   }
-  // Individual step divs with class names
-  var sds = html.match(/<(?:div|span|p)[^>]*class=["'][^"']*(?:step|instruction|direction)[^"']*["'][^>]*>([\s\S]{15,})<\/(?:div|span|p)>/gi) || [];
-  for (var s = 0; s < sds.length && res.length < 60; s++) {
-    var txt = clean(sds[s].replace(/<[^>]+>/g, '')).trim();
-    if (txt.length > 15 && txt.length < 1500 && !seen[txt.slice(0, 30)]) { seen[txt.slice(0, 30)] = true; res.push(txt); }
+  // 2. Microdata itemprop="recipeInstructions"
+  var microInstr = html.match(/itemprop=["']recipeInstructions["'][^>]*>([\s\S]*?)<\/div>/gi) || [];
+  for (var m = 0; m < microInstr.length; m++) {
+    var items2 = microInstr[m].match(/<(?:li|p|div)[^>]*>([\s\S]*?)<\/(?:li|p|div)>/gi) || [];
+    for (var mi = 0; mi < items2.length; mi++) {
+      var s = clean(items2[mi].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
+      if (s && s.length > 8 && !seen[s.slice(0, 25)]) { seen[s.slice(0, 25)] = true; res.push(s); }
+    }
   }
-  // WPRM / Tasty Recipes plugin format
-  var wprm = html.match(/class=["'][^"']*wprm-recipe-instruction["'][^>]*>([\s\S]*?)<\/div>/gi) || [];
-  for (var w = 0; w < wprm.length; w++) {
-    var wItems = wprm[w].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+  // 3. Individual step divs/paragraphs
+  var sds = html.match(/<(?:div|span|p)[^>]*class=["'][^"']*(?:step|instruction|direction)[^"']*["'][^>]*>([\s\S]{15,})<\/(?:div|span|p)>/gi) || [];
+  for (var s = 0; s < sds.length && res.length < 80; s++) {
+    var txt = clean(sds[s].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
+    if (txt.length > 15 && txt.length < 2000 && !seen[txt.slice(0, 30)]) { seen[txt.slice(0, 30)] = true; res.push(txt); }
+  }
+  // 4. Plugin formats: WPRM, Tasty, etc.
+  var plugins = html.match(/class=["'][^"']*(?:wprm|tasty|recipe)[^"']*(?:instruction|step|direction)[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi) || [];
+  for (var p = 0; p < plugins.length; p++) {
+    var wItems = plugins[p].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
     for (var wl = 0; wl < wItems.length; wl++) {
-      var ws = clean(wItems[wl].replace(/<[^>]+>/g, '')).trim();
+      var ws = clean(wItems[wl].replace(/<[^>]+>/g, ' ').replace(/<br\s*\/?>/gi, '\n')).trim();
       if (ws && ws.length > 8 && !seen[ws.slice(0, 20)]) { seen[ws.slice(0, 20)] = true; res.push(ws); }
     }
   }
@@ -229,7 +243,11 @@ function htmlInstructions(html) {
 
 function clean(s) {
   if (!s) return '';
-  return String(s).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ').replace(/&#8217;/g, "'").replace(/&#8220;/g, '"').replace(/&#8221;/g, '"').replace(/&#x2019;/g, "'").replace(/&#x2018;/g, "'").trim();
+  return String(s)
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ')
+    .replace(/&#8217;/g, "'").replace(/&#8220;/g, '"').replace(/&#8221;/g, '"')
+    .replace(/&#x2019;/g, "'").replace(/&#x2018;/g, "'").trim();
 }
 
 function getHost(url) {
