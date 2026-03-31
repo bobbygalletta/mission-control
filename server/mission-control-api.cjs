@@ -608,14 +608,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/emails — list all emails from the last 24 hours
+  // GET /api/emails — list all emails from today (with pagination)
   if (get('/api/emails')) {
     try {
       const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2');
-      const raw = runGog('gmail', 'search', `after:${today}`, '-j');
+      // Fetch today's emails (max 50, should cover a full day)
+      const raw = runGog('gmail', 'search', 'after:' + today, '-j', '--max=50');
       let data = { threads: [], nextPageToken: '' };
       try { data = JSON.parse(raw); } catch {}
-      const unreadRaw = runGog('gmail', 'search', `after:${today}`, 'is:unread', '-j');
+      // Fetch unread for today
+      const unreadRaw = runGog('gmail', 'search', 'after:' + today, 'is:unread', '-j', '--max=50');
       let unreadData = { threads: [] };
       try { unreadData = JSON.parse(unreadRaw); } catch {}
       const emails = (data.threads || []).map(t => ({
