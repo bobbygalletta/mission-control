@@ -108,8 +108,7 @@ const server = http.createServer(async (req, res) => {
     if (ext === '.html') {
       const ver = Date.now();
       const html = data.toString('utf8')
-        .replace(/\.(js|css)(['"])/g, `.$1?v=${ver}$2`)
-        .replace(/(['"]\/)assets\//g, `$1/assets/`);
+        .replace(/(src|href)="(\/[^"]+)\.(js|css)"/g, `$1="$2.$3?v=${ver}"`);
       res.writeHead(200, {
         'Content-Type': contentType,
         'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
