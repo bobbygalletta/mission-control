@@ -16,7 +16,7 @@ function today(): string {
 }
 
 function nowTime(): string {
-  return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 function getWeekId(): string {

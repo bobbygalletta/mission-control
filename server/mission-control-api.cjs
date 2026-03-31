@@ -34,6 +34,18 @@ function runGog(...args) {
   return r.stdout.trim();
 }
 
+// Convert 24-hour datetime string like "2026-03-30 19:08" to "Mar 30, 7:08 PM"
+function to12Hr(dt) {
+  const m = dt.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/);
+  if (!m) return dt;
+  const yr = parseInt(m[1]), mon = parseInt(m[2]) - 1, day = parseInt(m[3]);
+  let h = parseInt(m[4]), min = m[5];
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${months[mon]} ${day}, ${h}:${min} ${ampm}`;
+}
+
 function stripHtml(html) {
   if (!html) return '';
   return html
@@ -609,7 +621,7 @@ const server = http.createServer((req, res) => {
         id: t.id,
         from: t.from,
         subject: t.subject,
-        date: t.date,
+        date: t.date ? to12Hr(t.date) : t.date,
         snippet: t.snippet || '',
         labels: t.labels || [],
         unread: (unreadData.threads || []).some(u => u.id === t.id),

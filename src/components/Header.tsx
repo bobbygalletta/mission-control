@@ -125,7 +125,9 @@ export const Header = ({ connectionState }: HeaderProps) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const pad = (n: number) => n.toString().padStart(2, '0');
-  const timeStr = `${pad(time.getHours())}:${pad(time.getMinutes())}:${pad(time.getSeconds())}`;
+  const h12 = time.getHours() % 12 || 12;
+  const ampm = time.getHours() >= 12 ? 'PM' : 'AM';
+  const timeStr = `${pad(h12)}:${pad(time.getMinutes())} ${ampm}`;
 
   // Apply saved theme/mode on mount
   useEffect(() => {
