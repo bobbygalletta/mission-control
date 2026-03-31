@@ -19,10 +19,9 @@ export function EmailWidget() {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [unread, setUnread] = useState(0);
-  const [showAll, setShowAll] = useState(false);
+
 
   const fetchEmails = async () => {
-    setLoading(true);
     try {
       const res = await fetch('/api/emails');
       const data = await res.json();
@@ -31,7 +30,6 @@ export function EmailWidget() {
         setUnread(data.unread || 0);
       }
     } catch (e) { console.error('Failed to fetch emails', e); }
-    finally { setLoading(false); }
   };
 
   useEffect(() => { fetchEmails(); }, []);
@@ -43,8 +41,6 @@ export function EmailWidget() {
   const handleSelect = (email: Email) => {
     window.open(`https://mail.google.com/mail/u/0/#inbox/${email.id}`, '_blank');
   };
-
-  const displayed = showAll ? emails : emails.slice(0, 12);
 
   return (
     <div className="backdrop-blur-xl border border-white/[0.10] rounded-2xl overflow-hidden">
@@ -63,14 +59,6 @@ export function EmailWidget() {
           >
             ↻
           </button>
-          {emails.length > 12 && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              {showAll ? 'Show less' : `+${emails.length - 12} more`}
-            </button>
-          )}
           <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
         </div>
       </div>
@@ -88,7 +76,7 @@ export function EmailWidget() {
         </div>
       ) : (
         <div className="max-h-80 overflow-y-auto">
-          {displayed.map(email => {
+          {emails.map(email => {
             const { name } = formatFrom(email.from);
             return (
               <button
