@@ -59,15 +59,34 @@ function stripHtml(html) {
 function cleanEmailText(text) {
   if (!text) return '';
   return text
+    // Strip invisible Unicode chars used for layout (zero-width space, soft hyphen, figure space, CGJ, etc.)
+    .replace(/[\u034F\u2000-\u200F\uFEFF\u00AD]/g, '')
+    // Remove "Thread contains X message(s)" prefix
+    .replace(/^Thread contains \d+ message\(s\)\n+/i, '')
+    // Remove "View web version" / "View in browser" type links
+    .replace(/^View (web |in )?version\s*$/gim, '')
+    // Remove "Click here to..." type links and surrounding whitespace
+    .replace(/\[Click here[^\]]*\]\s*\S+/gi, '')
+    // Remove bracketed URLs
     .replace(/\[https?:\/\/[^\]]+\]/g, (m) => {
       try { const u = new URL(m.slice(1, -1)); return `[${u.origin}${u.pathname}]`; } catch { return ''; }
     })
-    .replace(/https?:\/\/\S+/g, (url) => {
+    // Replace URL-only lines with domain only
+    .replace(/^https?:\/\/\S+$/gm, (url) => {
       try { const u = new URL(url); return `${u.origin}${u.pathname}`; } catch { return ''; }
     })
+    // Remove standalone URL fragments
     .replace(/\[\s*\]/g, '')
+    // Remove soft hyphens mid-word
+    .replace(/\xAD/g, '')
+    // Collapse multiple blank lines
     .replace(/\n{3,}/g, '\n\n')
-    .split('\n').map(l => l.trimEnd()).filter((l, i, a) => !(l === '' && a[i-1] === '')).join('\n')
+    .split('\n')
+    .map(l => l.trimEnd())
+    .filter((l, i, a) => !(l === '' && (a[i-1] === '' || a[i-1] === undefined)))
+    .join('\n')
+    // Strip trailing spaces from each line (some emails pad titles with spaces)
+    .replace(/ +$/gm, '')
     .trim();
 }
 
@@ -624,7 +643,7 @@ const server = http.createServer((req, res) => {
               else if (p.mimeType === 'text/html') foundHtml = decoded;
             }
           }
-          body = foundPlain || stripHtml(foundHtml) || '';
+          body = cleanEmailText(foundPlain || stripHtml(foundHtml) || '');
           if (body) break;
         }
         if (!body) throw new Error('no body');
