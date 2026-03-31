@@ -12,11 +12,11 @@
   },
   {
     "date": "Mar 30, 2026",
-    "water": 1,
+    "water": 0,
     "stretch": 0,
     "laundry": true,
     "bedMade": true,
-    "vacuum": 1,
+    "vacuum": 0,
     "breakfast": true,
     "lunch": true,
     "dinner": false

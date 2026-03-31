@@ -15,7 +15,7 @@
     "water": 0,
     "stretch": 0,
     "laundry": false,
-    "bedMade": false,
+    "bedMade": true,
     "vacuum": 0,
     "breakfast": true,
     "lunch": false,

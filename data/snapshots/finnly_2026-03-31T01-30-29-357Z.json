@@ -4,14 +4,14 @@
     "waterAM": true,
     "waterPM": true,
     "breakfast": true,
-    "dinner": true,
+    "dinner": false,
     "walk1": true,
     "walk2": true,
     "walk3": false,
     "walk1Poop": true,
     "walk2Poop": false,
     "walk3Poop": false,
-    "treats": 2
+    "treats": 1
   },
   {
     "date": "Mar 29, 2026",
