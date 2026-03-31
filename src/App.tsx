@@ -8,6 +8,7 @@ import { FinnlyWidget } from './components/FinnlyWidget';
 import { MusicWidget } from './components/MusicWidget';
 import { HabitsWidget } from './components/HabitsWidget';
 import { DoorDashWidget } from './components/DoorDashWidget';
+import { EmailWidget } from './components/EmailWidget';
 import { Background } from './components/Background';
 import { useAgentStatus } from './hooks/useAgentStatus';
 import { useEffect } from 'react';
@@ -56,6 +57,7 @@ export default function App() {
           <FinnlyWidget />
           <MusicWidget />
           <HabitsWidget />
+          <EmailWidget />
         </main>
 
         <footer className="mt-6 flex items-center justify-between px-1">
