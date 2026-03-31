@@ -76,7 +76,8 @@ function formatHourFromISO(isoString: string): string {
   const hour = date.getHours();
   const diffMs = date.getTime() - now.getTime();
   const diffMins = Math.round(diffMs / (1000 * 60));
-  if (diffMins === 0) return 'Now';
+  // Within 30 minutes of current time = "Now"
+  if (diffMins >= -30 && diffMins < 30) return 'Now';
   if (hour === 0) return '12AM';
   if (hour === 12) return '12PM';
   if (hour > 12) return `${hour - 12}PM`;

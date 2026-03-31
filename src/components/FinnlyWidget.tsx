@@ -286,7 +286,7 @@ export function FinnlyWidget() {
                               {day.treats > 0 && (
                         <span className="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full">🦴 {day.treats} treat{day.treats !== 1 ? 's' : ''}</span>
                       )}
-                      {day.waterAM && '💧AM'} {day.waterPM && '💧PM'} {'·'} {day.breakfast && '🍖AM'} {day.dinner && '🍖PM'} {'·'} {day.walk1 && '🚶1'} {day.walk2 && '🚶2'} {day.walk3 && '🚶3'} {day.walk1Poop || day.walk2Poop || day.walk3Poop ? '· 💩' : ''}
+                      {day.waterAM && '💧AM'} {day.waterPM && '💧PM'} {'·'} {day.breakfast && '🍖AM'} {day.dinner && '🍖PM'} {'·'} {day.walk1 && <span className={day.walk1Poop ? 'text-amber-400' : 'text-slate-500'}>🚶1{day.walk1Poop ? '💩' : ''} </span>}{day.walk2 && <span className={day.walk2Poop ? 'text-amber-400' : 'text-slate-500'}>🚶2{day.walk2Poop ? '💩' : ''} </span>}{day.walk3 && <span className={day.walk3Poop ? 'text-amber-400' : 'text-slate-500'}>🚶3{day.walk3Poop ? '💩' : ''}</span>}
                     </div>
                   </div>
                 ))
