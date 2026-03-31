@@ -51,7 +51,10 @@
     .meta-chip { background:var(--surface); border-radius:8px; padding:5px 10px; font-size:12px; font-weight:500; color:var(--text-sec); }
     .section-title { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; padding-top:4px; }
     .ingredients-list { list-style:none; display:flex; flex-direction:column; gap:2px; margin-bottom:24px; }
-    .ingredients-list li { padding:10px 14px; background:var(--surface); border-radius:10px; font-size:15px; line-height:1.4; }
+    .ingredients-list li { padding:10px 14px; background:var(--surface); border-radius:10px; font-size:15px; line-height:1.4; cursor:pointer; transition:all 0.15s; user-select:none; }
+    .ingredients-list li:hover { background:#EFEFEF; }
+    .ingredients-list li.checked { text-decoration:line-through; color:var(--text-muted); background:var(--green-light); }
+    .ingredients-list li .check-icon { margin-right:8px; font-size:14px; }
     .instructions-list { list-style:none; display:flex; flex-direction:column; gap:12px; margin-bottom:24px; }
     .instructions-list li { display:flex; gap:12px; font-size:15px; line-height:1.55; }
     .step-num { width:28px; height:28px; border-radius:50%; background:var(--accent); color:white; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -102,7 +105,7 @@
 <script>
 // ── State ───────────────────────────────────────────
 const STORAGE_KEY = 'recipe_rip_saved_v2';
-let state = { view:'home', recipe:null, saved:JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'), searchQuery:'' };
+let state = { view:'home', recipe:null, saved:JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'), searchQuery:'', checked:{}};
 let toastTimer = null;
 
 // ── Helpers ─────────────────────────────────────────
@@ -121,11 +124,25 @@ async function ripRecipe(url){
   state.view='loading'; state.loadingUrl=url; render();
   try{
     // Use allorigins CORS proxy
-    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
-    const resp = await fetch(proxyUrl);
-    if(!resp.ok) throw new Error('Failed to fetch page');
-    const data = await resp.json();
-    const html = data.contents;
+    const proxies = [
+      'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url),
+      'https://api.allorigins.win/get?url=' + encodeURIComponent(url),
+      'https://corsproxy.io/?' + encodeURIComponent(url),
+    ];
+    let html = null;
+    for(const proxyUrl of proxies){
+      try{
+        const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+        if(resp.ok){
+          const text = await resp.text();
+          if(text.includes('<') && text.length > 500){
+            html = text;
+            break;
+          }
+        }
+      }catch{}
+    }
+    if(!html) throw new Error('Could not load this page. Try a different recipe URL.');
     const recipe = extractRecipe(html, url);
     if(!recipe) throw new Error('No recipe found on this page. Try a different URL.');
     recipe._id = Date.now().toString();
@@ -223,8 +240,8 @@ function render(){
     return;
   }
   if(V==='detail'&&R){
-    const steps = Array.isArray(R.instructions)?R.instructions:[];
-    const ings = Array.isArray(R.ingredients)?R.ingredients:[];
+    const steps = (Array.isArray(R.instructions)?R.instructions:[]).map(s=>clean(s)).filter(s=>s.length>0);
+    const ings = (Array.isArray(R.ingredients)?R.ingredients:[]).map(i=>clean(i)).filter(s=>s.length>0);
     app.innerHTML=`
       <button class="back-btn" onclick="state.view='home';state.recipe=null;render()">← Back</button>
       ${R.image?`<div class="recipe-hero"><img src="${clean(R.image)}" alt="${clean(R.title)}" onerror="this.outerHTML='<div class=recipe-hero-placeholder>🍽️</div>'"><span class="recipe-source">${getHost(R.sourceUrl)}</span></div>`:`<div class="recipe-hero-placeholder">🍽️</div>`}
@@ -237,7 +254,7 @@ function render(){
           ${R.cuisine?`<span class="meta-chip">🌍 ${clean(R.cuisine)}</span>`:''}
         </div>
         ${R.description?`<p class="desc">${clean(R.description)}</p>`:''}
-        ${ings.length?`<p class="section-title">Ingredients</p><ul class="ingredients-list">${ings.map(i=>`<li>${clean(i)}</li>`).join('')}</ul>`:''}
+        ${ings.length?`<p class="section-title">Ingredients</p><ul class="ingredients-list">${ings.map((i,idx)=>`<li id="ing-${idx}" class="ing-item ${(state.checked[state.recipe._id+'-'+idx])?'checked':''}" onclick="toggleIng('${state.recipe._id}',${idx})"><span class="check-icon">${(state.checked[state.recipe._id+'-'+idx])?'&#10003;':'&#9675;'}</span>${clean(i)}</li>`).join('')}</ul>`:''}
         ${steps.length?`<p class="section-title">Instructions</p><ol class="instructions-list">${steps.map((s,i)=>`<li><span class="step-num">${i+1}</span><span>${clean(s)}</span></li>`).join('')}</ol>`:''}
       </div>
       <div class="save-bar">
@@ -287,7 +304,7 @@ function render(){
 
 function showDetail2(id){
   const r = state.saved.find(s=>s._id===id);
-  if(r){ state.recipe=r; state.view='detail'; render(); }
+  if(r){ state.recipe=r; state.view='detail'; state.checked={}; render(); }
 }
 function toggleSave(){
   if(!state.recipe) return;
@@ -302,6 +319,16 @@ function toggleSave(){
   state.recipe._saved = !isSaved(id);
   saveSaved();
   render();
+}
+
+function toggleIng(recipeId, idx){
+  const key = recipeId+'-'+idx;
+  state.checked[key] = !state.checked[key];
+  const el = document.getElementById('ing-'+idx);
+  if(el){
+    el.classList.toggle('checked', !!state.checked[key]);
+    el.querySelector('.check-icon').textContent = state.checked[key] ? '✓' : '○';
+  }
 }
 
 // Init
