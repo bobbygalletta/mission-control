@@ -2,7 +2,6 @@ const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const { execSync } = require('child_process');
 
 // Lazy-load Puppeteer for recipe fetching (heavy, only load when needed)
 let fetchWithPuppeteer = null;
