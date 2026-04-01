@@ -288,7 +288,9 @@ function parseMicrodata(html) {
 
 function htmlIngredients(html) {
   var res = [], seen = {};
-  var junk = /^(?:log\s?in|sign\s?up|register|print\s?(?:recipe)?|jump\s?to\s?recipe|save\s?recipe|share\s?recipe|rate\s?this\s?recipe|about\s?the\s?author|subscribe|newsletter|comment|related\s?(?:recipes?|posts?|articles?)|popular\s?now|advertisement|social\s?share|back\s?to\s?top|skip\s?to\s?(?:content|recipe|ingredients|instr)|air\s?fryer(?:\s?(?:basket|receptacle|pans?|trays?|rack))?$)/i;
+  var junk = /^(?:log\s?in|sign\s?up|register|print\s?(?:recipe)?|jump\s?to\s?recipe|save\s?recipe|share\s?recipe|rate\s?this\s?recipe|about\s?the\s?author|subscribe|newsletter|comment|related\s?(?:recipes?|posts?|articles?)|popular\s?now|advertisement|social\s?share|back\s?to\s?top|skip\s?to\s?(?:content|recipe|ingredients|instr))/i;
+  // Skip FAQ questions, section headings, and blog nav items
+  var skipPat = /^(?:can\s+you|what\s+(?:is|are|do|does|about)|how\s+(?:do|does|much|long|to|about|should)|why\s+(?:is|do|does)|is\s+it|should\s+(?:i|you)|will\s+the|does\s+(?:this|it|recipe)|how\s+many|can\s+i|click\s+here|pin\s+it|share\s+this|print\s+(?:this|the)|save\s+(?:this|recipe|pinterest)|follow\s+(?:me|us|on)|visit\s+|subscribe|newsletter|bloglovin|pinterest|instagram|facebook|twitter)/i;
 
   // 1. Explicit ingredient container classes
   var lbs = html.match(/<(?:ul|ol)[^>]*class=["'][^"']*(?:ingredient|recipe-ingredient)[^"']*["'][^>]*>([\s\S]*?)<\/(?:ul|ol)>/gi) || [];
@@ -296,17 +298,19 @@ function htmlIngredients(html) {
     var items = lbs[b].match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
     for (var l = 0; l < items.length; l++) {
       var s = clean(items[l].replace(/<[^>]+>/g, '')).trim();
-      if (s && s.length < 200 && !seen[s] && !junk.test(s)) { seen[s] = true; res.push(s); }
+      if (s && s.length > 1 && s.length < 250 && !seen[s] && !junk.test(s) && !skipPat.test(s)) { seen[s] = true; res.push(s); }
     }
   }
 
-  // 2. Strict measurement-based fallback
-  var mre2 = /^(?:\d[\d\s\/\.\-\(\)]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|bunche?s?|cans?|jars?|packages?|pkgs?|small|medium|large|pinch(?:es)?|dashes?|bay\b|heads?\b|stalks?\b|strips?\b|sprigs?\b|inch(?:es)?\b|tails?\b|links?\b|rashers?\b|quart\b|gall?ons?\b|liters?\b|grams?\b|kgs?\b|mgs?\b|bunche?s?\b)|[\u00BC-\u00BE\u2150-\u215E]\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?\b)|fresh\s|chopped\s|sliced\s|diced\s|minced\s|grated\s|ground\s|peeled\s|pinch\b|pinches\b|pkg\b|can\s|jar\s|bunch\s)/i;
-  var allLis = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
-  for (var li = 0; li < allLis.length && res.length < 80; li++) {
-    var txt = clean(allLis[li].replace(/<[^>]+>/g, '')).trim();
-    if (txt.length > 2 && txt.length < 250 && !seen[txt] && mre2.test(txt) && !junk.test(txt)) {
-      seen[txt] = true; res.push(txt);
+  // 2. Measurement-based fallback only if we got very few ingredients
+  if (res.length < 3) {
+    var mre2 = /^(?:\d[\d\s\/\.\-\(\)]*\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?|pounds?|cloves?|pieces?|slices?|bunche?s?|cans?|jars?|packages?|pkgs?|small|medium|large|pinch(?:es)?|dashes?|bay\b|heads?\b|stalks?\b|strips?\b|sprigs?\b|inch(?:es)?\b|tails?\b|links?\b|rashers?\b|quart\b|gall?ons?\b|liters?\b|grams?\b|kgs?\b|mgs?\b|bunche?s?\b)|[\u00BC-\u00BE\u2150-\u215E]\s*(?:cups?|tbsp|tsp|tablespoons?|teaspoons?|oz|ounces?|lbs?\b)|fresh\s|chopped\s|sliced\s|diced\s|minced\s|grated\s|ground\s|peeled\s|pinch\b|pinches\b|pkg\b|can\s|jar\s|bunch\s)/i;
+    var allLis = html.match(/<li[^>]*>([\s\S]*?)<\/li>/gi) || [];
+    for (var li = 0; li < allLis.length && res.length < 80; li++) {
+      var txt = clean(allLis[li].replace(/<[^>]+>/g, '')).trim();
+      if (txt.length > 2 && txt.length < 250 && !seen[txt] && mre2.test(txt) && !junk.test(txt) && !skipPat.test(txt)) {
+        seen[txt] = true; res.push(txt);
+      }
     }
   }
   return res;
