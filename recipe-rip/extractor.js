@@ -155,9 +155,14 @@ function flatInstr(arr) {
     else if (x && typeof x === 'object') {
       var tp = x['@type'] || '';
       if (tp === 'HowToSection') {
-        if (x.itemListElement) {
-          var sub = flatInstr(x.itemListElement);
-          for (var j = 0; j < sub.length; j++) out.push(sub[j]);
+        // Skip sections that are not main instructions (serving suggestions, tips, notes, variations)
+        var sectionName = clean(x.name || '').toLowerCase();
+        var skipSectionPat = /^(?:optional\s+)?(?:to\s+)?(?:serve|serve\s+with|topping|variation|note|notes?|tip|tips?|storage|frequently\s+asked|faq|substitution|substitutions|ingredient\s+sub)/i;
+        if (!sectionName || !skipSectionPat.test(sectionName)) {
+          if (x.itemListElement) {
+            var sub = flatInstr(x.itemListElement);
+            for (var j = 0; j < sub.length; j++) out.push(sub[j]);
+          }
         }
       } else if (tp === 'HowToStep' || tp === 'HowToDirection') {
         var s2 = clean(x.text || x.name || '');
