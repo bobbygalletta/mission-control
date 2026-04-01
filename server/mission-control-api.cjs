@@ -3,6 +3,44 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 
+// Lazy-load Puppeteer for recipe fetching (heavy, only load when needed)
+let fetchWithPuppeteer = null;
+try {
+  const puppeteer = require('puppeteer-extra');
+  const stealth = require('puppeteer-extra-plugin-stealth')();
+  puppeteer.use(stealth);
+  fetchWithPuppeteer = async function(targetUrl) {
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: [
+        '--no-sandbox', '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run', '--no-zygote',
+        '--disable-gpu',
+        '--window-size=1920x1080',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process'
+      ]
+    });
+    try {
+      const page = await browser.newPage();
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+      });
+      await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.waitForTimeout(3000); // Give Cloudflare time to render
+      const html = await page.content();
+      return html;
+    } finally {
+      await browser.close();
+    }
+  };
+} catch(e) {
+  console.log('Puppeteer not available:', e.message);
+}
+
 const PORT = 3001;
 const DATA_DIR = '/Users/bobbygalletta/agent-mission-control/data';
 
@@ -720,6 +758,43 @@ const server = http.createServer((req, res) => {
       res.writeHead(404); res.end('Recipe Rip not found');
     }
     return;
+  }
+
+  // GET /recipe-rip-fetch?url= — server-side fetch for blocked sites
+  if (get('/recipe-rip-fetch')) {
+    var targetUrl = parsedUrl.query.url;
+    if (!targetUrl || !targetUrl.startsWith('http')) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'url parameter required' })); return;
+    }
+    try { var u = new URL(targetUrl); if (!['http:', 'https:'].includes(u.protocol)) throw new Error(); } catch(e) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'Invalid URL' })); return;
+    }
+    // Step 1: Try curl
+    try {
+      var curlCmd = `curl -sL --max-time 20 --max-redirs 5 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" -H "Accept-Encoding: identity" "${targetUrl.replace(/"/g, '\\"')}"`;
+      var result = spawnSync('bash', ['-lc', curlCmd], { timeout: 25000, encoding: 'utf8', maxBuffer: 1024 * 1024 * 5 });
+      var html = result.stdout || '';
+      if (html && html.length > 500 && !/<html/i.test(html.slice(0,200)) === false) {
+        // Got HTML — check for Cloudflare
+        if (!/Just a moment|cloudflare|_cf_chl_opt|cf_chl_|challenge|CAPTTCHA/i.test(html)) {
+          res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html); return;
+        }
+      }
+    } catch(e) { console.log('Curl fetch failed:', e.message); }
+    // Step 2: Try Puppeteer (for Cloudflare-protected sites)
+    if (fetchWithPuppeteer) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.writeHead(200);
+      try {
+        var pHtml = await fetchWithPuppeteer(targetUrl);
+        res.end(pHtml);
+      } catch(e) {
+        console.log('Puppeteer fetch failed:', e.message);
+        res.end('<html><body><p>Failed to fetch page. Try a different recipe site.</p></body></html>');
+      }
+      return;
+    }
+    res.writeHead(502); res.end(JSON.stringify({ error: 'All fetch methods failed' })); return;
   }
 
   res.writeHead(404); res.end('{"error":"Not found"}');
