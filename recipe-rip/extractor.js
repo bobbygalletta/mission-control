@@ -157,7 +157,7 @@ function flatInstr(arr) {
       if (tp === 'HowToSection') {
         // Skip sections that are not main instructions (serving suggestions, tips, notes, variations)
         var sectionName = clean(x.name || '').toLowerCase();
-        var skipSectionPat = /^(?:optional\s+)?(?:to\s+)?(?:serve|serve\s+with|topping|variation|note|notes?|tip|tips?|storage|frequently\s+asked|faq|substitution|substitutions|ingredient\s+sub)/i;
+        var skipSectionPat = /(?:optional|to serve|topping|variation|\bnotes?\b|\btips?\b|storage|frequently|faq|substitution|ingredient sub|for the (?:sauce|glaze|dressing|topping|frosting|icing))/i;
         if (!sectionName || !skipSectionPat.test(sectionName)) {
           if (x.itemListElement) {
             var sub = flatInstr(x.itemListElement);
