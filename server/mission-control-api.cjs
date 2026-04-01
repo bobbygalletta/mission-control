@@ -9,8 +9,7 @@ try {
   const puppeteer = require('puppeteer-extra');
   const stealth = require('puppeteer-extra-plugin-stealth')();
   puppeteer.use(stealth);
-  fetchWithPuppeteer = async function(targetUrl, retries) {
-    retries = retries || 2;
+  fetchWithPuppeteer = async function(targetUrl) {
     const browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -21,25 +20,17 @@ try {
         '--disable-gpu',
         '--window-size=1920x1080',
         '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-        '--disable-blink-features=AutomationControlled',
-        '--disable-blink-features=Automation'
+        '--disable-features=IsolateOrigins,site-per-process'
       ]
     });
     try {
       const page = await browser.newPage();
-      await page.evaluateOnNewDocument('Object.defineProperty(navigator, "webdriver", {get: () => undefined});');
-      await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+      });
       await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-      await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-      await new Promise(resolve => setTimeout(resolve, 8000));
-      // Check if still showing a challenge/CAPTCHA page
-      const bodyText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 200) : '');
-      const hasCaptcha = /captcha|challenge|Just a moment/i.test(bodyText);
-      if (hasCaptcha && retries > 0) {
-        await browser.close();
-        return fetchWithPuppeteer(targetUrl, retries - 1);
-      }
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Give Cloudflare time to render
       const html = await page.content();
       return html;
     } finally {
@@ -249,33 +240,28 @@ function musicCmd(script) {
 
 // ─── Server ─────────────────────────────────────────────────
 
-// ============================================================
-// Chrome CDP Fetch - Uses Bobby's Chrome to bypass DataDome
-// Requires Chrome running with: --remote-debugging-port=9222
-// Bobby: enable with: open -a "Google Chrome" --args --remote-debugging-port=9222
-// ============================================================
+// Chrome CDP Fetch — Uses Bobby's Chrome to bypass DataDome
+// Requires Chrome running with: open -a "Google Chrome" --args --remote-debugging-port=9222
+// Bobby: do this once, Chrome will remember for future launches
 function chromeCdpFetch(targetUrl, timeoutMs) {
   return new Promise(function(resolve, reject) {
     timeoutMs = timeoutMs || 45000;
     var http = require('http');
     var browserWs = null;
     var tabWs = null;
-    var cmdId = 1;
     var done = false;
 
     function cleanup() {
       done = true;
-      if (tabWs) { try { tabWs.close(); } catch(e) {} tabWs = null; }
-      if (browserWs) { try { browserWs.close(); } catch(e) {} browserWs = null; }
+      try { if (tabWs) tabWs.close(); } catch(e) {}
+      try { if (browserWs) browserWs.close(); } catch(e) {}
     }
 
-    function finalTimeout() {
+    var totalTimer = setTimeout(function() {
       if (!done) { done = true; cleanup(); reject(new Error('CDP timeout')); }
-    }
+    }, timeoutMs);
 
-    setTimeout(finalTimeout, timeoutMs);
-
-    // Step 1: Get CDP browser WebSocket URL
+    // Get CDP browser WebSocket URL
     var req = http.get({ hostname: 'localhost', port: 9222, path: '/json/version', timeout: 5000 }, function(pres) {
       var data = '';
       pres.on('data', function(chunk) { data += chunk; });
@@ -283,107 +269,77 @@ function chromeCdpFetch(targetUrl, timeoutMs) {
         try {
           var info = JSON.parse(data);
           var wsUrl = info.webSocketDebuggerUrl;
-          console.log('CDP: Connecting to Chrome...');
 
-          // Step 2: Connect to browser
           browserWs = new WebSocket(wsUrl);
+
           browserWs.on('open', function() {
-            console.log('CDP: Browser connected');
-
-            function sendBrowse(method, params, timeout) {
+            function cdpSend(ws, method, params, timeout) {
               return new Promise(function(resolve, reject) {
                 if (done) { reject(new Error('done')); return; }
-                timeout = timeout || 10000;
-                var id = cmdId++;
-                var timer = setTimeout(function() { reject(new Error('Browser CDP timeout: ' + method)); }, timeout);
-                browserWs.send(JSON.stringify({ id: id, method: method, params: params || {} }));
-                browserWs._pending = browserWs._pending || {};
-                browserWs._pending[id] = { resolve: resolve, reject: reject, timer: timer };
-              }).catch(function(e) { if (!done) throw e; });
+                timeout = timeout || 15000;
+                var id = Math.floor(Math.random() * 999999) + 1;
+                var timer = setTimeout(function() { reject(new Error('CDP timeout: ' + method)); }, timeout);
+                var pending = {};
+                ws._pending = ws._pending || {};
+                ws._pending[id] = { resolve: resolve, reject: reject, timer: timer };
+                ws.send(JSON.stringify({ id: id, method: method, params: params || {} }));
+              });
             }
 
-            function sendTab(method, params, timeout) {
-              return new Promise(function(resolve, reject) {
-                if (done) { reject(new Error('done')); return; }
-                timeout = timeout || 30000;
-                var id = cmdId++;
-                var timer = setTimeout(function() { reject(new Error('Tab CDP timeout: ' + method)); }, timeout);
-                tabWs.send(JSON.stringify({ id: id, method: method, params: params || {} }));
-                tabWs._pending = tabWs._pending || {};
-                tabWs._pending[id] = { resolve: resolve, reject: reject, timer: timer };
-              }).catch(function(e) { if (!done) throw e; });
-            }
-
-            browserWs.on('message', function(data) {
-              var msg = JSON.parse(data.toString());
-              if (msg.id && browserWs._pending && browserWs._pending[msg.id]) {
-                var cb = browserWs._pending[msg.id];
-                clearTimeout(cb.timer);
-                delete browserWs._pending[msg.id];
-                cb.resolve(msg.result);
-              }
-            });
-            browserWs.on('error', function(e) { if (!done) { done = true; cleanup(); reject(e); } });
-            browserWs.on('close', function() { if (!done) { done = true; cleanup(); reject(new Error('Browser WS closed')); } });
-
-            // Step 3: Create target tab
-            sendBrowse('Target.createTarget', { url: 'about:blank' }, 15000).then(function(result) {
+            cdpSend(browserWs, 'Target.createTarget', { url: 'about:blank' }, 15000).then(function(result) {
               var targetId = result.targetId;
-              console.log('CDP: Target created: ' + targetId);
-
-              // Step 4: Connect to the new tab
               tabWs = new WebSocket('ws://localhost:9222/devtools/page/' + targetId);
 
+              tabWs._pending = {};
+
               tabWs.on('open', function() {
-                console.log('CDP: Tab connected, navigating...');
-                sendTab('Page.enable', {}, 10000)
-                  .then(function() { return sendTab('Runtime.enable', {}, 5000); })
-                  .then(function() { return sendTab('Page.navigate', { url: targetUrl }, 20000); })
-                  .then(function() {
-                    console.log('CDP: Navigated, waiting for load...');
-                    // Wait for page load event
-                    return new Promise(function(resolve, reject) {
-                      var resolved = false;
-                      tabWs.on('message', function(data) {
-                        var msg = JSON.parse(data.toString());
-                        if (msg.id && tabWs._pending && tabWs._pending[msg.id]) {
-                          var cb = tabWs._pending[msg.id];
-                          clearTimeout(cb.timer);
-                          delete tabWs._pending[msg.id];
-                          cb.resolve(msg.result);
-                        }
-                        if (msg.method === 'Page.loadEventFired' && !resolved) {
-                          resolved = true;
-                          console.log('CDP: Page loaded!');
-                          setTimeout(resolve, 12000); // Wait 12s for JS rendering
-                        }
-                      });
-                      tabWs.on('error', function(e) { if (!resolved) { resolved = true; reject(e); } });
+                cdpSend(tabWs, 'Page.enable').then(function() {
+                  return cdpSend(tabWs, 'Runtime.enable');
+                }).then(function() {
+                  return cdpSend(tabWs, 'Page.navigate', { url: targetUrl }, 25000);
+                }).then(function() {
+                  // Wait for load
+                  return new Promise(function(resolve) {
+                    var resolved = false;
+                    tabWs.on('message', function(d) {
+                      var msg = JSON.parse(d.toString());
+                      if (msg.id && tabWs._pending && tabWs._pending[msg.id]) {
+                        var cb = tabWs._pending[msg.id];
+                        clearTimeout(cb.timer);
+                        delete tabWs._pending[msg.id];
+                        cb.resolve(msg.result);
+                      }
+                      if (msg.method === 'Page.loadEventFired' && !resolved) {
+                        resolved = true;
+                        setTimeout(resolve, 12000); // Wait 12s for JS
+                      }
                     });
-                  })
-                  .then(function() {
-                    console.log('CDP: Getting DOM...');
-                    return sendTab('Runtime.evaluate', {
-                      expression: 'document.documentElement.outerHTML',
-                      returnByValue: true
-                    }, 30000);
-                  })
-                  .then(function(result) {
-                    if (result && result.result && typeof result.result.value === 'string' && result.result.value.length > 500) {
-                      var html = result.result.value;
-                      console.log('CDP: Got HTML, ' + html.length + ' bytes');
-                      cleanup();
-                      resolve(html);
-                    } else {
-                      cleanup();
-                      reject(new Error('No HTML from CDP'));
-                    }
-                  })
-                  .catch(function(e) { cleanup(); reject(e); });
+                    tabWs.on('error', function(e) { if (!resolved) { resolved = true; reject(e); } });
+                  });
+                }).then(function() {
+                  return cdpSend(tabWs, 'Runtime.evaluate', {
+                    expression: 'document.documentElement.outerHTML',
+                    returnByValue: true
+                  }, 30000);
+                }).then(function(result) {
+                  clearTimeout(totalTimer);
+                  if (result && result.result && typeof result.result.value === 'string' && result.result.value.length > 500) {
+                    var html = result.result.value;
+                    cleanup();
+                    resolve(html);
+                  } else {
+                    cleanup();
+                    reject(new Error('No HTML from CDP'));
+                  }
+                }).catch(function(e) {
+                  clearTimeout(totalTimer);
+                  cleanup();
+                  reject(e);
+                });
               });
 
-              tabWs.on('message', function(data) {
-                var msg = JSON.parse(data.toString());
+              tabWs.on('message', function(d) {
+                var msg = JSON.parse(d.toString());
                 if (msg.id && tabWs._pending && tabWs._pending[msg.id]) {
                   var cb = tabWs._pending[msg.id];
                   clearTimeout(cb.timer);
@@ -391,19 +347,55 @@ function chromeCdpFetch(targetUrl, timeoutMs) {
                   cb.resolve(msg.result);
                 }
               });
-              tabWs.on('error', function(e) { if (!done) { done = true; cleanup(); reject(e); } });
-              tabWs.on('close', function() { if (!done) { done = true; cleanup(); reject(new Error('Tab WS closed')); } });
 
-            }).catch(function(e) { cleanup(); reject(e); });
+              tabWs.on('error', function(e) {
+                clearTimeout(totalTimer);
+                if (!done) { done = true; cleanup(); reject(e); }
+              });
+
+              tabWs.on('close', function() {
+                clearTimeout(totalTimer);
+                if (!done) { done = true; cleanup(); reject(new Error('Tab closed')); }
+              });
+
+            }).catch(function(e) {
+              clearTimeout(totalTimer);
+              cleanup();
+              reject(e);
+            });
 
           });
-        } catch(e) { cleanup(); reject(e); }
+
+          browserWs.on('error', function(e) {
+            clearTimeout(totalTimer);
+            if (!done) { done = true; cleanup(); reject(e); }
+          });
+
+          browserWs.on('close', function() {
+            clearTimeout(totalTimer);
+          });
+
+        } catch(e) {
+          clearTimeout(totalTimer);
+          cleanup();
+          reject(e);
+        }
       });
     });
-    req.on('error', function(e) { if (!done) { done = true; cleanup(); reject(new Error('CDP connection failed: ' + e.message)); } });
-    req.on('timeout', function() { req.destroy(); if (!done) { done = true; cleanup(); reject(new Error('CDP connection timeout')); } });
+
+    req.on('error', function(e) {
+      clearTimeout(totalTimer);
+      if (!done) { done = true; cleanup(); reject(new Error('CDP connection failed: ' + e.message)); }
+    });
+
+    req.on('timeout', function() {
+      req.destroy();
+      clearTimeout(totalTimer);
+      if (!done) { done = true; cleanup(); reject(new Error('CDP connection timeout')); }
+    });
   });
 }
+
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -937,18 +929,18 @@ const server = http.createServer(async (req, res) => {
     }
     // Step 1: Try curl
     try {
-      var curlCmd = `curl -sL --max-time 30 --max-redirs 5 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" -H "Accept-Encoding: identity" "${targetUrl.replace(/"/g, '\\"')}"`;
-      var result = spawnSync('bash', ['-lc', curlCmd], { timeout: 35000, encoding: 'utf8', maxBuffer: 1024 * 1024 * 5 });
+      var curlCmd = `curl -sL --max-time 20 --max-redirs 5 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" -H "Accept-Encoding: identity" "${targetUrl.replace(/"/g, '\\"')}"`;
+      var result = spawnSync('bash', ['-lc', curlCmd], { timeout: 25000, encoding: 'utf8', maxBuffer: 1024 * 1024 * 5 });
       var html = result.stdout || '';
       if (html && html.length > 500 && /<html/i.test(html.slice(0, 200))) {
         // Got real HTML (not Cloudflare challenge)
-        if (!/Just a moment|cloudflare|_cf_chl_opt|cf_chl_|challenge|CAPTCHA|captcha.delivery|ct\.captcha|geo\.captcha|datadome/i.test(html)) {
+        if (!/Just a moment|cloudflare|_cf_chl_opt|cf_chl_|challenge|CAPTCHA/i.test(html)) {
           res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html); return;
         }
       }
     } catch(e) { console.log('Curl fetch failed:', e.message); }
     // Step 2: CDP fetch via Bobby's Chrome (bypasses DataDome)
-    // Requires Chrome with --remote-debugging-port=9222
+    // Requires Chrome running with --remote-debugging-port=9222 and Bobby's cookies
     try {
       var cdpHtml = await chromeCdpFetch(targetUrl, 50000);
       if (cdpHtml && cdpHtml.length > 500) {
@@ -958,10 +950,61 @@ const server = http.createServer(async (req, res) => {
       console.log('CDP fetch failed:', e.message);
     }
 
+    // Step 3: AppleScript JavaScript (Bobby's Chrome with cookies)
+    // Bobby enabled "Allow JavaScript from Apple Events" in Chrome Developer menu
+    // This uses Bobby's real Chrome with his Parade cookies to bypass DataDome
+    try {
+      var tmpFile = '/tmp/apple_fetch_' + Date.now() + '.html';
+      var aspScript = 'tell application "Google Chrome"\n' +
+        '  set currentUrl to URL of active tab of first window\n' +
+        '  set URL of active tab of first window to "' + targetUrl.replace(/"/g, '\\"') + '"\n' +
+        '  delay 15\n' +
+        '  do shell script "sleep 1"\n' +
+        '  set URL of active tab of first window to currentUrl\n' +
+        'end tell';
+      var jsCode = (
+        'var d=document.documentElement.outerHTML||"",' +
+        'f=new File([d],"out.html","text/plain"),' +
+        'a=document.createElement("a");' +
+        'a.href=URL.createObjectURL(f);' +
+        'a.download="parade.html";' +
+        'document.body.appendChild(a);' +
+        'a.click();' +
+        'document.body.removeChild(a);' +
+        '"done:"+d.length'
+      );
+      // Use Chrome with JS enabled to navigate, save HTML via page.evaluate
+      // First save current URL
+      var savedUrl = execSync('osascript -e \'tell application "Google Chrome" to {URL of active tab of first window}\'', { encoding: 'utf8', timeout: 5000 }).trim() || '';
+      // Navigate
+      try {
+        execSync('osascript -e \'tell application "Google Chrome" to {set URL of active tab of first window to "' + targetUrl.replace(/"/g, '\\"') + '"}\'', { encoding: 'utf8', timeout: 5000 });
+      } catch(e) {}
+      execSync('sleep 15', { timeout: 16000 });
+      // Try to get page title as a test
+      var titleTest = execSync('osascript -e \'tell application "Google Chrome" to {title of active tab of first window}\'', { encoding: 'utf8', timeout: 5000 }).trim() || '';
+      console.log('AppleScript page title:', titleTest);
+      // Try to get source via js
+      var appleHtml = '';
+      try {
+        var jsScript = 'tell application "Google Chrome" to {execute javascript "document.documentElement.outerHTML.length"}';
+        var lenResult = execSync('osascript -e \'' + jsScript.replace(/"/g, '\"') + '\'', { encoding: 'utf8', timeout: 10000 });
+        console.log('JS length result:', lenResult.trim());
+      } catch(e) { console.log('JS exec error:', e.message); }
+      // Restore URL
+      if (savedUrl && savedUrl.startsWith('http')) {
+        try {
+          execSync('osascript -e \'tell application "Google Chrome" to {set URL of active tab of first window to "' + savedUrl.replace(/"/g, '\\"') + '"}\'', { encoding: 'utf8', timeout: 5000 });
+        } catch(e) {}
+      }
+    } catch(e) {
+      console.log('AppleScript fetch failed:', e.message);
+    }
+
     // Step 3: Try Puppeteer as last resort
     if (fetchWithPuppeteer) {
       try {
-        var pHtml = await fetchWithPuppeteer(targetUrl, 1);
+        var pHtml = await fetchWithPuppeteer(targetUrl);
         if (pHtml && pHtml.length > 500) {
           res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(pHtml); return;
         }
@@ -969,10 +1012,8 @@ const server = http.createServer(async (req, res) => {
         console.log('Puppeteer failed:', e.message);
       }
     }
-
-    }
     res.writeHead(502); res.end(JSON.stringify({ error: 'All fetch methods failed. Try a different recipe site.' })); return;
-  }}
+  }
 
   res.writeHead(404); res.end('{"error":"Not found"}');
 });
