@@ -106,7 +106,22 @@ function extractRecipe(html, url) {
 
   if (ld) {
     r.title = ld.title || r.title;
+    r.author = ld.author || '';
+    r.description = ld.description || '';
+    r.image = ld.image || '';
+    r.prepTime = ld.prepTime || '';
+    r.cookTime = ld.cookTime || '';
+    r.totalTime = ld.totalTime || '';
+    r.servings = ld.servings || '';
+    r.cuisine = ld.cuisine || '';
+    r.category = ld.category || '';
     r.ingredients = (ld.ingredients.length >= hi.length) ? ld.ingredients : hi;
+    // Try Open Graph image if JSON-LD image is missing or not a full URL
+    if (!r.image || r.image.indexOf('http') !== 0) {
+      var og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i) || [];
+      var og2 = html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i) || [];
+      if (og[1] || og2[1]) r.image = og[1] || og2[1];
+    }
 
     if (hs.length >= 6) {
       // HTML is rich — deduplicate and strip "Step N:" prefixes
