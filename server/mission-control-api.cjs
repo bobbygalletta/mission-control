@@ -29,8 +29,8 @@ try {
         'Accept-Language': 'en-US,en;q=0.9',
       });
       await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-      await new Promise(resolve => setTimeout(resolve, 3000)); // Give Cloudflare time to render
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Give Cloudflare / slow pages time to render
       const html = await page.content();
       return html;
     } finally {
@@ -771,8 +771,8 @@ const server = http.createServer((req, res) => {
     }
     // Step 1: Try curl
     try {
-      var curlCmd = `curl -sL --max-time 20 --max-redirs 5 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" -H "Accept-Encoding: identity" "${targetUrl.replace(/"/g, '\\"')}"`;
-      var result = spawnSync('bash', ['-lc', curlCmd], { timeout: 25000, encoding: 'utf8', maxBuffer: 1024 * 1024 * 5 });
+      var curlCmd = `curl -sL --max-time 30 --max-redirs 5 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" -H "Accept-Encoding: identity" "${targetUrl.replace(/"/g, '\\"')}"`;
+      var result = spawnSync('bash', ['-lc', curlCmd], { timeout: 35000, encoding: 'utf8', maxBuffer: 1024 * 1024 * 5 });
       var html = result.stdout || '';
       if (html && html.length > 500 && /<html/i.test(html.slice(0, 200))) {
         // Got real HTML (not Cloudflare challenge)
