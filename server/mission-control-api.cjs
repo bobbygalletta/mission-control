@@ -970,6 +970,7 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    }
     res.writeHead(502); res.end(JSON.stringify({ error: 'All fetch methods failed. Try a different recipe site.' })); return;
   }}
 
