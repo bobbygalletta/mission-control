@@ -123,19 +123,10 @@ function extractRecipe(html, url) {
       if (og[1] || og2[1]) r.image = og[1] || og2[1];
     }
 
-    if (hs.length >= 6) {
-      // HTML is rich — deduplicate and strip "Step N:" prefixes
-      var seen = {};
-      r.instructions = [];
-      for (var i = 0; i < hs.length; i++) {
-        var raw = hs[i].replace(/^(?:Step\s*)\d+[\.:]\s*/i, '').trim();
-        if (raw.length > 5 && !seen[raw.slice(0, 25)]) {
-          seen[raw.slice(0, 25)] = true;
-          r.instructions.push(raw);
-        }
-      }
-    } else {
-      r.instructions = ld.instructions.length > 0 ? ld.instructions : [];
+    // Use JSON-LD as primary source — it has HowToSection metadata to filter out
+    // serving/tips sections. Only fall back to HTML if JSON-LD is very sparse (< 3 steps).
+    r.instructions = ld.instructions.length > 0 ? ld.instructions : [];
+    if (r.instructions.length < 3 && hs.length >= 3) {
       for (var j = 0; j < hs.length; j++) {
         var raw2 = hs[j].replace(/^(?:Step\s*)\d+[\.:]\s*/i, '').trim();
         if (!r.instructions.some(function(s) { return s.indexOf(raw2.slice(0, 25)) >= 0; }))
