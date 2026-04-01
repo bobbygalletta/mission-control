@@ -2,6 +2,7 @@ const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const { execSync } = require('child_process');
 
 // Lazy-load Puppeteer for recipe fetching (heavy, only load when needed)
 let fetchWithPuppeteer = null;
@@ -799,6 +800,32 @@ const server = http.createServer((req, res) => {
         res.writeHead(502); res.end(JSON.stringify({ error: 'Fetch failed. Try a different recipe site.' }));
       });
       return;
+    }
+    // Step 3: Use Bobby's Chrome tab — navigate to URL, wait, get source, restore URL
+    // Bobby keeps Parade.com open in tab 5, which has valid cookies/session
+    // This bypasses DataDome because it's his real authenticated browser session
+    try {
+      var { execSync: exec2 } = require('child_process');
+      // Save current URL of tab 5 so we can restore it
+      var saveCmd = 'osascript -e \'tell application "Google Chrome" to {if (count of tabs of window 1) >= 5 then {URL of tab 5 of window 1} else {URL of tab 1 of window 1}}\\';
+      var savedUrl = (exec2(saveCmd, { encoding: 'utf8', timeout: 5000 }) || '').trim();
+      // Navigate to target URL
+      var navCmd = 'osascript -e \'tell application "Google Chrome" to {if (count of tabs of window 1) >= 5 then {set URL of tab 5 of window 1 to "' + targetUrl.replace(/"/g, '\\"') + '"} else {set URL of tab 1 of window 1 to "' + targetUrl.replace(/"/g, '\\"') + '"}}\\';
+      exec2(navCmd, { encoding: 'utf8', timeout: 5000 });
+      // Wait for page to fully load
+      require('child_process').execSync('sleep 14', { timeout: 16000 });
+      // Get page source
+      var srcCmd = 'osascript -e \'tell application "Google Chrome" to {if (count of tabs of window 1) >= 5 then {source of tab 5 of window 1} else {source of tab 1 of window 1}}\\';
+      var chromeHtml = (exec2(srcCmd, { encoding: 'utf8', timeout: 10000 }) || '';
+      // Restore original URL
+      if (savedUrl && savedUrl.startsWith('http')) {
+        exec2('osascript -e \'tell application "Google Chrome" to {if (count of tabs of window 1) >= 5 then {set URL of tab 5 of window 1 to "' + savedUrl.replace(/"/g, '\\"') + '"} else {set URL of tab 1 of window 1 to "' + savedUrl.replace(/"/g, '\\"') + '"}}\\'', { encoding: 'utf8', timeout: 5000 });
+      }
+      if (chromeHtml && chromeHtml.length > 500) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(chromeHtml); return;
+      }
+    } catch(e) {
+      console.log('Chrome fetch failed:', e.message);
     }
     res.writeHead(502); res.end(JSON.stringify({ error: 'All fetch methods failed. Try a different recipe site.' })); return;
   }
