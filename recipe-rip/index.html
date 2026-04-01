@@ -146,7 +146,7 @@ function extractRecipe(html, url) {
     }
   }
 
-  r.ingredients = r.ingredients.map(clean).filter(function(s) { return s.length > 1 && s.length < 300; });
+  r.ingredients = r.ingredients.map(function(s) { return toFraction(clean(s)); }).filter(function(s) { return s.length > 1 && s.length < 300; });
   r.instructions = r.instructions.map(clean).filter(function(s) { return s.length > 5; });
   return r;
 }
@@ -378,6 +378,44 @@ function htmlInstructions(html) {
   }
 
   return res;
+}
+
+function toFraction(s) {
+  if (!s || typeof s !== 'string') return s;
+  // Convert decimal numbers at start of string to Unicode fractions
+  // e.g. "0.75 cup" -> "¾ cup", "1.5 tsp" -> "1½ tsp"
+  return s.replace(/^(\d+(?:\.\d+)?)(?=\s|$)/g, function(match) {
+    var n = parseFloat(match);
+    if (isNaN(n)) return match;
+    if (n === 0) return match;
+    // Split into whole + fractional parts
+    var whole = Math.floor(n);
+    var frac = n - whole;
+    // Fraction lookup table
+    var fracs = [
+      [0.125, '\u215B'], // ⅛
+      [0.25,  '\u00BC'], // ¼
+      [0.333, '\u2153'], // ⅓
+      [0.375, '\u215C'], // ⅜
+      [0.5,   '\u00BD'], // ½
+      [0.625, '\u215D'], // ⅝
+      [0.666, '\u2154'], // ⅔
+      [0.75,  '\u00BE'], // ¾
+      [0.875, '\u215E'], // ⅞
+    ];
+    var fracStr = '';
+    for (var i = 0; i < fracs.length; i++) {
+      if (Math.abs(frac - fracs[i][0]) < 0.02) { fracStr = fracs[i][1]; break; }
+    }
+    if (fracStr === '' && frac > 0.02) {
+      // Recursively convert remaining fraction
+      fracStr = toFraction(frac.toFixed(3).replace(/^0/, ''));
+    }
+    if (whole > 0 && fracStr) return whole + fracStr;
+    if (whole > 0 && !fracStr) return String(whole);
+    if (fracStr) return fracStr;
+    return match;
+  });
 }
 
 function clean(s) {
