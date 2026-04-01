@@ -9,23 +9,7 @@ function extractRecipe(html, url) {
 
   if (ld) {
     r.title = ld.title || r.title;
-    r.author = ld.author || '';
-    r.description = ld.description || '';
-    r.image = ld.image || '';
-    r.prepTime = ld.prepTime || '';
-    r.cookTime = ld.cookTime || '';
-    r.totalTime = ld.totalTime || '';
-    r.servings = ld.servings || '';
-    r.cuisine = ld.cuisine || '';
-    r.category = ld.category || '';
     r.ingredients = (ld.ingredients.length >= hi.length) ? ld.ingredients : hi;
-    // Use JSON-LD image if available, otherwise try Open Graph meta tag
-    if (!r.image || r.image.indexOf('http') !== 0) {
-      var ogImg = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || [];
-      var ogImg2 = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [];
-      var ogImgSrc = ogImg[1] || ogImg2[1] || '';
-      if (ogImgSrc) r.image = ogImgSrc;
-    }
 
     if (hs.length >= 6) {
       // HTML is rich — deduplicate and strip "Step N:" prefixes
@@ -97,22 +81,9 @@ function findRecipeInJSON(data) {
     var isR = (t === 'Recipe') || (Array.isArray(t) && t.indexOf('Recipe') >= 0);
     if (isR) {
       var img = data.image || '';
-      // Handle all possible JSON-LD image formats
-      var imgUrl = '';
-      if (typeof img === 'string' && img) {
-        imgUrl = img;
-      } else if (Array.isArray(img)) {
-        for (var ii = 0; ii < img.length; ii++) {
-          if (typeof img[ii] === 'string' && img[ii]) { imgUrl = img[ii]; break; }
-          if (img[ii] && typeof img[ii] === 'object') {
-            if (img[ii].url) { imgUrl = img[ii].url; break; }
-            if (img[ii].src) { imgUrl = img[ii].src; break; }
-            if (img[ii]['@type'] === 'ImageObject' && img[ii].contentUrl) { imgUrl = img[ii].contentUrl; break; }
-          }
-        }
-      } else if (img && typeof img === 'object') {
-        imgUrl = img.url || img.src || img.contentUrl || '';
-      }
+      var imgUrl = typeof img === 'string' ? img :
+        Array.isArray(img) ? (img[0] && (img[0].url || img[0])) :
+        (img && (img.url || img.src)) ? (img.url || img.src) : '';
       return {
         title: clean(data.name || ''),
         author: typeof data.author === 'object' ? data.author.name : data.author || '',

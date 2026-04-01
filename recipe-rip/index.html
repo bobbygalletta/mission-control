@@ -106,23 +106,7 @@ function extractRecipe(html, url) {
 
   if (ld) {
     r.title = ld.title || r.title;
-    r.author = ld.author || '';
-    r.description = ld.description || '';
-    r.image = ld.image || '';
-    r.prepTime = ld.prepTime || '';
-    r.cookTime = ld.cookTime || '';
-    r.totalTime = ld.totalTime || '';
-    r.servings = ld.servings || '';
-    r.cuisine = ld.cuisine || '';
-    r.category = ld.category || '';
     r.ingredients = (ld.ingredients.length >= hi.length) ? ld.ingredients : hi;
-    // Use JSON-LD image if available, otherwise try Open Graph meta tag
-    if (!r.image || r.image.indexOf('http') !== 0) {
-      var ogImg = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i) || [];
-      var ogImg2 = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i) || [];
-      var ogImgSrc = ogImg[1] || ogImg2[1] || '';
-      if (ogImgSrc) r.image = ogImgSrc;
-    }
 
     if (hs.length >= 6) {
       // HTML is rich — deduplicate and strip "Step N:" prefixes
@@ -194,22 +178,9 @@ function findRecipeInJSON(data) {
     var isR = (t === 'Recipe') || (Array.isArray(t) && t.indexOf('Recipe') >= 0);
     if (isR) {
       var img = data.image || '';
-      // Handle all possible JSON-LD image formats
-      var imgUrl = '';
-      if (typeof img === 'string' && img) {
-        imgUrl = img;
-      } else if (Array.isArray(img)) {
-        for (var ii = 0; ii < img.length; ii++) {
-          if (typeof img[ii] === 'string' && img[ii]) { imgUrl = img[ii]; break; }
-          if (img[ii] && typeof img[ii] === 'object') {
-            if (img[ii].url) { imgUrl = img[ii].url; break; }
-            if (img[ii].src) { imgUrl = img[ii].src; break; }
-            if (img[ii]['@type'] === 'ImageObject' && img[ii].contentUrl) { imgUrl = img[ii].contentUrl; break; }
-          }
-        }
-      } else if (img && typeof img === 'object') {
-        imgUrl = img.url || img.src || img.contentUrl || '';
-      }
+      var imgUrl = typeof img === 'string' ? img :
+        Array.isArray(img) ? (img[0] && (img[0].url || img[0])) :
+        (img && (img.url || img.src)) ? (img.url || img.src) : '';
       return {
         title: clean(data.name || ''),
         author: typeof data.author === 'object' ? data.author.name : data.author || '',
@@ -429,7 +400,7 @@ function toggleIng(rid,idx){var k=rid+'-'+idx;st.chk[k]=!st.chk[k];var el=docume
 function toggleSave(){if(!st.recipe)return;var id=st.recipe._id;if(isSaved(id)){st.saved=st.saved.filter(function(r){return r._id!==id;});toast('Removed');}else{st.saved.unshift(JSON.parse(JSON.stringify(st.recipe)));toast('Recipe saved!');}st.recipe._saved=!isSaved(id);save();render();}
 function delSaved(id,e){e.stopPropagation();st.saved=st.saved.filter(function(r){return r._id!==id;});save();toast('Deleted');render();}
 function showDetail(id){var r=st.saved.find(function(s){return s._id===id;});if(r){st.recipe=r;st.view='detail';st.chk={};render();}}
-function rip(u){if(!u||!u.startsWith('http')){toast('Enter a full URL starting with https://');return;}st.view='loading';st.loadingUrl=u;render();var px=[{p:'https://api.codetabs.com/v1/proxy?quest=',f:function(t){return t;}},{p:'https://api.allorigins.win/get?url=',f:function(t){try{var j=JSON.parse(t);return j.contents||'';}catch(e){return'';}}},{p:'https://corsproxy.io/?',f:function(t){return t;}},{p:'https://api.corsanywhere.com/?',f:function(t){return t;}},{p:'https://yacdn.org/proxy/',f:function(t){return t;}}];var html=null;function tryNext(i){if(html||i>=px.length)return;var pu=px[i].p+encodeURIComponent(u);fetch(pu,{signal:AbortSignal.timeout(20000)}).then(function(r){if(html)return;return r.text().then(function(t){var h=px[i].f(t);if(h&&h.length>200&&h.indexOf('<')>=0){html=h;extractAndShow(html,u);}else{tryNext(i+1);}});}).catch(function(){tryNext(i+1);});}tryNext(0);setTimeout(function(){if(st.view==='loading'){st.view='error';st.errorMsg='Could not load this page. Try a different recipe URL.';render();}},35000);}
+function rip(u){if(!u||!u.startsWith('http')){toast('Enter a full URL starting with https://');return;}st.view='loading';st.loadingUrl=u;render();var px=['https://api.codetabs.com/v1/proxy?quest=','https://api.allorigins.win/get?url=','https://corsproxy.io/?','https://api.corsanywhere.com/?','https://yacdn.org/proxy/'];var html=null;function tryNext(i){if(html||i>=px.length)return;var pu=px[i]+encodeURIComponent(u);fetch(pu,{signal:AbortSignal.timeout(18000)}).then(function(r){if(html)return;return r.text().then(function(t){try{var j=JSON.parse(t);t=j.contents||'';}catch(e){}if(t&&t.length>200&&t.indexOf('<')>=0){html=t;extractAndShow(html,u);}else{tryNext(i+1);}});}).catch(function(){tryNext(i+1);});}tryNext(0);setTimeout(function(){if(st.view==='loading'){st.view='error';st.errorMsg='Could not load this page. Try a different recipe URL.';render();}},30000);}
 function extractAndShow(html,u){var recipe=extractRecipe(html,u);if(!recipe||(!recipe.title&&!recipe.ingredients.length&&!recipe.instructions.length)){st.errorMsg='No recipe found on this page. Try a different URL.';st.view='error';}else{recipe._id=Date.now().toString();recipe._saved=isSaved(recipe._id);st.recipe=recipe;st.view='detail';st.chk={};}render();}
 function render(){var app=document.getElementById('app');var V=st.view;var R=st.recipe;var sc=st.saved.length;var fl=st.sq?st.saved.filter(function(r){return(r.title||'').toLowerCase().indexOf(st.sq.toLowerCase())>=0||(r.ingredients||[]).some(function(i){return i.toLowerCase().indexOf(st.sq.toLowerCase())>=0;});}):st.saved;if(V==='loading'){app.innerHTML='<div class="lw"><div class="sn"></div><p class="lt2">Extracting recipe...</p><p class="lu">'+C(st.loadingUrl||'')+'</p></div>';return;}if(V==='error'){app.innerHTML='<div class="is"><div class="ir"><input class="ui" id="u2" type="url" placeholder="https://www.seriouseats.com/recipe..." onkeydown="if(event.key===\'enter\')rip(this.value)" autofocus><button class="bt" onclick="rip(document.getElementById(\'u2\').value)">Rip It</button></div></div><div class="eb"><p>'+C(st.errorMsg||'Something went wrong')+'</p></div><div class="es"><div class="ei">&#x1F50D;</div><p class="et">No recipe found</p><p class="ed">Try Serious Eats, AllRecipes, NYT Cooking, Bon Appetit.</p></div>';return;}if(V==='detail'&&R){var ings=R.ingredients||[];var steps=R.instructions||[];var h='<button class="bk" onclick="st.view=\'home\';st.recipe=null;render()"> Back</button>';if(R.image){h+='<div class="rh"><img src="'+C(R.image)+'" alt="'+C(R.title)+'" onerror="this.outerHTML=\'<div class=rp>&#x1F37D;</div>\'"><a href="'+C(R.sourceUrl)+'" target="_blank" rel="noopener noreferrer" class="rs">'+H(R.sourceUrl)+' &#x2197;</a></div>';}else{h+='<div class="rh"><div class="rp">&#x1F37D;</div></div>';}h+='<div class="rb"><h1 class="rt">'+C(R.title)+'</h1>';if(R.author)h+='<p class="ra">by '+C(R.author)+'</p>';h+='<div class="rm">';if(R.totalTime||R.cookTime||R.prepTime)h+='<span class="mc">&#x23F1; '+(T(R.totalTime)||T(R.cookTime)||T(R.prepTime)||'--')+'</span>';if(R.servings)h+='<span class="mc">&#x1F465; '+C(R.servings)+'</span>';if(R.cuisine)h+='<span class="mc">&#x1F30D; '+C(R.cuisine)+'</span>';h+='</div>';if(R.description)h+='<p class="ds">'+C(R.description)+'</p>';if(ings.length){h+='<p class="st">Ingredients ('+ings.length+')</p><ul class="il2">';for(var ii=0;ii<ings.length;ii++){var k=(R._id||'')+'-'+ii;var ch=!!st.chk[k];h+='<li id="ing-'+ii+'" class="'+(ch?'chk ':'')+'" onclick="toggleIng(\''+(R._id||'')+'\','+ii+')"><span class="ci">'+(ch?'\u2713':'\u25CB')+'</span>'+C(ings[ii])+'</li>';}h+='</ul>';}if(steps.length){h+='<p class="st">Instructions ('+steps.length+' steps)</p><ol class="is2">';for(var si=0;si<steps.length;si++){h+='<li><span class="sn2">'+(si+1)+'</span><span>'+C(steps[si])+'</span></li>';}h+='</ol>';}h+='</div><div class="ra2"><a class="ob" href="'+C(R.sourceUrl)+'" target="_blank" rel="noopener noreferrer">&#x2197; Open Original Recipe</a></div><div class="sb"><button class="sv '+(R._saved?'gd':'')+'" onclick="toggleSave()">'+(R._saved?'\u2713 Saved':'+ Save Recipe')+'</button></div>';app.innerHTML=h;return;}if(V==='saved'){var sh='<button class="bk" onclick="st.view=\'home\';render()"> Home</button>';if(sc>0)sh+='<div class="sw"><span class="sic">&#x1F50D;</span><input class="si2" type="search" placeholder="Search recipes..." value="'+C(st.sq)+'" oninput="st.sq=this.value;render()"></div>';if(sc===0){sh+='<div class="es"><div class="ei">&#x1F4D6;</div><p class="et">No saved recipes yet</p><p class="ed">Rip a recipe and tap "Save Recipe" to keep it here.</p></div>';}else if(fl.length===0){sh+='<div class="es"><div class="ei">&#x1F50D;</div><p class="et">No matches</p></div>';}else{sh+='<div class="sl">';for(var ri=0;ri<fl.length;ri++){var rv=fl[ri];sh+='<div class="sc" onclick="showDetail(\''+rv._id+'\')">';if(rv.image)sh+='<img class="sth" src="'+C(rv.image)+'" alt="" onerror="this.style.display=\'none\'">';else sh+='<div class="stp">&#x1F37D;</div>';sh+='<div class="si"><p class="stt">'+C(rv.title)+'</p><div class="sm"><span>'+(rv.ingredients||[]).length+' ingredients</span><a href="'+C(rv.sourceUrl)+'" target="_blank" rel="noopener noreferrer">'+H(rv.sourceUrl)+'</a></div></div><div class="sac"><button class="mb dl" onclick="event.stopPropagation();delSaved(\''+rv._id+'\',event)" title="Delete">&#x1F5D1;</button></div></div>';}sh+='</div>';}app.innerHTML=sh;return;}var h='<div class="is"><div class="ir"><input class="ui" id="urlInput" type="url" placeholder="https://www.seriouseats.com/recipe..." onkeydown="if(event.key===\'enter\')rip(this.value)" autofocus><button class="bt" onclick="rip(document.getElementById(\'urlInput\').value)">Rip It</button></div></div>';h+='<div class="tb"><button class="ta ac">Rip</button><button class="ta" onclick="st.view=\'saved\';render()">Saved'+(sc>0?'<span class="ba">'+sc+'</span>':'')+'</button></div>';if(sc>0){h+='<div style="margin-bottom:20px"><div class="rh2"><p class="rl">Recent Saves</p><button class="va" onclick="st.view=\'saved\';render()">View all &#x2192;</button></div><div class="sl">';for(var ri=0;ri<Math.min(3,sc);ri++){var rv=st.saved[ri];h+='<div class="sc" onclick="showDetail(\''+rv._id+'\')">';if(rv.image)h+='<img class="sth" src="'+C(rv.image)+'" alt="" onerror="this.style.display=\'none\'">';else h+='<div class="stp">&#x1F37D;</div>';h+='<div class="si"><p class="stt">'+C(rv.title)+'</p><div class="sm"><span>'+(rv.ingredients||[]).length+' ingredients</span></div></div></div>';}h+='</div></div>';}h+='<div class="es"><div class="ei">&#x1F374;</div><p class="et">Stop reading. Start cooking.</p><p class="ed">Paste any recipe URL above to get just the recipe. No ads, no life story.</p></div>';app.innerHTML=h;}
 document.getElementById('logoBtn').onclick=function(){st.view='home';st.recipe=null;render();};render();
