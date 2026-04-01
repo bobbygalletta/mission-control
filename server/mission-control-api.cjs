@@ -9,7 +9,8 @@ try {
   const puppeteer = require('puppeteer-extra');
   const stealth = require('puppeteer-extra-plugin-stealth')();
   puppeteer.use(stealth);
-  fetchWithPuppeteer = async function(targetUrl) {
+  fetchWithPuppeteer = async function(targetUrl, retries) {
+    retries = retries || 2;
     const browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -20,17 +21,25 @@ try {
         '--disable-gpu',
         '--window-size=1920x1080',
         '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process'
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-blink-features=Automation'
       ]
     });
     try {
       const page = await browser.newPage();
-      await page.setExtraHTTPHeaders({
-        'Accept-Language': 'en-US,en;q=0.9',
-      });
+      await page.evaluateOnNewDocument('Object.defineProperty(navigator, "webdriver", {get: () => undefined});');
+      await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
       await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      await new Promise(resolve => setTimeout(resolve, 5000)); // Give Cloudflare / slow pages time to render
+      await page.goto(targetUrl, { waitUntil: 'networkidle2', timeout: 60000 });
+      await new Promise(resolve => setTimeout(resolve, 8000));
+      // Check if still showing a challenge/CAPTCHA page
+      const bodyText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 200) : '');
+      const hasCaptcha = /captcha|challenge|Just a moment/i.test(bodyText);
+      if (hasCaptcha && retries > 0) {
+        await browser.close();
+        return fetchWithPuppeteer(targetUrl, retries - 1);
+      }
       const html = await page.content();
       return html;
     } finally {
@@ -776,14 +785,14 @@ const server = http.createServer((req, res) => {
       var html = result.stdout || '';
       if (html && html.length > 500 && /<html/i.test(html.slice(0, 200))) {
         // Got real HTML (not Cloudflare challenge)
-        if (!/Just a moment|cloudflare|_cf_chl_opt|cf_chl_|challenge|CAPTCHA/i.test(html)) {
+        if (!/Just a moment|cloudflare|_cf_chl_opt|cf_chl_|challenge|CAPTCHA|captcha.delivery|ct\.captcha|geo\.captcha|datadome/i.test(html)) {
           res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(html); return;
         }
       }
     } catch(e) { console.log('Curl fetch failed:', e.message); }
     // Step 2: Try Puppeteer (headless Chrome — can solve Cloudflare challenges)
     if (fetchWithPuppeteer) {
-      fetchWithPuppeteer(targetUrl).then(function(pHtml) {
+      fetchWithPuppeteer(targetUrl, 2).then(function(pHtml) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(pHtml);
       }).catch(function(e) {
         console.log('Puppeteer failed:', e.message);

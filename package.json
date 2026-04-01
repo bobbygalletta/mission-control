@@ -14,7 +14,8 @@
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "undetected-chromedriver": "^0.0.1-security"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
