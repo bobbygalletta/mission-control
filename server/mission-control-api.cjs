@@ -837,6 +837,68 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/extract-recipe?url= — Extract recipe from any URL using xAI Grok
+  if (get('/api/extract-recipe')) {
+    const recipeUrl = url.searchParams.get('url') || '';
+    if (!recipeUrl || !recipeUrl.startsWith('http')) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'url parameter required' })); return;
+    }
+    try {
+      const https = require('https');
+      const apiKey = 'xai-sAgbhVKkaqRjUwJifm0KpITLYiz0XeHJpoLQEvk7X2boUB35JJGdoasneoDM5MbmsIczyLDUCZHzmurD';
+      const postData = JSON.stringify({
+        model: 'grok-4-1-fast-reasoning',
+        input: 'Go to ' + recipeUrl + ' and extract the complete recipe. Return a JSON object with exactly this structure: {"title": "...", "author": "...", "description": "...", "ingredients": ["ingredient 1", "ingredient 2", ...], "instructions": ["step 1", "step 2", ...], "servings": "...", "prepTime": "...", "cookTime": "...", "totalTime": "..."}. Include ALL ingredients and ALL instructions. If there are ranges (like "12-18 cupcakes") use the first number. Return ONLY the JSON, nothing else.',
+        stream: false
+      });
+      const req = https.request({
+        hostname: 'api.x.ai', port: 443, path: '/v1/responses',
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + apiKey,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      }, function(pres) {
+        let data = '';
+        pres.on('data', chunk => data += chunk);
+        pres.on('end', function() {
+          try {
+            const json = JSON.parse(data);
+            // Extract the text from Grok's response
+            let recipeText = '';
+            if (json.output && json.output[0] && json.output[0].content) {
+              for (const item of json.output[0].content) {
+                if (item.type === 'output_text') recipeText = item.text;
+              }
+            }
+            // Parse the JSON from Grok's text response
+            const jsonMatch = recipeText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const recipe = JSON.parse(jsonMatch[0]);
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true, recipe: recipe }));
+            } else {
+              res.writeHead(200);
+              res.end(JSON.stringify({ success: true, raw: recipeText }));
+            }
+          } catch(e) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: 'Parse error: ' + e.message + ', raw: ' + data.slice(0, 200) }));
+          }
+        });
+      });
+      req.on('error', function(e) {
+        res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+      });
+      req.write(postData);
+      req.end();
+    } catch(e) {
+      res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // GET /api/emails — list all emails from today (with pagination)
   if (get('/api/emails')) {
     try {
@@ -861,6 +923,68 @@ const server = http.createServer(async (req, res) => {
     } catch (e) {
       res.writeHead(500);
       res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
+    }
+    return;
+  }
+
+  // GET /api/extract-recipe?url= — Extract recipe from any URL using xAI Grok
+  if (get('/api/extract-recipe')) {
+    const recipeUrl = url.searchParams.get('url') || '';
+    if (!recipeUrl || !recipeUrl.startsWith('http')) {
+      res.writeHead(400); res.end(JSON.stringify({ error: 'url parameter required' })); return;
+    }
+    try {
+      const https = require('https');
+      const apiKey = 'xai-sAgbhVKkaqRjUwJifm0KpITLYiz0XeHJpoLQEvk7X2boUB35JJGdoasneoDM5MbmsIczyLDUCZHzmurD';
+      const postData = JSON.stringify({
+        model: 'grok-4-1-fast-reasoning',
+        input: 'Go to ' + recipeUrl + ' and extract the complete recipe. Return a JSON object with exactly this structure: {"title": "...", "author": "...", "description": "...", "ingredients": ["ingredient 1", "ingredient 2", ...], "instructions": ["step 1", "step 2", ...], "servings": "...", "prepTime": "...", "cookTime": "...", "totalTime": "..."}. Include ALL ingredients and ALL instructions. If there are ranges (like "12-18 cupcakes") use the first number. Return ONLY the JSON, nothing else.',
+        stream: false
+      });
+      const req = https.request({
+        hostname: 'api.x.ai', port: 443, path: '/v1/responses',
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + apiKey,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        }
+      }, function(pres) {
+        let data = '';
+        pres.on('data', chunk => data += chunk);
+        pres.on('end', function() {
+          try {
+            const json = JSON.parse(data);
+            // Extract the text from Grok's response
+            let recipeText = '';
+            if (json.output && json.output[0] && json.output[0].content) {
+              for (const item of json.output[0].content) {
+                if (item.type === 'output_text') recipeText = item.text;
+              }
+            }
+            // Parse the JSON from Grok's text response
+            const jsonMatch = recipeText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const recipe = JSON.parse(jsonMatch[0]);
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: true, recipe: recipe }));
+            } else {
+              res.writeHead(200);
+              res.end(JSON.stringify({ success: true, raw: recipeText }));
+            }
+          } catch(e) {
+            res.writeHead(500);
+            res.end(JSON.stringify({ error: 'Parse error: ' + e.message + ', raw: ' + data.slice(0, 200) }));
+          }
+        });
+      });
+      req.on('error', function(e) {
+        res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
+      });
+      req.write(postData);
+      req.end();
+    } catch(e) {
+      res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
     }
     return;
   }
