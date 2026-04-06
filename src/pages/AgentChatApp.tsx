@@ -128,12 +128,15 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const maxTsRef = useRef(0)
   const lastMsgCountRef = useRef(0)
 
-  useEffect(() => {
-    // Merge with existing history from localStorage before saving — prevents
-    // concurrent saves from other panels overwriting each other's messages
+  // Keep history ref in sync with messages at all times — must be called before setMessages
+  const syncHistory = (msgs: Message[]) => {
     const existing = loadHistory()
-    history.current = { ...existing, [agent.id]: messages }
+    history.current = { ...existing, [agent.id]: msgs }
     saveHistory(history.current)
+  }
+
+  useEffect(() => {
+    syncHistory(messages)
   }, [messages, agent.id])
 
   // Track if user is near the bottom — only auto-scroll if they are
@@ -181,7 +184,9 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         setMessages(prev => {
           const existing = new Set(prev.map(m => m.id))
           const newOnes = msgs.filter(m => !existing.has(m.id))
-          return newOnes.length > 0 ? [...prev, ...newOnes] : prev
+          const merged = newOnes.length > 0 ? [...prev, ...newOnes] : prev
+          syncHistory(merged)
+          return merged
         })
         // Scroll to BOTTOM on initial load — newest messages visible
         // Use requestAnimationFrame to ensure DOM has painted
@@ -228,7 +233,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             if (existing) return false
             // Dedupe: user messages from Telegram that match a just-sent local message
             if (msg.role === 'user') {
-              const localMsg = messages.find(m =>
+              const localMsg = history.current[agent.id]?.find(m =>
                 m.role === 'user' &&
                 m.text === msg.text &&
                 m.id.startsWith('local-') &&
@@ -249,7 +254,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
-          setMessages(prev => [...prev, ...newMsgs])
+          setMessages(prev => {
+            const next = [...prev, ...newMsgs]
+            syncHistory(next)
+            return next
+          })
           // Auto-scroll when agent responds
           setTimeout(() => {
             const msgEl = messagesEndRef.current?.parentElement
@@ -277,9 +286,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     const userMsg: Message = { id: localId, role: 'user', text, timestamp: Date.now() }
     setMessages(prev => {
       const next = [...prev, userMsg]
-      // Immediately persist to localStorage — prevents other panels overwriting this agent's history
-      const existing = loadHistory()
-      saveHistory({ ...existing, [agent.id]: next })
+      syncHistory(next)
       return next
     })
     maxTsRef.current = Date.now()
