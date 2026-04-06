@@ -275,7 +275,13 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     // Save locally immediately so he sees it right away
     const localId = `local-${Date.now()}`
     const userMsg: Message = { id: localId, role: 'user', text, timestamp: Date.now() }
-    setMessages(prev => [...prev, userMsg])
+    setMessages(prev => {
+      const next = [...prev, userMsg]
+      // Immediately persist to localStorage — prevents other panels overwriting this agent's history
+      const existing = loadHistory()
+      saveHistory({ ...existing, [agent.id]: next })
+      return next
+    })
     maxTsRef.current = Date.now()
     setLastContacted(agent.id, Date.now())
     onContact() // immediately re-sort grid — optimistic update
