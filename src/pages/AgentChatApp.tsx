@@ -135,8 +135,18 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     saveHistory(history.current)
   }
 
+  // Persist whenever messages change
   useEffect(() => {
     syncHistory(messages)
+  }, [messages, agent.id])
+
+  // Periodic backup save — catches any messages that might slip through
+  // due to effect timing or concurrent panel saves
+  useEffect(() => {
+    const id = setInterval(() => {
+      syncHistory(messages)
+    }, 3000)
+    return () => clearInterval(id)
   }, [messages, agent.id])
 
   // Track if user is near the bottom — only auto-scroll if they are
