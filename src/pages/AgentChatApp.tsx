@@ -81,7 +81,26 @@ function loadHistory(): Record<string, Message[]> {
 }
 
 function saveHistory(history: Record<string, Message[]>) {
-  localStorage.setItem('agent_chat_v3', JSON.stringify(history))
+  try {
+    localStorage.setItem('agent_chat_v3', JSON.stringify(history))
+  } catch (e: any) {
+    // localStorage full — prune oldest messages from each agent and retry
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_FILE_QUOTA_EXCEEDED') {
+      try {
+        const existing = loadHistory()
+        const MAX_PER_AGENT = 100
+        const pruned: Record<string, Message[]> = {}
+        for (const [agentId, msgs] of Object.entries(existing)) {
+          pruned[agentId] = msgs.length > MAX_PER_AGENT
+            ? msgs.slice(msgs.length - MAX_PER_AGENT)
+            : msgs
+        }
+        localStorage.setItem('agent_chat_v3', JSON.stringify(pruned))
+      } catch {
+        try { localStorage.setItem('agent_chat_v3', '{}') } catch {}
+      }
+    }
+  }
 }
 
 // Extract key facts from a message for shared memory
