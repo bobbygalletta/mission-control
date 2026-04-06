@@ -1139,6 +1139,34 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(502); res.end(JSON.stringify({ error: 'All fetch methods failed. Try a different recipe site.' })); return;
   }
 
+  // GET /api/shared-memory — read shared memory
+  if (get('/api/shared-memory') && req.method === 'GET') {
+    var smPath = path.join(DATA_DIR, 'shared-memory.json');
+    try {
+      var smData = fs.existsSync(smPath) ? JSON.parse(fs.readFileSync(smPath, 'utf8')) : { facts: [], lastUpdated: null };
+      res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(smData)); return;
+    } catch(e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); return; }
+  }
+
+  // POST /api/shared-memory — write to shared memory
+  if (post('/api/shared-memory')) {
+    var smPath2 = path.join(DATA_DIR, 'shared-memory.json');
+    try {
+      var body = '';
+      req.on('data', function(chunk) { body += chunk; });
+      req.on('end', function() {
+        var newFacts = [];
+        try { newFacts = JSON.parse(body || '{}').facts || []; } catch(e) {}
+        var existing = { facts: [], lastUpdated: null };
+        try { if (fs.existsSync(smPath2)) existing = JSON.parse(fs.readFileSync(smPath2, 'utf8')); } catch(e) {}
+        var merged = existing.facts.concat(newFacts).slice(-50); // keep last 50 facts
+        var out = { facts: merged, lastUpdated: new Date().toISOString() };
+        fs.writeFileSync(smPath2, JSON.stringify(out, null, 2));
+        res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ ok: true })); return;
+      }); return;
+    } catch(e) { res.writeHead(500); res.end(JSON.stringify({ error: e.message })); return; }
+  }
+
   res.writeHead(404); res.end('{"error":"Not found"}');
 });
 

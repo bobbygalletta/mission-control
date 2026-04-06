@@ -1,38 +1,22 @@
-import React from 'react'
+import { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
+import App from './App'
+import AgentChatApp from './pages/AgentChatApp'
 
-// Error boundary to catch render crashes
-class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean; message: string }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props)
-    this.state = { hasError: false, message: '' }
+// Simple hash-based router
+function Router() {
+  const [route, setRoute] = useState(window.location.hash || '#/')
+
+  useEffect(() => {
+    const onHashChange = () => setRoute(window.location.hash || '#/')
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
+  if (route === '#/agent-chat') {
+    return <AgentChatApp />
   }
-  static getDerivedStateFromError(e: Error) {
-    return { hasError: true, message: e.message }
-  }
-  componentDidCatch(e: Error, info: React.ErrorInfo) {
-    console.error('[MC Error]', e.message, info.componentStack?.slice(0, 500))
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: '2rem', color: 'red', fontFamily: 'monospace', fontSize: '12px' }}>
-          <h2>App crashed:</h2>
-          <p>{this.state.message}</p>
-        </div>
-      )
-    }
-    return this.props.children
-  }
+  return <App />
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <ErrorBoundary>
-    <App />
-  </ErrorBoundary>
-)
+ReactDOM.createRoot(document.getElementById('root')!).render(<Router />)
