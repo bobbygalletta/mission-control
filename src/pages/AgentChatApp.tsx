@@ -133,8 +133,11 @@ function typingDots() {
 }
 
 function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void }) {
-  const history = useRef<Record<string, Message[]>>(loadHistory())
-  const [messages, setMessages] = useState<Message[]>(() => history.current[agent.id] || [])
+  // Use a ref to track messages — this is always the source of truth for syncing.
+  // React state is derived from this ref. This avoids stale-closure bugs in
+  // setMessages updaters when React batches multiple updates together.
+  const messagesRef = useRef<Message[]>(() => history.current[agent.id] || [])
+  const [messages, setMessages] = useState<Message[]>(() => messagesRef.current)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -147,22 +150,18 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const maxTsRef = useRef(0)
   const lastMsgCountRef = useRef(0)
 
-  // Keep history ref in sync with messages at all times — must be called before setMessages
-  const syncHistory = (msgs: Message[]) => {
+  // Sync messagesRef and localStorage — call this AFTER computing the new messages,
+  // BEFORE setMessages so the save is never based on a batched stale prev
+  const syncToStorage = (msgs: Message[]) => {
+    messagesRef.current = msgs
     history.current[agent.id] = msgs
     saveHistory(history.current)
   }
 
-  // Persist whenever messages change
-  useEffect(() => {
-    syncHistory(messages)
-  }, [messages, agent.id])
-
   // Periodic backup save — catches any messages that might slip through
-  // due to effect timing or concurrent panel saves
   useEffect(() => {
     const id = setInterval(() => {
-      syncHistory(messages)
+      syncToStorage(messages)
     }, 3000)
     return () => clearInterval(id)
   }, [messages, agent.id])
@@ -209,13 +208,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       if (msgs.length > 0) {
         maxTsRef.current = msgs[msgs.length - 1].timestamp
         lastMsgCountRef.current = msgs.length
-        setMessages(prev => {
-          const existing = new Set(prev.map(m => m.id))
-          const newOnes = msgs.filter(m => !existing.has(m.id))
-          const merged = newOnes.length > 0 ? [...prev, ...newOnes] : prev
-          syncHistory(merged)
-          return merged
-        })
+        const existing = new Set(messagesRef.current.map(m => m.id))
+        const newOnes = msgs.filter(m => !existing.has(m.id))
+        const merged = newOnes.length > 0 ? [...messagesRef.current, ...newOnes] : messagesRef.current
+        syncToStorage(merged)
+        setMessages(merged)
         // Scroll to BOTTOM on initial load — newest messages visible
         requestAnimationFrame(() => {
           const msgEl = messagesEndRef.current?.parentElement
@@ -223,9 +220,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           isAtBottomRef.current = true
         })
       } else {
-        // No messages from Telegram — still sync localStorage state to history ref
-        // so subsequent saves are not stale
-        syncHistory(messages)
+        // No messages from Telegram — sync localStorage with what we have
+        syncToStorage(messagesRef.current)
       }
     }).catch(() => {})
   }, [agent.id])
@@ -264,7 +260,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             if (existing) return false
             // Dedupe: user messages from Telegram that match a just-sent local message
             if (msg.role === 'user') {
-              const localMsg = history.current[agent.id]?.find(m =>
+              const localMsg = messagesRef.current.find(m =>
                 m.role === 'user' &&
                 m.text === msg.text &&
                 m.id.startsWith('local-') &&
@@ -285,11 +281,9 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
-          setMessages(prev => {
-            const next = [...prev, ...newMsgs]
-            syncHistory(next)
-            return next
-          })
+          const next = [...messagesRef.current, ...newMsgs]
+          syncToStorage(next)
+          setMessages(next)
           // Auto-scroll when agent responds
           setTimeout(() => {
             const msgEl = messagesEndRef.current?.parentElement
@@ -315,11 +309,9 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     // Save locally immediately so he sees it right away
     const localId = `local-${Date.now()}`
     const userMsg: Message = { id: localId, role: 'user', text, timestamp: Date.now() }
-    setMessages(prev => {
-      const next = [...prev, userMsg]
-      syncHistory(next)
-      return next
-    })
+    const next = [...messagesRef.current, userMsg]
+    syncToStorage(next)
+    setMessages(next)
     maxTsRef.current = Date.now()
     setLastContacted(agent.id, Date.now())
     onContact() // immediately re-sort grid — optimistic update
