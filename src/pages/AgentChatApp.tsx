@@ -47,9 +47,8 @@ function setLastContacted(agentId: string, ts: number) {
 
 
 
-function sortedAgents(): Agent[] {
-  const last = getLastContacted()
-  return [...AGENTS].sort((a, b) => (last[b.id] || 0) - (last[a.id] || 0))
+function getSortedAgents(lastContacted: Record<string, number>): Agent[] {
+  return [...AGENTS].sort((a, b) => (lastContacted[b.id] || 0) - (lastContacted[a.id] || 0))
 }
 
 function sessionKeyFor(agentId: string): string {
@@ -114,7 +113,7 @@ function typingDots() {
   )
 }
 
-function AgentPanel({ agent }: { agent: Agent }) {
+function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void }) {
   const history = useRef<Record<string, Message[]>>(loadHistory())
   const [messages, setMessages] = useState<Message[]>(() => history.current[agent.id] || [])
   const [input, setInput] = useState('')
@@ -240,6 +239,7 @@ function AgentPanel({ agent }: { agent: Agent }) {
             setTyping(false)
             if (typingTimer) { clearTimeout(typingTimer); setTypingTimer(null) }
             setLastContacted(agent.id, Date.now())
+            onContact() // re-sort grid when agent responds
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
@@ -258,7 +258,7 @@ function AgentPanel({ agent }: { agent: Agent }) {
 
     const id = setInterval(poll, 1200)
     return () => { active = false; clearInterval(id) }
-  }, [agent.id])
+  }, [agent.id, onContact])
 
   const sendMessage = async () => {
     if (!input.trim() || sending) return
@@ -272,6 +272,7 @@ function AgentPanel({ agent }: { agent: Agent }) {
     setMessages(prev => [...prev, userMsg])
     maxTsRef.current = Date.now()
     setLastContacted(agent.id, Date.now())
+    onContact() // immediately re-sort grid — optimistic update
     setTyping(false)
 
     // Force scroll to bottom of messages area without bubbling
@@ -452,11 +453,16 @@ function AgentPanel({ agent }: { agent: Agent }) {
 }
 
 export default function AgentChatApp() {
+  const [tick, setTick] = useState(0)
+
   useEffect(() => {
     // Don't scroll the window on mount — just ensure grid is at top via CSS
     const grid = document.querySelector(".agent-grid")
     if (grid) grid.scrollTop = 0
   }, [])
+
+  const sorted = getSortedAgents(getLastContacted())
+
   return (
     <div style={{
       height: '100vh', display: 'flex', flexDirection: 'column',
@@ -482,8 +488,8 @@ export default function AgentChatApp() {
 
       {/* 10-panel grid */}
       <div className="agent-grid">
-        {sortedAgents().map(agent => (
-          <AgentPanel key={agent.id} agent={agent} />
+        {sorted.map(agent => (
+          <AgentPanel key={agent.id} agent={agent} onContact={() => setTick(t => t + 1)} />
         ))}
       </div>
 
