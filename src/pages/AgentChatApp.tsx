@@ -488,11 +488,16 @@ export default function AgentChatApp() {
         </div>
       </div>
 
-      {/* 10-panel grid */}
+      {/* 10-panel grid — DOM order is FIXED (by AGENTS array), CSS order controls visual position */}
       <div className="agent-grid">
-        {sorted.map(agent => (
-          <AgentPanel key={agent.id} agent={agent} onContact={() => setTick(t => t + 1)} />
-        ))}
+        {AGENTS.map(agent => {
+          const visualRank = sorted.indexOf(agent)
+          return (
+            <div key={agent.id} style={{ order: visualRank, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <AgentPanel agent={agent} onContact={() => setTick(t => t + 1)} />
+            </div>
+          )
+        })}
       </div>
 
       <style>{`
