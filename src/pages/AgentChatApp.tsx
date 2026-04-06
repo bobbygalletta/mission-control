@@ -129,7 +129,10 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const lastMsgCountRef = useRef(0)
 
   useEffect(() => {
-    history.current[agent.id] = messages
+    // Merge with existing history from localStorage before saving — prevents
+    // concurrent saves from other panels overwriting each other's messages
+    const existing = loadHistory()
+    history.current = { ...existing, [agent.id]: messages }
     saveHistory(history.current)
   }, [messages, agent.id])
 
