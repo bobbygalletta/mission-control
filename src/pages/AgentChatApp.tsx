@@ -493,7 +493,7 @@ export default function AgentChatApp() {
         {AGENTS.map(agent => {
           const visualRank = sorted.indexOf(agent)
           return (
-            <div key={agent.id} style={{ order: visualRank, minHeight: 0 }}>
+            <div key={agent.id} style={{ order: visualRank, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <AgentPanel agent={agent} onContact={() => setTick(t => t + 1)} />
             </div>
           )
@@ -515,17 +515,26 @@ export default function AgentChatApp() {
           flex: 1;
           display: grid;
           grid-template-columns: repeat(2, 1fr);
-          grid-template-rows: repeat(5, 1fr);
+          grid-template-rows: repeat(5, 500px);
           gap: 8px;
           padding: 8px;
           overflow-y: auto;
           overflow-x: hidden;
+          height: calc(100vh - 68px);
           overscroll-behavior: contain;
-          min-height: 0;
+        }
+
+        @media (max-width: 1100px) {
+          .agent-grid {
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(5, 500px);
+          }
         }
 
         @media (max-width: 700px) {
           .agent-grid {
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(5, 500px);
             gap: 6px;
             padding: 6px;
           }
