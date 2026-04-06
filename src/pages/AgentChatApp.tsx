@@ -341,7 +341,12 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   return (
     <div
       data-agent-panel={agent.id}
-      onClick={() => inputRef.current?.focus()}
+      onClick={() => {
+        // Scroll panel to bottom so input is above keyboard before focusing
+        const msgEl = messagesEndRef.current?.parentElement
+        if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
+        inputRef.current?.focus()
+      }}
       style={{
         display: 'flex', flexDirection: 'column',
         background: 'rgba(255,255,255,0.03)',
@@ -431,8 +436,18 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             onKeyDown={handleKeyDown}
             onFocus={() => {
               setFocused(true)
-              // Prevent browser from scrolling the page to show textarea — we control scroll manually
-              inputRef.current?.scrollIntoView({ block: 'end', behavior: 'instant' })
+              // On iOS the keyboard covers the input. Scroll the messages area so the
+              // input footer sits just above the keyboard.
+              requestAnimationFrame(() => {
+                const msgEl = messagesEndRef.current?.parentElement
+                if (msgEl) {
+                  msgEl.scrollTop = msgEl.scrollHeight
+                  // Extra nudge after keyboard has settled
+                  setTimeout(() => {
+                    msgEl.scrollTop = msgEl.scrollHeight
+                  }, 350)
+                }
+              })
             }}
             onBlur={() => setFocused(false)}
             placeholder={`Msg ${agent.name}...`}
