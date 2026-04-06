@@ -136,7 +136,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   // Use a ref to track messages — this is always the source of truth for syncing.
   // React state is derived from this ref. This avoids stale-closure bugs in
   // setMessages updaters when React batches multiple updates together.
-  const messagesRef = useRef<Message[]>(() => history.current[agent.id] || [])
+  const messagesRef = useRef<Message[]>(history.current[agent.id] || [])
   const [messages, setMessages] = useState<Message[]>(() => messagesRef.current)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
