@@ -149,8 +149,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
 
   // Keep history ref in sync with messages at all times — must be called before setMessages
   const syncHistory = (msgs: Message[]) => {
-    const existing = loadHistory()
-    history.current = { ...existing, [agent.id]: msgs }
+    history.current[agent.id] = msgs
     saveHistory(history.current)
   }
 
@@ -218,12 +217,15 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           return merged
         })
         // Scroll to BOTTOM on initial load — newest messages visible
-        // Use requestAnimationFrame to ensure DOM has painted
         requestAnimationFrame(() => {
           const msgEl = messagesEndRef.current?.parentElement
           if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
           isAtBottomRef.current = true
         })
+      } else {
+        // No messages from Telegram — still sync localStorage state to history ref
+        // so subsequent saves are not stale
+        syncHistory(messages)
       }
     }).catch(() => {})
   }, [agent.id])
