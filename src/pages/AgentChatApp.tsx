@@ -338,7 +338,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         background: 'rgba(255,255,255,0.03)',
         border: focused ? `1.5px solid ${agent.color}66` : '1px solid rgba(255,255,255,0.06)',
         borderRadius: 14, overflow: 'hidden', height: '100%',
-        transition: 'border-color 0.15s',
+        transition: 'border-color 0.15s', minWidth: 0,
       }}
     >
       {/* Header */}
@@ -493,7 +493,7 @@ export default function AgentChatApp() {
         {AGENTS.map(agent => {
           const visualRank = sorted.indexOf(agent)
           return (
-            <div key={agent.id} style={{ order: visualRank, height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div key={agent.id} style={{ order: visualRank, height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
               <AgentPanel agent={agent} onContact={() => setTick(t => t + 1)} />
             </div>
           )
@@ -514,7 +514,7 @@ export default function AgentChatApp() {
         .agent-grid {
           flex: 1;
           display: grid;
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           grid-template-rows: repeat(5, 500px);
           gap: 8px;
           padding: 8px;
@@ -522,19 +522,14 @@ export default function AgentChatApp() {
           overflow-x: hidden;
           height: calc(100vh - 68px);
           overscroll-behavior: contain;
-        }
-
-        @media (max-width: 1100px) {
-          .agent-grid {
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(5, 500px);
-          }
+          box-sizing: border-box;
+          width: 100%;
+          max-width: 100%;
+          margin: 0 auto;
         }
 
         @media (max-width: 700px) {
           .agent-grid {
-            grid-template-columns: repeat(2, 1fr);
-            grid-template-rows: repeat(5, 500px);
             gap: 6px;
             padding: 6px;
           }
