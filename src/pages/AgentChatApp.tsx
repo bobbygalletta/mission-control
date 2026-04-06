@@ -119,8 +119,9 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [loaded, setLoaded] = useState(false)
   const [typing, setTyping] = useState(false)
+  const loadedRef = useRef(false)
+  const isAtBottomRef = useRef(true)
   const [typingTimer, setTypingTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -132,21 +133,21 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     saveHistory(history.current)
   }, [messages, agent.id])
 
-  // Only auto-scroll if user is near the bottom — using scrollTop to avoid page scroll
+  // Track if user is near the bottom — only auto-scroll if they are
   useEffect(() => {
     const msgEl = messagesEndRef.current?.parentElement
     if (!msgEl) return
     const distFromBottom = msgEl.scrollHeight - msgEl.scrollTop - msgEl.clientHeight
-    if (distFromBottom < 80) {
-      const msgEl2 = messagesEndRef.current?.parentElement
-      if (msgEl2) msgEl2.scrollTop = msgEl2.scrollHeight
+    isAtBottomRef.current = distFromBottom < 120
+    if (isAtBottomRef.current) {
+      msgEl.scrollTop = msgEl.scrollHeight
     }
-  }, [messages])
+  }, [messages, typing])
 
-  // Load full Telegram history on mount
+  // Load full Telegram history on mount — runs once per agent
   useEffect(() => {
-    if (loaded) return
-    setLoaded(true)
+    if (loadedRef.current) return
+    loadedRef.current = true
     maxTsRef.current = 0
 
     gatewayFetch('sessions_history', {
@@ -179,11 +180,13 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           const newOnes = msgs.filter(m => !existing.has(m.id))
           return newOnes.length > 0 ? [...prev, ...newOnes] : prev
         })
-        // Scroll to BOTTOM on load so newest messages show
-        setTimeout(() => {
-          const msgEl = document.querySelector(`[data-agent-panel="${agent.id}"] .agent-msgs`)
+        // Scroll to BOTTOM on initial load — newest messages visible
+        // Use requestAnimationFrame to ensure DOM has painted
+        requestAnimationFrame(() => {
+          const msgEl = messagesEndRef.current?.parentElement
           if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
-        }, 100)
+          isAtBottomRef.current = true
+        })
       }
     }).catch(() => {})
   }, [agent.id])
@@ -275,13 +278,12 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     onContact() // immediately re-sort grid — optimistic update
     setTyping(false)
 
-    // Force scroll to bottom of messages area without bubbling
-    setTimeout(() => {
+    // Force scroll to bottom of messages area
+    requestAnimationFrame(() => {
       const msgEl = messagesEndRef.current?.parentElement
       if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
-    }, 50)
-
-    setTyping(false)
+      isAtBottomRef.current = true
+    })
 
     // Show typing indicator after sending
     const timer = setTimeout(() => {
