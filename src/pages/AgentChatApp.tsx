@@ -47,6 +47,18 @@ function setLastContacted(agentId: string, ts: number) {
 
 
 
+function getLastRead(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem('agent_last_read') || '{}') } catch { return {} }
+}
+
+function setLastRead(agentId: string, ts: number) {
+  try {
+    const all = getLastRead()
+    all[agentId] = ts
+    localStorage.setItem('agent_last_read', JSON.stringify(all))
+  } catch {}
+}
+
 function getSortedAgents(lastContacted: Record<string, number>): Agent[] {
   return [...AGENTS].sort((a, b) => (lastContacted[b.id] || 0) - (lastContacted[a.id] || 0))
 }
@@ -144,6 +156,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
   const [scrollLocked, setScrollLocked] = useState(true)
+  const lastRead = getLastRead()[agent.id] || 0
+  const [unread, setUnread] = useState(() => {
+    const lastMsg = history.current[agent.id]?.slice(-1)[0]
+    return lastMsg ? lastMsg.timestamp > lastRead : false
+  })
   const [typing, setTyping] = useState(false)
   const loadedRef = useRef(false)
   const isAtBottomRef = useRef(true)
@@ -281,6 +298,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             if (typingTimer) { clearTimeout(typingTimer); setTypingTimer(null) }
             setLastContacted(agent.id, Date.now())
             onContact() // re-sort grid when agent responds
+            // If panel not focused, mark as unread
+            if (!focused) setUnread(true)
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
@@ -377,6 +396,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       onClick={() => {
         // Unlock scroll when panel is tapped
         setScrollLocked(false)
+        setUnread(false)
+        setLastRead(agent.id, Date.now())
         // Scroll panel to bottom so input is above keyboard before focusing
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
@@ -386,10 +407,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         setFocused(false)
         setScrollLocked(true)
       }}
+      className={unread ? 'agent-panel-unread' : undefined}
       style={{
         display: 'flex', flexDirection: 'column',
         background: 'rgba(255,255,255,0.03)',
-        border: focused ? `1.5px solid ${agent.color}66` : '1px solid rgba(255,255,255,0.06)',
+        border: focused ? `1.5px solid ${agent.color}66` : unread ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
         borderRadius: 14, overflow: 'hidden', height: '100%',
         transition: 'border-color 0.15s', minWidth: 0,
       }}
@@ -414,6 +436,23 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
           <span style={{ fontSize: 10, color: '#64748b' }}>Online</span>
+          {unread && (
+            <div style={{
+              width: 8, height: 8, borderRadius: '50%', background: '#3b82f6',
+              boxShadow: '0 0 6px #3b82f6', marginLeft: 4,
+            }} />
+          )}
+          {!unread && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setUnread(true) }}
+              title="Mark as unread"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '2px 4px', fontSize: 10, color: '#64748b',
+                borderRadius: 4, marginLeft: 4,
+              }}
+            >○</button>
+          )}
         </div>
       </div>
 
@@ -491,6 +530,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             onBlur={() => {
               setFocused(false)
               setScrollLocked(true)
+              setLastRead(agent.id, Date.now())
             }}
             placeholder={`Msg ${agent.name}...`}
             rows={1}
@@ -588,6 +628,15 @@ export default function AgentChatApp() {
         .agent-msgs.scroll-unlocked {
           overflow-y: auto;
           touch-action: pan-y pinch-zoom;
+        }
+
+        @keyframes unread-pulse {
+          0%, 100% { box-shadow: 0 0 0 0 #3b82f680, inset 0 0 0 1px #3b82f640; }
+          50% { box-shadow: 0 0 12px 3px #3b82f6aa, inset 0 0 0 1px #3b82f680; }
+        }
+
+        .agent-panel-unread {
+          animation: unread-pulse 2s ease-in-out infinite;
         }
 
         .agent-grid {
