@@ -63,6 +63,17 @@ function setUnreadAgent(agentId: string, unread: boolean) {
   } catch {}
 }
 
+function getVisibleAgents(): string[] {
+  try {
+    const raw = localStorage.getItem('agent_visible')
+    return raw ? JSON.parse(raw) : AGENTS.map(a => a.id)
+  } catch { return AGENTS.map(a => a.id) }
+}
+
+function setVisibleAgents(ids: string[]) {
+  try { localStorage.setItem('agent_visible', JSON.stringify(ids)) } catch {}
+}
+
 function getSortedAgents(lastContacted: Record<string, number>): Agent[] {
   return [...AGENTS].sort((a, b) => (lastContacted[b.id] || 0) - (lastContacted[a.id] || 0))
 }
@@ -583,6 +594,13 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
 
 export default function AgentChatApp() {
   const [, setTick] = useState(0)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [visibleAgents, setVisibleAgentsState] = useState<string[]>(() => getVisibleAgents())
+
+  const sorted = getSortedAgents(getLastContacted())
+  const visibleSet = new Set(visibleAgents)
+  const visibleSorted = sorted.filter(a => visibleSet.has(a.id))
+  const hiddenCount = AGENTS.length - visibleAgents.length
 
   useEffect(() => {
     // Don't scroll the window on mount — just ensure grid is at top via CSS
@@ -590,7 +608,28 @@ export default function AgentChatApp() {
     if (grid) grid.scrollTop = 0
   }, [])
 
-  const sorted = getSortedAgents(getLastContacted())
+  function toggleAgent(id: string) {
+    const next = visibleAgents.includes(id)
+      ? visibleAgents.filter(a => a !== id)
+      : [...visibleAgents, id]
+    if (next.length > 0) {
+      setVisibleAgentsState(next)
+      setVisibleAgents(next)
+    }
+  }
+
+  function showAll() {
+    const all = AGENTS.map(a => a.id)
+    setVisibleAgentsState(all)
+    setVisibleAgents(all)
+  }
+
+  function hideAll() {
+    // Keep at least one visible
+    const all = AGENTS.map(a => a.id)
+    setVisibleAgentsState(all.slice(1))
+    setVisibleAgents(all.slice(1))
+  }
 
   return (
     <div style={{
@@ -614,14 +653,72 @@ export default function AgentChatApp() {
           <div style={{ fontSize: 11, color: '#64748b' }}>10 agents · synced with Telegram</div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {hiddenCount > 0 && (
+            <span style={{ fontSize: 10, color: '#64748b' }}>{hiddenCount} hidden</span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); setSettingsOpen(o => !o) }}
+            title="Show/hide agents"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 16, padding: '2px 6px', borderRadius: 6,
+              color: settingsOpen ? '#a78bfa' : '#64748b',
+              transition: 'color 0.15s',
+            }}
+          >⚙️</button>
           <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
           <span style={{ fontSize: 11, color: '#64748b' }}>Gateway Online</span>
         </div>
       </div>
 
+      {/* Settings dropdown */}
+      {settingsOpen && (
+        <div style={{
+          position: 'absolute', top: 52, right: 12, zIndex: 100,
+          background: 'rgba(15, 18, 30, 0.98)',
+          border: '1px solid rgba(255,255,255,0.1)',
+          borderRadius: 12, padding: 12,
+          minWidth: 220,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          backdropFilter: 'blur(20px)',
+        }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Visible Agents
+          </div>
+          {AGENTS.map(agent => (
+            <label key={agent.id} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '6px 4px', cursor: 'pointer', borderRadius: 6,
+              color: '#e2e8f0', fontSize: 13,
+            }}>
+              <input
+                type="checkbox"
+                checked={visibleAgents.includes(agent.id)}
+                onChange={() => toggleAgent(agent.id)}
+                style={{ width: 14, height: 14, cursor: 'pointer', accentColor: agent.color }}
+              />
+              <span style={{ fontSize: 14 }}>{agent.emoji}</span>
+              <span style={{ flex: 1 }}>{agent.name}</span>
+            </label>
+          ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <button onClick={showAll} style={{
+              flex: 1, padding: '6px', background: 'rgba(139,92,246,0.2)',
+              border: '1px solid rgba(139,92,246,0.4)', borderRadius: 8,
+              color: '#a78bfa', fontSize: 11, cursor: 'pointer',
+            }}>Show All</button>
+            <button onClick={hideAll} style={{
+              flex: 1, padding: '6px', background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8,
+              color: '#94a3b8', fontSize: 11, cursor: 'pointer',
+            }}>Hide All</button>
+          </div>
+        </div>
+      )}
+
       {/* 10-panel grid — DOM order is FIXED (by AGENTS array), CSS order controls visual position */}
       <div className="agent-grid">
-        {AGENTS.map(agent => {
+        {visibleSorted.map(agent => {
           const visualRank = sorted.indexOf(agent)
           return (
             <div key={agent.id} style={{ order: visualRank, height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -664,7 +761,7 @@ export default function AgentChatApp() {
           flex: 1;
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
-          grid-template-rows: repeat(5, 500px);
+          grid-template-rows: repeat(auto-fill, minmax(400px, 1fr));
           gap: 8px;
           padding: 8px;
           overflow-y: auto;
