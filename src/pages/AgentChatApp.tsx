@@ -806,8 +806,8 @@ export default function AgentChatApp() {
       </div>
 
       <style>{`
-        html, body { overflow: hidden; height: 100%; touch-action: none; }
-        .agent-grid { touch-action: pan-y; }
+        html, body { height: 100%; touch-action: none; }
+        .agent-grid { touch-action: pan-y; height: 100%; }
         @keyframes pulse {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1); }
@@ -820,7 +820,8 @@ export default function AgentChatApp() {
         .agent-msgs {
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
-          touch-action: pan-y pinch-zoom;
+          /* Don't capture pan gestures - let grid handle all page-level scrolling */
+          touch-action: none;
         }
 
         @keyframes unread-pulse {
@@ -841,7 +842,8 @@ export default function AgentChatApp() {
           padding: 8px;
           overflow-y: auto;
           overflow-x: hidden;
-          height: calc(100vh - 68px);
+          min-height: 0; /* critical for scrollable grid */
+          height: 100vh;
           overscroll-behavior: contain;
 }
           box-sizing: border-box;
