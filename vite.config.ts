@@ -4,15 +4,21 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: './index.html',
+        agent: './agent.html',
+      },
+    },
+  },
   server: {
     hmr: { overlay: false },
     proxy: {
-      // Local dev: proxy /api to the Node.js API server
       '/api': {
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
-      // Gateway for agent status
       '/tools': {
         target: 'http://localhost:18789',
         changeOrigin: true,

@@ -133,6 +133,8 @@ function typingDots() {
 }
 
 function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void }) {
+  // history ref holds ALL agents' messages — shared across renders for this agent
+  const history = useRef<Record<string, Message[]>>(loadHistory())
   // Use a ref to track messages — this is always the source of truth for syncing.
   // React state is derived from this ref. This avoids stale-closure bugs in
   // setMessages updaters when React batches multiple updates together.
@@ -509,7 +511,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
 }
 
 export default function AgentChatApp() {
-  const [tick, setTick] = useState(0)
+  const [, setTick] = useState(0)
 
   useEffect(() => {
     // Don't scroll the window on mount — just ensure grid is at top via CSS

@@ -845,7 +845,7 @@ const server = http.createServer(async (req, res) => {
     }
     try {
       const https = require('https');
-      const apiKey = 'xai-sAgbhVKkaqRjUwJifm0KpITLYiz0XeHJpoLQEvk7X2boUB35JJGdoasneoDM5MbmsIczyLDUCZHzmurD';
+      const apiKey = '${process.env.XAI_API_KEY}';
       const postData = JSON.stringify({
         model: 'grok-4-1-fast-reasoning',
         input: 'Go to ' + recipeUrl + ' and extract the complete recipe. Return a JSON object with exactly this structure: {"title": "...", "author": "...", "description": "...", "ingredients": ["ingredient 1", "ingredient 2", ...], "instructions": ["step 1", "step 2", ...], "servings": "...", "prepTime": "...", "cookTime": "...", "totalTime": "..."}. Include ALL ingredients and ALL instructions. If there are ranges (like "12-18 cupcakes") use the first number. Return ONLY the JSON, nothing else.',
@@ -935,7 +935,7 @@ const server = http.createServer(async (req, res) => {
     }
     try {
       const https = require('https');
-      const apiKey = 'xai-sAgbhVKkaqRjUwJifm0KpITLYiz0XeHJpoLQEvk7X2boUB35JJGdoasneoDM5MbmsIczyLDUCZHzmurD';
+      const apiKey = '${process.env.XAI_API_KEY}';
       const postData = JSON.stringify({
         model: 'grok-4-1-fast-reasoning',
         input: 'Go to ' + recipeUrl + ' and extract the complete recipe. Return a JSON object with exactly this structure: {"title": "...", "author": "...", "description": "...", "ingredients": ["ingredient 1", "ingredient 2", ...], "instructions": ["step 1", "step 2", ...], "servings": "...", "prepTime": "...", "cookTime": "...", "totalTime": "..."}. Include ALL ingredients and ALL instructions. If there are ranges (like "12-18 cupcakes") use the first number. Return ONLY the JSON, nothing else.',
