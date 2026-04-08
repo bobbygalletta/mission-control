@@ -270,7 +270,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       try {
         const data: any = await gatewayFetch('sessions_history', {
           sessionKey: key,
-          limit: 5,
+          limit: 10,
           includeTools: false,
         })
         if (!data?.messages || !active) return
@@ -295,11 +295,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             if (existing) return false
             // Dedupe: user messages from Telegram that match a just-sent local message
             if (msg.role === 'user') {
-              const localMsg = messagesRef.current.find(m =>
+              const localMsg = messagesRef.current.find((m: Message) =>
                 m.role === 'user' &&
                 m.text === msg.text &&
                 m.id.startsWith('local-') &&
-                Math.abs(m.timestamp - msg.timestamp) < 10000
+                Math.abs(m.timestamp - msg.timestamp) < 30000
               )
               if (localMsg) return false
             }
@@ -307,10 +307,12 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           })
 
     if (newMsgs.length > 0) {
-          const hasAssistant = newMsgs.some(m => m.role === 'assistant')
-          if (hasAssistant) {
+          // Only decrement counter when we receive an actual ASSISTANT text message
+          // (not user echo, not tool messages, not empty content)
+          const newAssistantMsgs = newMsgs.filter(m => m.role === 'assistant')
+          if (newAssistantMsgs.length > 0) {
             // Decrement in-flight counter — only clear typing when ALL responses done
-            agentTypingRef.current = Math.max(0, agentTypingRef.current - 1)
+            agentTypingRef.current = Math.max(0, agentTypingRef.current - newAssistantMsgs.length)
             if (agentTypingRef.current === 0) {
               setTyping(false)
               if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null }
@@ -372,7 +374,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     })
 
     // Increment in-flight counter — typing stays until ALL responses arrive
-    agentTypingRef.current += 1
+    // Only increment if 0 (prevents double-counting from rapid sends)
+    if (agentTypingRef.current === 0) agentTypingRef.current = 1
 
     // Show typing indicator after 800ms delay
     typingTimerRef.current = setTimeout(() => {
@@ -387,9 +390,12 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     // Fallback: clear typing after 20s no matter what
     if (typingFallbackRef.current) clearTimeout(typingFallbackRef.current)
     typingFallbackRef.current = setTimeout(() => {
-      agentTypingRef.current = 0
-      setTyping(false)
-    }, 20000)
+      // Only clear if counter is still positive (prevents clearing a fresh counter)
+      if (agentTypingRef.current > 0) {
+        agentTypingRef.current = 0
+        setTyping(false)
+      }
+    }, 60000)
 
     try {
       gatewayFetch('sessions_send', {
