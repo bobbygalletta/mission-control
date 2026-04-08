@@ -180,10 +180,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const maxTsRef = useRef(0)
   const lastMsgCountRef = useRef(0)
-  // Tracks how many agent responses are in-flight — keeps typing up until ALL done
-  const agentTypingRef = useRef(0)
-  // Fallback: force-clear typing after 20s if agent goes silent
-  const typingFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Debounce timer: typing stays until agent is silent for 3 seconds
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Sync messagesRef and localStorage — call this AFTER computing the new messages,
   // BEFORE setMessages so the save is never based on a batched stale prev
@@ -307,17 +305,19 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           })
 
     if (newMsgs.length > 0) {
-          // Only decrement counter when we receive an actual ASSISTANT text message
-          // (not user echo, not tool messages, not empty content)
+          // Debounce: whenever agent sends a message, reset the 3s timer
+          // Typing stays until agent is silent for 3 seconds (Telegram behavior)
           const newAssistantMsgs = newMsgs.filter(m => m.role === 'assistant')
           if (newAssistantMsgs.length > 0) {
-            // Decrement in-flight counter — only clear typing when ALL responses done
-            agentTypingRef.current = Math.max(0, agentTypingRef.current - newAssistantMsgs.length)
-            if (agentTypingRef.current === 0) {
+            // Clear existing debounce timer
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+            // Keep typing visible
+            setTyping(true)
+            // Set new debounce — typing clears 3s after last agent message
+            typingTimeoutRef.current = setTimeout(() => {
               setTyping(false)
               if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null }
-              if (typingFallbackRef.current) { clearTimeout(typingFallbackRef.current); typingFallbackRef.current = null }
-            }
+            }, 3000)
             setLastContacted(agent.id, Date.now())
             onContact() // re-sort grid when agent responds
             // If panel not focused, mark as unread
@@ -373,29 +373,17 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       isAtBottomRef.current = true
     })
 
-    // Increment in-flight counter — typing stays until ALL responses arrive
-    // Only increment if 0 (prevents double-counting from rapid sends)
-    if (agentTypingRef.current === 0) agentTypingRef.current = 1
-
-    // Show typing indicator after 800ms delay
+    // Show typing indicator after 800ms delay (if not already typing)
     typingTimerRef.current = setTimeout(() => {
       setTyping(true)
-      // Scroll typing into view
       setTimeout(() => {
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
       }, 30)
     }, 800)
 
-    // Fallback: clear typing after 20s no matter what
-    if (typingFallbackRef.current) clearTimeout(typingFallbackRef.current)
-    typingFallbackRef.current = setTimeout(() => {
-      // Only clear if counter is still positive (prevents clearing a fresh counter)
-      if (agentTypingRef.current > 0) {
-        agentTypingRef.current = 0
-        setTyping(false)
-      }
-    }, 60000)
+    // Clear any existing debounce timer from previous activity
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
 
     try {
       gatewayFetch('sessions_send', {
