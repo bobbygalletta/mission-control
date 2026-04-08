@@ -382,6 +382,10 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
         inputRef.current?.focus()
       }}
+      onMouseLeave={() => {
+        setFocused(false)
+        setScrollLocked(true)
+      }}
       style={{
         display: 'flex', flexDirection: 'column',
         background: 'rgba(255,255,255,0.03)',
