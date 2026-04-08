@@ -568,7 +568,7 @@ export default function AgentChatApp() {
         textarea::placeholder { color: #475569; }
 
         .agent-msgs {
-          touch-action: none;
+          touch-action: pan-y pinch-zoom;
         }
 
         .agent-grid {
