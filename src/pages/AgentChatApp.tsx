@@ -74,6 +74,50 @@ function setVisibleAgents(ids: string[]) {
   try { localStorage.setItem('agent_visible', JSON.stringify(ids)) } catch {}
 }
 
+// Sync state to Bobby session so all devices stay in sync
+const SYNC_SESSION_KEY = `agent:main:telegram:direct:${BOBBY_ID}`
+const SYNC_MARKER = '⚙️AGENT_STATE⚙️'
+
+function syncStateToSession(state: { unread?: Record<string, boolean>; visible?: string[] }) {
+  const text = `${SYNC_MARKER}${JSON.stringify(state)}`
+  gatewayFetch('sessions_send', {
+    sessionKey: SYNC_SESSION_KEY,
+    message: text,
+    timeoutSeconds: 5,
+  }).catch(() => {})
+}
+
+function getLastSync(): number {
+  try { return parseInt(localStorage.getItem('agent_last_sync') || '0') } catch { return 0 }
+}
+
+function setLastSync(ts: number) {
+  try { localStorage.setItem('agent_last_sync', String(ts)) } catch {}
+}
+
+async function loadSyncedState() {
+  try {
+    const data: any = await gatewayFetch('sessions_history', {
+      sessionKey: SYNC_SESSION_KEY,
+      limit: 20,
+    })
+    if (!data?.messages) return null
+    const syncMsgs = data.messages
+      .filter((m: any) => {
+        const text = m.content?.find?.((c: any) => c.type === 'text')?.text || ''
+        return text.startsWith(SYNC_MARKER)
+      })
+      .map((m: any) => {
+        const text = m.content.find((c: any) => c.type === 'text')?.text || ''
+        try { return { ts: new Date(m.timestamp).getTime(), state: JSON.parse(text.replace(SYNC_MARKER, '')) } }
+        catch { return null }
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => b.ts - a.ts)
+    return syncMsgs.length > 0 ? syncMsgs[0] : null
+  } catch { return null }
+}
+
 function getSortedAgents(lastContacted: Record<string, number>): Agent[] {
   return [...AGENTS].sort((a, b) => (lastContacted[b.id] || 0) - (lastContacted[a.id] || 0))
 }
@@ -324,6 +368,9 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             // (user can still respond, but the blue pulse reminds them there are new messages)
             setUnread(true)
             setUnreadAgent(agent.id, true)
+            // Sync full state to Bobby session
+            const newUnread = { ...getUnreadAgents(), [agent.id]: true }
+            syncStateToSession({ unread: newUnread, visible: getVisibleAgents() })
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
@@ -425,6 +472,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         setScrollLocked(false)
         setUnread(false)
         setUnreadAgent(agent.id, false)
+        // Sync full state to Bobby session
+        syncStateToSession({ unread: getUnreadAgents(), visible: getVisibleAgents() })
         // Scroll panel to bottom so input is above keyboard before focusing
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
@@ -471,7 +520,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           )}
           {!unread && (
             <button
-              onClick={(e) => { e.stopPropagation(); setUnread(true); setUnreadAgent(agent.id, true) }}
+              onClick={(e) => { e.stopPropagation(); setUnread(true); setUnreadAgent(agent.id, true); syncStateToSession({ unread: { ...getUnreadAgents(), [agent.id]: true }, visible: getVisibleAgents() }) }}
               title="Mark as unread"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
@@ -545,9 +594,12 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
               el.style.height = Math.min(el.scrollHeight, 120) + 'px'
             }}
             onInput={() => {
-              // Starting to type clears the unread blue pulse
+              // Starting to type clears the unread blue pulse AND syncs to other devices
               setUnread(false)
               setUnreadAgent(agent.id, false)
+              const newUnread = { ...getUnreadAgents() }
+              delete newUnread[agent.id]
+              syncStateToSession({ unread: newUnread, visible: getVisibleAgents() })
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
@@ -601,11 +653,35 @@ export default function AgentChatApp() {
   const [, setTick] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [visibleAgents, setVisibleAgentsState] = useState<string[]>(() => getVisibleAgents())
+  const lastSyncedAtRef = useRef(getLastSync())
 
   const sorted = getSortedAgents(getLastContacted())
   const visibleSet = new Set(visibleAgents)
   const visibleSorted = sorted.filter(a => visibleSet.has(a.id))
   const hiddenCount = AGENTS.length - visibleAgents.length
+
+  // Sync state from Bobby session every 5 seconds
+  useEffect(() => {
+    const sync = async () => {
+      const latest = await loadSyncedState()
+      if (!latest || latest.ts <= lastSyncedAtRef.current) return
+      lastSyncedAtRef.current = latest.ts
+      setLastSync(latest.ts)
+      if (latest.state.unread) {
+        // Merge: true values win (unread=true takes precedence)
+        const merged = { ...getUnreadAgents(), ...latest.state.unread }
+        Object.keys(merged).forEach(k => { if (!merged[k]) delete merged[k] })
+        localStorage.setItem('agent_unread', JSON.stringify(merged))
+      }
+      if (latest.state.visible) {
+        localStorage.setItem('agent_visible', JSON.stringify(latest.state.visible))
+        setVisibleAgentsState(latest.state.visible)
+      }
+    }
+    sync()
+    const id = setInterval(sync, 5000)
+    return () => clearInterval(id)
+  }, [])
 
   useEffect(() => {
     // Don't scroll the window on mount — just ensure grid is at top via CSS
@@ -620,6 +696,8 @@ export default function AgentChatApp() {
     if (next.length > 0) {
       setVisibleAgentsState(next)
       setVisibleAgents(next)
+      // Sync visible agents to other devices
+      syncStateToSession({ visible: next })
     }
   }
 
