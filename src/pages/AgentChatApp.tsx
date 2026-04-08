@@ -143,6 +143,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [scrollLocked, setScrollLocked] = useState(true)
   const [typing, setTyping] = useState(false)
   const loadedRef = useRef(false)
   const isAtBottomRef = useRef(true)
@@ -374,6 +375,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     <div
       data-agent-panel={agent.id}
       onClick={() => {
+        // Unlock scroll when panel is tapped
+        setScrollLocked(false)
         // Scroll panel to bottom so input is above keyboard before focusing
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
@@ -411,8 +414,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       </div>
 
       {/* Messages */}
-      <div className="agent-msgs" style={{
-        flex: 1, overflowY: 'auto', padding: '8px 8px 4px',
+      <div className={`agent-msgs ${scrollLocked ? 'scroll-locked' : 'scroll-unlocked'}`} style={{
+        flex: 1, padding: '8px 8px 4px',
         display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, position: 'relative',
       }}>
         {messages.length === 0 && (
@@ -481,7 +484,10 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
                 }
               })
             }}
-            onBlur={() => setFocused(false)}
+            onBlur={() => {
+              setFocused(false)
+              setScrollLocked(true)
+            }}
             placeholder={`Msg ${agent.name}...`}
             rows={1}
             disabled={sending}
@@ -567,7 +573,12 @@ export default function AgentChatApp() {
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
         textarea::placeholder { color: #475569; }
 
-        .agent-msgs {
+        .agent-msgs.scroll-locked {
+          overflow-y: hidden;
+          touch-action: none;
+        }
+        .agent-msgs.scroll-unlocked {
+          overflow-y: auto;
           touch-action: pan-y pinch-zoom;
         }
 
