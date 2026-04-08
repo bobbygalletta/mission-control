@@ -164,11 +164,15 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const [typing, setTyping] = useState(false)
   const loadedRef = useRef(false)
   const isAtBottomRef = useRef(true)
-  const [typingTimer, setTypingTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const maxTsRef = useRef(0)
   const lastMsgCountRef = useRef(0)
+  // Tracks how many agent responses are in-flight — keeps typing up until ALL done
+  const agentTypingRef = useRef(0)
+  // Fallback: force-clear typing after 20s if agent goes silent
+  const typingFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Sync messagesRef and localStorage — call this AFTER computing the new messages,
   // BEFORE setMessages so the save is never based on a batched stale prev
@@ -294,8 +298,13 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     if (newMsgs.length > 0) {
           const hasAssistant = newMsgs.some(m => m.role === 'assistant')
           if (hasAssistant) {
-            setTyping(false)
-            if (typingTimer) { clearTimeout(typingTimer); setTypingTimer(null) }
+            // Decrement in-flight counter — only clear typing when ALL responses done
+            agentTypingRef.current = Math.max(0, agentTypingRef.current - 1)
+            if (agentTypingRef.current === 0) {
+              setTyping(false)
+              if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null }
+              if (typingFallbackRef.current) { clearTimeout(typingFallbackRef.current); typingFallbackRef.current = null }
+            }
             setLastContacted(agent.id, Date.now())
             onContact() // re-sort grid when agent responds
             // If panel not focused, mark as unread
@@ -346,16 +355,25 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       isAtBottomRef.current = true
     })
 
-    // Show typing indicator after sending
-    const timer = setTimeout(() => {
+    // Increment in-flight counter — typing stays until ALL responses arrive
+    agentTypingRef.current += 1
+
+    // Show typing indicator after 800ms delay
+    typingTimerRef.current = setTimeout(() => {
       setTyping(true)
-      // Scroll typing into view without using scrollIntoView (avoids page jump)
+      // Scroll typing into view
       setTimeout(() => {
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
       }, 30)
     }, 800)
-    setTypingTimer(timer)
+
+    // Fallback: clear typing after 20s no matter what
+    if (typingFallbackRef.current) clearTimeout(typingFallbackRef.current)
+    typingFallbackRef.current = setTimeout(() => {
+      agentTypingRef.current = 0
+      setTyping(false)
+    }, 20000)
 
     try {
       gatewayFetch('sessions_send', {
