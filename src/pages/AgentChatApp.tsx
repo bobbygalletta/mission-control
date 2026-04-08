@@ -74,48 +74,49 @@ function setVisibleAgents(ids: string[]) {
   try { localStorage.setItem('agent_visible', JSON.stringify(ids)) } catch {}
 }
 
-// Sync state to Bobby session so all devices stay in sync
-const SYNC_SESSION_KEY = `agent:main:telegram:direct:${BOBBY_ID}`
-const SYNC_MARKER = '⚙️AGENT_STATE⚙️'
-
-function syncStateToSession(state: { unread?: Record<string, boolean>; visible?: string[] }) {
-  const text = `${SYNC_MARKER}${JSON.stringify(state)}`
-  gatewayFetch('sessions_send', {
-    sessionKey: SYNC_SESSION_KEY,
-    message: text,
-    timeoutSeconds: 5,
-  }).catch(() => {})
-}
-
-function getLastSync(): number {
-  try { return parseInt(localStorage.getItem('agent_last_sync') || '0') } catch { return 0 }
-}
-
-function setLastSync(ts: number) {
-  try { localStorage.setItem('agent_last_sync', String(ts)) } catch {}
-}
-
-async function loadSyncedState() {
+// Device ID for localStorage namespace - keeps each device's state separate
+const DEVICE_ID_KEY = 'agent_device_id'
+function getDeviceId() {
   try {
-    const data: any = await gatewayFetch('sessions_history', {
-      sessionKey: SYNC_SESSION_KEY,
-      limit: 20,
-    })
-    if (!data?.messages) return null
-    const syncMsgs = data.messages
-      .filter((m: any) => {
-        const text = m.content?.find?.((c: any) => c.type === 'text')?.text || ''
-        return text.startsWith(SYNC_MARKER)
-      })
-      .map((m: any) => {
-        const text = m.content.find((c: any) => c.type === 'text')?.text || ''
-        try { return { ts: new Date(m.timestamp).getTime(), state: JSON.parse(text.replace(SYNC_MARKER, '')) } }
-        catch { return null }
-      })
-      .filter(Boolean)
-      .sort((a: any, b: any) => b.ts - a.ts)
-    return syncMsgs.length > 0 ? syncMsgs[0] : null
-  } catch { return null }
+    let id = localStorage.getItem(DEVICE_ID_KEY)
+    if (!id) {
+      id = 'device_' + Math.random().toString(36).slice(2) + '_' + Date.now()
+      localStorage.setItem(DEVICE_ID_KEY, id)
+    }
+    return id
+  } catch { return 'unknown' }
+}
+
+// Store per-device state to avoid sync conflicts
+// State format: { [deviceId]: { unread, visible, ts } }
+function getDeviceState() {
+  try { return JSON.parse(localStorage.getItem('agent_device_state') || '{}') } catch { return {} }
+}
+
+function saveDeviceState(state: Record<string, any>) {
+  try { localStorage.setItem('agent_device_state', JSON.stringify(state)) } catch {}
+}
+
+function mergeState(unread?: Record<string, boolean>, visible?: string[]) {
+  const deviceId = getDeviceId()
+  const all = getDeviceState()
+  const prev = all[deviceId] || {}
+  all[deviceId] = {
+    unread: unread !== undefined ? unread : prev.unread,
+    visible: visible !== undefined ? visible : prev.visible,
+    ts: Date.now(),
+  }
+  saveDeviceState(all)
+}
+
+// Get the LATEST state across all devices (most recent timestamp wins)
+function getMergedState() {
+  const all = getDeviceState()
+  let best: any = null
+  Object.values(all).forEach((s: any) => {
+    if (!best || (s.ts && s.ts > best.ts)) best = s
+  })
+  return best || { unread: {}, visible: undefined }
 }
 
 function getSortedAgents(lastContacted: Record<string, number>): Agent[] {
@@ -370,7 +371,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             setUnreadAgent(agent.id, true)
             // Sync full state to Bobby session
             const newUnread = { ...getUnreadAgents(), [agent.id]: true }
-            syncStateToSession({ unread: newUnread, visible: getVisibleAgents() })
+            mergeState(newUnread, undefined)
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
@@ -473,7 +474,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         setUnread(false)
         setUnreadAgent(agent.id, false)
         // Sync full state to Bobby session
-        syncStateToSession({ unread: getUnreadAgents(), visible: getVisibleAgents() })
+        mergeState(getUnreadAgents(), getVisibleAgents())
         // Scroll panel to bottom so input is above keyboard before focusing
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
@@ -520,7 +521,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           )}
           {!unread && (
             <button
-              onClick={(e) => { e.stopPropagation(); setUnread(true); setUnreadAgent(agent.id, true); syncStateToSession({ unread: { ...getUnreadAgents(), [agent.id]: true }, visible: getVisibleAgents() }) }}
+              onClick={(e) => { e.stopPropagation(); setUnread(true); setUnreadAgent(agent.id, true); mergeState({ ...getUnreadAgents(), [agent.id]: true }, undefined) }}
               title="Mark as unread"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
@@ -599,7 +600,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
               setUnreadAgent(agent.id, false)
               const newUnread = { ...getUnreadAgents() }
               delete newUnread[agent.id]
-              syncStateToSession({ unread: newUnread, visible: getVisibleAgents() })
+              mergeState(newUnread, undefined)
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
@@ -653,34 +654,28 @@ export default function AgentChatApp() {
   const [, setTick] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [visibleAgents, setVisibleAgentsState] = useState<string[]>(() => getVisibleAgents())
-  const lastSyncedAtRef = useRef(getLastSync())
+
 
   const sorted = getSortedAgents(getLastContacted())
   const visibleSet = new Set(visibleAgents)
   const visibleSorted = sorted.filter(a => visibleSet.has(a.id))
   const hiddenCount = AGENTS.length - visibleAgents.length
 
-  // Sync state from Bobby session every 5 seconds
+  // Merge state from all devices on mount (take most recent)
   useEffect(() => {
-    const sync = async () => {
-      const latest = await loadSyncedState()
-      if (!latest || latest.ts <= lastSyncedAtRef.current) return
-      lastSyncedAtRef.current = latest.ts
-      setLastSync(latest.ts)
-      if (latest.state.unread) {
-        // Merge: true values win (unread=true takes precedence)
-        const merged = { ...getUnreadAgents(), ...latest.state.unread }
-        Object.keys(merged).forEach(k => { if (!merged[k]) delete merged[k] })
-        localStorage.setItem('agent_unread', JSON.stringify(merged))
-      }
-      if (latest.state.visible) {
-        localStorage.setItem('agent_visible', JSON.stringify(latest.state.visible))
-        setVisibleAgentsState(latest.state.visible)
-      }
+    const merged = getMergedState()
+    if (merged.unread) {
+      const current = getUnreadAgents()
+      // Only apply if merged state is newer than what we have
+      const mergedKeys = Object.keys(merged.unread).filter(k => merged.unread![k])
+      mergedKeys.forEach(k => { if (!current[k]) current[k] = true })
+      Object.keys(current).forEach(k => { if (!current[k]) delete current[k] })
+      localStorage.setItem('agent_unread', JSON.stringify(current))
     }
-    sync()
-    const id = setInterval(sync, 5000)
-    return () => clearInterval(id)
+    if (merged.visible) {
+      localStorage.setItem('agent_visible', JSON.stringify(merged.visible))
+      setVisibleAgentsState(merged.visible)
+    }
   }, [])
 
   useEffect(() => {
@@ -697,7 +692,7 @@ export default function AgentChatApp() {
       setVisibleAgentsState(next)
       setVisibleAgents(next)
       // Sync visible agents to other devices
-      syncStateToSession({ visible: next })
+      mergeState(undefined, next)
     }
   }
 
