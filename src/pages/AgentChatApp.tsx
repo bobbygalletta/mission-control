@@ -349,6 +349,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     if (!input.trim() || sending) return
     const text = input.trim()
     setInput('')
+    // Reset textarea height after send
+    if (inputRef.current) { inputRef.current.style.height = 'auto' }
     setSending(true)
 
     // Save locally immediately so he sees it right away
@@ -542,7 +544,13 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           <textarea
             ref={inputRef}
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={e => {
+              setInput(e.target.value)
+              // Auto-grow textarea
+              const el = e.target
+              el.style.height = 'auto'
+              el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+            }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
               setFocused(true)
@@ -565,7 +573,6 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
               setUnreadAgent(agent.id, false)
             }}
             placeholder={`Msg ${agent.name}...`}
-            rows={1}
             disabled={sending}
             style={{
               flex: 1, background: 'transparent', border: 'none', outline: 'none',
