@@ -542,7 +542,11 @@ export default function AgentChatApp() {
         padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10,
         borderBottom: '1px solid rgba(255,255,255,0.06)',
         background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', flexShrink: 0,
-      }}>
+        cursor: 'default',
+      }}
+      onClick={() => window.location.reload()}
+      title="Click to refresh"
+      >
         <span style={{ fontSize: 18 }}>🤖</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>Agent Chat</div>
