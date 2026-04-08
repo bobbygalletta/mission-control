@@ -567,6 +567,10 @@ export default function AgentChatApp() {
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
         textarea::placeholder { color: #475569; }
 
+        .agent-msgs {
+          touch-action: none;
+        }
+
         .agent-grid {
           flex: 1;
           display: grid;
