@@ -465,7 +465,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           )}
           {!unread && (
             <button
-              onClick={(e) => { e.stopPropagation(); setUnread(true) }}
+              onClick={(e) => { e.stopPropagation(); setUnread(true); setUnreadAgent(agent.id, true) }}
               title="Mark as unread"
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
