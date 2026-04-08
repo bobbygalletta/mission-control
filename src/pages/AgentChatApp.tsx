@@ -414,7 +414,6 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       <div className="agent-msgs" style={{
         flex: 1, overflowY: 'auto', padding: '8px 8px 4px',
         display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, position: 'relative',
-        WebkitOverflowScrolling: 'touch',
       }}>
         {messages.length === 0 && (
           <div style={{
@@ -579,9 +578,6 @@ export default function AgentChatApp() {
           overflow-x: hidden;
           height: calc(100vh - 68px);
           overscroll-behavior: contain;
-          -webkit-overflow-scrolling: touch;
-          /* iOS: allow scroll without tap-first by making grid interactive */
-          touch-action: pan-y;
 }
           box-sizing: border-box;
           width: 100%;
