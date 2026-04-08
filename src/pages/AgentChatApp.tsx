@@ -320,11 +320,10 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             }, 3000)
             setLastContacted(agent.id, Date.now())
             onContact() // re-sort grid when agent responds
-            // If panel not focused, mark as unread
-            if (!focused) {
-              setUnread(true)
-              setUnreadAgent(agent.id, true)
-            }
+            // Always mark as unread when agent sends — even if panel is selected
+            // (user can still respond, but the blue pulse reminds them there are new messages)
+            setUnread(true)
+            setUnreadAgent(agent.id, true)
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
@@ -544,6 +543,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
               const el = e.target
               el.style.height = 'auto'
               el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+            }}
+            onInput={() => {
+              // Starting to type clears the unread blue pulse
+              setUnread(false)
+              setUnreadAgent(agent.id, false)
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
