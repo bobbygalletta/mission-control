@@ -215,7 +215,6 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
-  const [scrollLocked, setScrollLocked] = useState(true)
   const [unread, setUnread] = useState(() => getUnreadAgents()[agent.id] || false)
   const [typing, setTyping] = useState(false)
   const loadedRef = useRef(false)
@@ -470,7 +469,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       data-agent-panel={agent.id}
       onClick={() => {
         // Unlock scroll when panel is tapped
-        setScrollLocked(false)
+        // scroll locked removed
         setUnread(false)
         setUnreadAgent(agent.id, false)
         // Sync full state to Bobby session
@@ -482,7 +481,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       }}
       onMouseLeave={() => {
         setFocused(false)
-        setScrollLocked(true)
+        // scroll locked removed
       }}
       className={unread ? 'agent-panel-unread' : undefined}
       style={{
@@ -534,7 +533,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       </div>
 
       {/* Messages */}
-      <div className={`agent-msgs ${scrollLocked ? 'scroll-locked' : 'scroll-unlocked'}`} style={{
+      <div className="agent-msgs" style={{
         flex: 1, padding: '8px 8px 4px',
         display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, position: 'relative',
       }}>
@@ -620,7 +619,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             }}
             onBlur={() => {
               setFocused(false)
-              setScrollLocked(true)
+              // scroll locked removed
               setUnreadAgent(agent.id, false)
             }}
             placeholder={`Msg ${agent.name}...`}
@@ -807,7 +806,8 @@ export default function AgentChatApp() {
       </div>
 
       <style>{`
-        html, body { overflow: hidden; height: 100%; }
+        html, body { overflow: hidden; height: 100%; touch-action: none; }
+        .agent-grid { touch-action: pan-y; }
         @keyframes pulse {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1); }
@@ -817,12 +817,9 @@ export default function AgentChatApp() {
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
         textarea::placeholder { color: #475569; }
 
-        .agent-msgs.scroll-locked {
-          overflow-y: hidden;
-          touch-action: none;
-        }
-        .agent-msgs.scroll-unlocked {
+        .agent-msgs {
           overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
           touch-action: pan-y pinch-zoom;
         }
 
