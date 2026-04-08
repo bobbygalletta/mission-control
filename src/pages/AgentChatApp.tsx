@@ -47,15 +47,19 @@ function setLastContacted(agentId: string, ts: number) {
 
 
 
-function getLastRead(): Record<string, number> {
-  try { return JSON.parse(localStorage.getItem('agent_last_read') || '{}') } catch { return {} }
+function getUnreadAgents(): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem('agent_unread') || '{}') } catch { return {} }
 }
 
-function setLastRead(agentId: string, ts: number) {
+function setUnreadAgent(agentId: string, unread: boolean) {
   try {
-    const all = getLastRead()
-    all[agentId] = ts
-    localStorage.setItem('agent_last_read', JSON.stringify(all))
+    const all = getUnreadAgents()
+    if (unread) {
+      all[agentId] = true
+    } else {
+      delete all[agentId]
+    }
+    localStorage.setItem('agent_unread', JSON.stringify(all))
   } catch {}
 }
 
@@ -156,11 +160,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const [sending, setSending] = useState(false)
   const [focused, setFocused] = useState(false)
   const [scrollLocked, setScrollLocked] = useState(true)
-  const lastRead = getLastRead()[agent.id] || 0
-  const [unread, setUnread] = useState(() => {
-    const lastMsg = history.current[agent.id]?.slice(-1)[0]
-    return lastMsg ? lastMsg.timestamp > lastRead : false
-  })
+  const [unread, setUnread] = useState(() => getUnreadAgents()[agent.id] || false)
   const [typing, setTyping] = useState(false)
   const loadedRef = useRef(false)
   const isAtBottomRef = useRef(true)
@@ -308,7 +308,10 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             setLastContacted(agent.id, Date.now())
             onContact() // re-sort grid when agent responds
             // If panel not focused, mark as unread
-            if (!focused) setUnread(true)
+            if (!focused) {
+              setUnread(true)
+              setUnreadAgent(agent.id, true)
+            }
           }
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
@@ -415,7 +418,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         // Unlock scroll when panel is tapped
         setScrollLocked(false)
         setUnread(false)
-        setLastRead(agent.id, Date.now())
+        setUnreadAgent(agent.id, false)
         // Scroll panel to bottom so input is above keyboard before focusing
         const msgEl = messagesEndRef.current?.parentElement
         if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
@@ -548,7 +551,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             onBlur={() => {
               setFocused(false)
               setScrollLocked(true)
-              setLastRead(agent.id, Date.now())
+              setUnreadAgent(agent.id, false)
             }}
             placeholder={`Msg ${agent.name}...`}
             rows={1}
