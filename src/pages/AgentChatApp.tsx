@@ -464,6 +464,12 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     }
   }
 
+  // Prevent iOS from treating panel interior as a scrollable touch target
+  // All pan gestures should bubble up to the grid for page-level scrolling
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.stopPropagation()
+  }
+
   return (
     <div
       data-agent-panel={agent.id}
@@ -481,8 +487,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       }}
       onMouseLeave={() => {
         setFocused(false)
-        // scroll locked removed
       }}
+      onTouchMove={handleTouchMove}
       className={unread ? 'agent-panel-unread' : undefined}
       style={{
         display: 'flex', flexDirection: 'column',
@@ -490,6 +496,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         border: focused ? `1.5px solid ${agent.color}66` : unread ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
         borderRadius: 14, overflow: 'hidden', height: '100%',
         transition: 'border-color 0.15s', minWidth: 0,
+        touchAction: 'none',
       }}
     >
       {/* Header */}
@@ -821,6 +828,10 @@ export default function AgentChatApp() {
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
           /* Don't capture pan gestures - let grid handle all page-level scrolling */
+          touch-action: none;
+        }
+        /* Prevent iOS Safari from making inner elements scrollable on touch */
+        .agent-panel-inner {
           touch-action: none;
         }
 
