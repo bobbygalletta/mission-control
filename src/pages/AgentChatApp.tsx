@@ -292,9 +292,11 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         setMessages(merged)
         // Scroll to BOTTOM on initial load — newest messages visible
         requestAnimationFrame(() => {
-  
-  
-          isAtBottomRef.current = true
+          const msgEl = messagesEndRef.current?.parentElement
+          if (msgEl) {
+            msgEl.scrollTop = msgEl.scrollHeight
+            isAtBottomRef.current = true
+          }
         })
       } else {
         // No messages from Telegram — sync localStorage with what we have
@@ -808,14 +810,11 @@ export default function AgentChatApp() {
 
       {/* 10-panel grid — DOM order is FIXED (by AGENTS array), CSS order controls visual position */}
       <div className="agent-grid">
-        {visibleSorted.map(agent => {
-          const visualRank = sorted.indexOf(agent)
-          return (
-            <div key={agent.id} style={{ order: visualRank, height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <AgentPanel agent={agent} onContact={() => setTick(t => t + 1)} />
-            </div>
-          )
-        })}
+        {visibleSorted.map(agent => (
+          <div key={agent.id} style={{ height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <AgentPanel agent={agent} onContact={() => setTick(t => t + 1)} />
+          </div>
+        ))}
       </div>
 
       <style>{`
