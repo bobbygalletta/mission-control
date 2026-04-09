@@ -292,8 +292,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         setMessages(merged)
         // Scroll to BOTTOM on initial load — newest messages visible
         requestAnimationFrame(() => {
-          const msgEl = messagesEndRef.current?.parentElement
-          if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
+  
+  
           isAtBottomRef.current = true
         })
       } else {
@@ -379,8 +379,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           setMessages(next)
           // Auto-scroll when agent responds
           setTimeout(() => {
-            const msgEl = messagesEndRef.current?.parentElement
-            if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
+    
+    
           }, 50)
         } else if (lastMsgCountRef.current > 0 && data.messages.length > lastMsgCountRef.current) {
           // Messages exist but none new to us — agent might be thinking
@@ -423,8 +423,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     typingTimerRef.current = setTimeout(() => {
       setTyping(true)
       setTimeout(() => {
-        const msgEl = messagesEndRef.current?.parentElement
-        if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
+
+
       }, 30)
     }, 800)
 
@@ -470,25 +470,27 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     e.stopPropagation()
   }
 
+  // On desktop: prevent wheel scroll inside panel unless panel is focused
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!focused) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+  }
+
   return (
     <div
       data-agent-panel={agent.id}
       onClick={() => {
-        // Unlock scroll when panel is tapped
-        // scroll locked removed
         setUnread(false)
         setUnreadAgent(agent.id, false)
-        // Sync full state to Bobby session
         mergeState(getUnreadAgents(), getVisibleAgents())
-        // Scroll panel to bottom so input is above keyboard before focusing
-        const msgEl = messagesEndRef.current?.parentElement
-        if (msgEl) msgEl.scrollTop = msgEl.scrollHeight
-        inputRef.current?.focus()
       }}
       onMouseLeave={() => {
         setFocused(false)
       }}
       onTouchMove={handleTouchMove}
+      onWheel={handleWheel}
       className={unread ? 'agent-panel-unread' : undefined}
       style={{
         display: 'flex', flexDirection: 'column',
@@ -496,7 +498,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         border: focused ? `1.5px solid ${agent.color}66` : unread ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
         borderRadius: 14, overflow: 'hidden', height: '100%',
         transition: 'border-color 0.15s', minWidth: 0,
-        touchAction: 'none',
+        touchAction: 'manipulation',
       }}
     >
       {/* Header */}
@@ -540,10 +542,14 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       </div>
 
       {/* Messages */}
-      <div className="agent-msgs" style={{
-        flex: 1, padding: '8px 8px 4px',
-        display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, position: 'relative',
-      }}>
+      <div 
+        className="agent-msgs" 
+        onWheel={(e) => { if (!focused) { e.preventDefault(); e.stopPropagation() } }}
+        style={{
+          flex: 1, padding: '8px 8px 4px',
+          display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, position: 'relative',
+        }}
+      >
         {messages.length === 0 && (
           <div style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -626,7 +632,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             }}
             onBlur={() => {
               setFocused(false)
-              // scroll locked removed
+      
               setUnreadAgent(agent.id, false)
             }}
             placeholder={`Msg ${agent.name}...`}
