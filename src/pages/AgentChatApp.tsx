@@ -224,6 +224,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const maxTsRef = useRef(0)
   const lastMsgCountRef = useRef(0)
+  // Track all processed message IDs to prevent duplicates from fast batch replies
+  const processedIdsRef = useRef<Set<string>>(new Set())
   // Debounce timer: typing stays until agent is silent for 3 seconds
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -288,6 +290,9 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         const existing = new Set(messagesRef.current.map(m => m.id))
         const newOnes = msgs.filter(m => !existing.has(m.id))
         const merged = newOnes.length > 0 ? [...messagesRef.current, ...newOnes] : messagesRef.current
+        // Track all message IDs so we never show duplicates
+        msgs.forEach(m => processedIdsRef.current.add(m.id))
+        newOnes.forEach(m => processedIdsRef.current.add(m.id))
         syncToStorage(merged)
         setMessages(merged)
         // Scroll to BOTTOM on initial load — newest messages visible
@@ -334,6 +339,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
             }
           })
           .filter((msg: Message) => {
+            // Skip if already processed (most reliable dedupe)
+            if (processedIdsRef.current.has(msg.id)) return false
             if (msg.timestamp <= maxTsRef.current) return false
             const existing = history.current[agent.id]?.some((m: Message) => m.id === msg.id)
             if (existing) return false
@@ -377,12 +384,16 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
           maxTsRef.current = Math.max(...newMsgs.map(m => m.timestamp))
           lastMsgCountRef.current = (lastMsgCountRef.current || 0) + newMsgs.length
           const next = [...messagesRef.current, ...newMsgs]
+          // Track all new message IDs to prevent duplicates in next poll
+          newMsgs.forEach(m => processedIdsRef.current.add(m.id))
           syncToStorage(next)
           setMessages(next)
-          // Auto-scroll when agent responds
+          // Auto-scroll when agent responds (only if already at bottom)
           setTimeout(() => {
-    
-    
+            const msgEl = messagesEndRef.current?.parentElement
+            if (msgEl && isAtBottomRef.current) {
+              msgEl.scrollTop = msgEl.scrollHeight
+            }
           }, 50)
         } else if (lastMsgCountRef.current > 0 && data.messages.length > lastMsgCountRef.current) {
           // Messages exist but none new to us — agent might be thinking
@@ -692,11 +703,7 @@ export default function AgentChatApp() {
     }
   }, [])
 
-  useEffect(() => {
-    // Don't scroll the window on mount — just ensure grid is at top via CSS
-    const grid = document.querySelector(".agent-grid")
-    if (grid) grid.scrollTop = 0
-  }, [])
+  // NO grid scroll reset here - it fires on every render and resets scroll position
 
   function toggleAgent(id: string) {
     const next = visibleAgents.includes(id)
