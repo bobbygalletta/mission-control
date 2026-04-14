@@ -1,0 +1,131 @@
+[
+  {
+    "id": "apr-01",
+    "name": "Xfinity Internet",
+    "amount": 118.00,
+    "dueDate": "2026-04-01",
+    "category": "Internet",
+    "paid": false
+  },
+  {
+    "id": "apr-02",
+    "name": "Affirm - Marriott Hotels",
+    "amount": 129.59,
+    "dueDate": "2026-04-02",
+    "category": "Travel",
+    "paid": false
+  },
+  {
+    "id": "apr-03",
+    "name": "KUB (old apartment)",
+    "amount": 362.20,
+    "dueDate": "2026-04-03",
+    "category": "Utilities",
+    "paid": false,
+    "note": "Not urgent"
+  },
+  {
+    "id": "apr-08",
+    "name": "T-Mobile (2 of 2)",
+    "amount": 98.30,
+    "dueDate": "2026-04-08",
+    "category": "Phone",
+    "paid": false
+  },
+  {
+    "id": "apr-09",
+    "name": "Affirm - Hilton Hotels",
+    "amount": 23.50,
+    "dueDate": "2026-04-09",
+    "category": "Travel",
+    "paid": false
+  },
+  {
+    "id": "apr-11",
+    "name": "Affirm Virtual Card",
+    "amount": 25.74,
+    "dueDate": "2026-04-11",
+    "category": "Other",
+    "paid": false
+  },
+  {
+    "id": "apr-12",
+    "name": "Affirm Virtual Card",
+    "amount": 29.87,
+    "dueDate": "2026-04-12",
+    "category": "Other",
+    "paid": false
+  },
+  {
+    "id": "apr-15",
+    "name": "Cap One Platinum",
+    "amount": 25.00,
+    "dueDate": "2026-04-15",
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "apr-15",
+    "name": "Discover",
+    "amount": 25.00,
+    "dueDate": "2026-04-15",
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "apr-15",
+    "name": "GEICO",
+    "amount": 187.25,
+    "dueDate": "2026-04-15",
+    "category": "Insurance",
+    "paid": false
+  },
+  {
+    "id": "apr-17",
+    "name": "Affirm T-Mobile",
+    "amount": 15.31,
+    "dueDate": "2026-04-17",
+    "category": "Phone",
+    "paid": false
+  },
+  {
+    "id": "apr-21",
+    "name": "Affirm T-Mobile",
+    "amount": 18.00,
+    "dueDate": "2026-04-21",
+    "category": "Phone",
+    "paid": false
+  },
+  {
+    "id": "apr-27",
+    "name": "Affirm Broadwaydirect",
+    "amount": 13.41,
+    "dueDate": "2026-04-27",
+    "category": "Entertainment",
+    "paid": false
+  },
+  {
+    "id": "apr-27",
+    "name": "Capital One Quicksilver",
+    "amount": 411.00,
+    "dueDate": "2026-04-27",
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "apr-28",
+    "name": "Chase",
+    "amount": 74.00,
+    "dueDate": "2026-04-28",
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "apr-30",
+    "name": "Apple Card Payment",
+    "amount": 64.00,
+    "dueDate": "2026-04-30",
+    "category": "Credit",
+    "paid": false
+  }
+]

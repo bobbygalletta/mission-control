@@ -10,10 +10,13 @@ const SERVERS = {
 
 Object.entries(SERVERS).forEach(([port, config]) => {
   http.createServer((req, res) => {
-    let url = req.url.split('?')[0]
+    let urlPath = req.url.split('?')[0]
+    let query = req.url.includes('?') ? req.url.substring(urlPath.length) : ''
+    let url = urlPath
     
     // Proxy /tools and /api to gateway
     if (url.startsWith('/tools') || url.startsWith('/api')) {
+      url = urlPath + query  // preserve query string for API
       const proxyPort = url.startsWith('/api') ? 3001 : 18789
       const bearer = url.startsWith('/tools') ? '286caba2a7d072f065abdec6f5cff840c2c31eb8f7801111' : ''
       const options = {
