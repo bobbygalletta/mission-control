@@ -50,7 +50,6 @@ header span { font-size: 18px; font-weight: 700; }
   border: 2px solid rgba(255,107,53,0.4);
   box-shadow: 0 0 0 4px rgba(255,107,53,0.06), 0 4px 24px rgba(255,107,53,0.12);
   animation: border-pulse 2s ease-in-out infinite;
-  overflow: hidden;
   background: rgba(255,240,235,0.3);
 }
 @keyframes border-pulse {
@@ -67,13 +66,13 @@ header span { font-size: 18px; font-weight: 700; }
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 1;
-  pointer-events: none;
+  overflow: hidden;
+  border-radius: 22px;
 }
 .emoji {
   position: absolute;
-  font-size: 24px;
-  opacity: 0.5;
-  filter: blur(0.3px);
+  font-size: 26px;
+  opacity: 0.7;
   will-change: transform, left, top;
   user-select: none;
 }
@@ -81,9 +80,9 @@ header span { font-size: 18px; font-weight: 700; }
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 5;
-  background: rgba(255,255,255,0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: 22px;
   display: flex;
   flex-direction: column;
@@ -112,7 +111,7 @@ header span { font-size: 18px; font-weight: 700; }
 </header>
 <div class="loading-area">
   <div class="panel-container">
-    <div class="emoji-layer" id="emojiLayer"></div>
+    <div class="emoji-layer" id="layer"></div>
     <div class="glass-panel">
       <div class="spinner"></div>
       <p class="loading-text">Extracting recipe...</p>
@@ -121,41 +120,42 @@ header span { font-size: 18px; font-weight: 700; }
   </div>
 </div>
 <script>
-const emojis = [];
-const FOOD = ['🍕','🍔','🍟','🌮','🥙','🧀','🥩','🍗','🍖','🥓','🍣','🥟','🍱','🍙','🍘','🥐','🥖','🧇','🥞','🍩','🍪','🎂','🍰','🧁','🍫','🍿','🍳','🥗','🍜','🍝'];
-const layer = document.getElementById('emojiLayer');
+var layer = document.getElementById('layer');
+var foods = ['🍕','🍔','🍟','🌮','🥙','🧀','🥩','🍗','🍖','🥓','🍣','🥟','🍱','🍙','🍘','🥐','🥖','🧇','🥞','🍩','🍪','🎂','🍰','🧁','🍫','🍿','🍳','🥗','🍜','🍝'];
+var balls = [];
 
-function spawn() {
-  const el = document.createElement('div');
-  el.className = 'emoji';
-  el.textContent = FOOD[Math.floor(Math.random() * FOOD.length)];
-  el.style.left = (Math.random() * 80 + 5) + '%';
-  el.style.top = (Math.random() * 80 + 5) + '%';
-  const angle = Math.random() * Math.PI * 2;
-  const speed = 0.3 + Math.random() * 0.4;
-  el.vx = Math.cos(angle) * speed;
-  el.vy = Math.sin(angle) * speed;
-  el.fontSize = 18 + Math.random() * 12 + 'px';
-  layer.appendChild(el);
-  emojis.push(el);
+function start() {
+  for (var i = 0; i < 8; i++) {
+    var d = document.createElement('div');
+    d.className = 'emoji';
+    d.textContent = foods[Math.floor(Math.random() * foods.length)];
+    d.style.left = (10 + Math.random() * 70) + '%';
+    d.style.top = (10 + Math.random() * 70) + '%';
+    d.vx = (Math.random() * 1.2 + 0.3) * (Math.random() > 0.5 ? 1 : -1);
+    d.vy = (Math.random() * 1.2 + 0.3) * (Math.random() > 0.5 ? 1 : -1);
+    d.style.fontSize = (20 + Math.random() * 10) + 'px';
+    layer.appendChild(d);
+    balls.push(d);
+  }
+  loop();
 }
 
-for (let i = 0; i < 10; i++) spawn();
-
-function animate() {
-  emojis.forEach(el => {
-    let x = parseFloat(el.style.left);
-    let y = parseFloat(el.style.top);
-    x += el.vx;
-    y += el.vy;
-    if (x < 3 || x > 85) { el.vx *= -1; x = Math.max(3, Math.min(85, x)); }
-    if (y < 3 || y > 85) { el.vy *= -1; y = Math.max(3, Math.min(85, y)); }
-    el.style.left = x + '%';
-    el.style.top = y + '%';
-  });
-  requestAnimationFrame(animate);
+function loop() {
+  for (var i = 0; i < balls.length; i++) {
+    var b = balls[i];
+    var x = parseFloat(b.style.left);
+    var y = parseFloat(b.style.top);
+    x += b.vx * 0.3;
+    y += b.vy * 0.3;
+    if (x < 5 || x > 80) { b.vx = -b.vx; x = Math.max(5, Math.min(80, x)); }
+    if (y < 5 || y > 80) { b.vy = -b.vy; y = Math.max(5, Math.min(80, y)); }
+    b.style.left = x + '%';
+    b.style.top = y + '%';
+  }
+  requestAnimationFrame(loop);
 }
-animate();
+
+start();
 </script>
 </body>
 </html>
