@@ -837,6 +837,41 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /api/proxy-image?url= — proxy images to avoid hotlink blocking
+  if (get('/api/proxy-image')) {
+    const imgUrl = url.searchParams.get('url') || '';
+    if (!imgUrl || !imgUrl.startsWith('http')) {
+      res.writeHead(400); res.end('url required'); return;
+    }
+    const protocol = imgUrl.startsWith('https') ? require('https') : require('http');
+    const req = protocol.get(imgUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Referer': imgUrl.split('/')[2] || ''
+      },
+      timeout: 10000
+    }, (res) => {
+      if (res.statusCode === 200) {
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          const ext = imgUrl.split('.').pop().split('?')[0] || 'jpg';
+          const ct = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+          res.headers['Content-Type'] = ct;
+          res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
+          res.end(buf);
+        });
+      } else {
+        res.writeHead(502); res.end('Status: ' + res.statusCode);
+      }
+    });
+    req.on('error', e => { res.writeHead(502); res.end(e.message); });
+    req.on('timeout', () => { req.destroy(); res.writeHead(504); res.end('Timeout'); });
+    return;
+  }
+
   // GET /api/recipe-from-url?url= — Puppeteer renders + JSON-LD (exact copy, no AI)
   if (get('/api/recipe-from-url')) {
     const recipeUrl = url.searchParams.get('url') || '';
