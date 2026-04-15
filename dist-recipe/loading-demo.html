@@ -63,6 +63,20 @@ header span { font-size: 18px; font-weight: 700; }
     box-shadow: 0 0 0 6px rgba(255,107,53,0.03), 0 4px 40px rgba(255,107,53,0.22);
   }
 }
+.emoji-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.emoji {
+  position: absolute;
+  font-size: 20px;
+  opacity: 0.35;
+  filter: blur(0.5px) drop-shadow(0 1px 2px rgba(0,0,0,0.08));
+  will-change: transform;
+  user-select: none;
+}
 .glass-panel {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -98,6 +112,7 @@ header span { font-size: 18px; font-weight: 700; }
 </header>
 <div class="loading-area">
   <div class="panel-container">
+    <div class="emoji-layer" id="emojiLayer"></div>
     <div class="glass-panel">
       <div class="spinner"></div>
       <p class="loading-text">Extracting recipe...</p>
@@ -105,5 +120,55 @@ header span { font-size: 18px; font-weight: 700; }
     </div>
   </div>
 </div>
+<script>
+const FOOD_EMOJIS = [
+  '🍕','🍔','🍟','🌮','🌯','🥙','🧀','🥩','🍗','🍖','🥓',
+  '🍣','🍤','🥟','🥠','🍱','🍙','🍘','🥐','🥖','🧇','🥞',
+  '🍞','🍩','🍪','🎂','🍰','🧁','🍫','🍬','🍭','🍿',
+  '🥜','🌰','🍯','🍳','🥞','🍗','🍖','🍔','🍟','🌮',
+  '🌯','🍣','🍤','🥟','🥠','🍱','🍙','🍘','🍩','🍪',
+  '🎂','🍰','🧁','🍫','🥐','🥯','🥨','🧀','🍞','🥖',
+  '🥚','🍯','🧂','🥚','🍳','🧺','🥗','🍜','🍝','🍲'
+];
+
+let emojis = [];
+function init() {
+  const layer = document.getElementById('emojiLayer');
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement('div');
+    el.className = 'emoji';
+    el.textContent = FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)];
+    el.style.left = (5 + Math.random() * 80) + '%';
+    el.style.top = (5 + Math.random() * 80) + '%';
+    el.dataset.vx = ((Math.random() * 1.0 + 0.4) * (Math.random() > 0.5 ? 1 : -1)).toFixed(3);
+    el.dataset.vy = ((Math.random() * 1.0 + 0.4) * (Math.random() > 0.5 ? 1 : -1)).toFixed(3);
+    el.style.fontSize = (16 + Math.random() * 8) + 'px';
+    layer.appendChild(el);
+    emojis.push(el);
+  }
+  loop();
+}
+function loop() {
+  emojis.forEach(el => {
+    let x = parseFloat(el.style.left);
+    let y = parseFloat(el.style.top);
+    let vx = parseFloat(el.dataset.vx);
+    let vy = parseFloat(el.dataset.vy);
+    x += vx * 0.28;
+    y += vy * 0.28;
+    if (x < 2) { x = 2; vx = Math.abs(vx); }
+    if (x > 82) { x = 82; vx = -Math.abs(vx); }
+    if (y < 2) { y = 2; vy = Math.abs(vy); }
+    if (y > 82) { y = 82; vy = -Math.abs(vy); }
+    el.dataset.vx = vx.toFixed(3);
+    el.dataset.vy = vy.toFixed(3);
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    el.style.transform = `scale(${0.8 + Math.abs(Math.sin(Date.now() / 800 + x)) * 0.2})`;
+  });
+  requestAnimationFrame(loop);
+}
+init();
+</script>
 </body>
 </html>
