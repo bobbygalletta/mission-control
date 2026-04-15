@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,max-scale=1,user-scalable=no">
+<title>Recipe Rip Animation Demo</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: linear-gradient(135deg, #FFF0EB, #FFE4D6);
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.header {
+  width: 100%;
+  padding: 20px;
+  text-align: center;
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid #E5E5E5;
+  position: relative;
+  z-index: 100;
+}
+.header h1 { font-size: 20px; color: #1A1A1A; }
+.header p { font-size: 13px; color: #6B6B6B; margin-top: 4px; }
+.demo-area {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.controls {
+  padding: 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid #E5E5E5;
+}
+.btn {
+  height: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.btn-primary { background: #FF6B35; color: #fff; }
+.btn-primary:hover { background: #e85a2a; }
+.btn-secondary { background: #F7F7F7; color: #1A1A1A; border: 1.5px solid #E5E5E5; }
+.btn-secondary:hover { background: #EFEFEF; }
+.emoji {
+  position: absolute;
+  font-size: 40px;
+  cursor: default;
+  user-select: none;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+  transition: none;
+  will-change: transform, left, top;
+}
+.count-label {
+  font-size: 13px;
+  color: #6B6B6B;
+  padding: 0 20px;
+  text-align: center;
+}
+.count-label span { font-weight: 600; color: #FF6B35; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Recipe Rip Animation Demo</h1>
+  <p>DVD-style bouncing food emojis</p>
+</div>
+
+<div class="demo-area" id="demoArea">
+  <!-- Emojis bounce here -->
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" onclick="startBounce()">Start</button>
+  <button class="btn btn-secondary" onclick="stopBounce()">Stop</button>
+  <button class="btn btn-secondary" onclick="addMore()">+ Add 10</button>
+  <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+</div>
+
+<p class="count-label" id="countLabel">Click <span>Start</span> to begin</p>
+
+<script>
+const FOOD_EMOJIS = [
+  '🍕','🍔','🍟','🌮','🌯','🥙','🥚','🍳','🧀','🥩','🍗','🍖','🥓',
+  '🍣','🍤','🥟','🥠','🍱','🍙','🍘','🥐','🥖','🧇','🥞','🍞',
+  '🍩','🍪','🎂','🍰','🧁','🍫','🍬','🍭','🍿','🥜','🌰','🍯',
+  '🍳','🥞','🧇','🥓','🥩','🍗','🍖','🍔','🍟','🌮','🌯','🥙',
+  '🍣','🍤','🥟','🥠','🍱','🍙','🍘','🍩','🍪','🎂','🍰','🧁',
+  '🥐','🥯','🥨','🧀','🍞','🥖','🥚','🧈','🍯','🧂','🥚','🍳',
+  '🧺','🥗','🌯','🍜','🍝','🍲','🍛','🍣','🍱','🥘','🍲','🫕',
+  '🧁','🎂','🍰','🧋','🍮','🍭','🍬','🍫','🍩','🍪','🍪','🍿',
+  '☕','🫖','🍵','🥤','🧃','🥛','🥛','🍹','🍸','🍷','🍺','🍻'
+];
+
+let emojis = [];
+let running = false;
+let animFrame = null;
+
+function createEmoji(x, y) {
+  const el = document.createElement('div');
+  el.className = 'emoji';
+  el.textContent = FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)];
+  el.style.left = (x !== undefined ? x : Math.random() * 80) + '%';
+  el.style.top = (y !== undefined ? y : Math.random() * 80) + '%';
+  el.dataset.vx = (Math.random() * 6 - 3).toFixed(2);
+  el.dataset.vy = (Math.random() * 6 - 3).toFixed(2);
+  document.getElementById('demoArea').appendChild(el);
+  return el;
+}
+
+function startBounce() {
+  if (running) return;
+  running = true;
+  
+  // Spawn 20 emojis if none exist
+  if (emojis.length === 0) {
+    for (let i = 0; i < 20; i++) {
+      emojis.push(createEmoji());
+    }
+  }
+  
+  updateCount();
+  bounceLoop();
+}
+
+function bounceLoop() {
+  if (!running) return;
+  
+  const area = document.getElementById('demoArea');
+  const rect = area.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+  
+  emojis.forEach(el => {
+    let x = parseFloat(el.style.left);
+    let y = parseFloat(el.style.top);
+    let vx = parseFloat(el.dataset.vx);
+    let vy = parseFloat(el.dataset.vy);
+    
+    x += vx * 0.15;
+    y += vy * 0.15;
+    
+    // Bounce off walls (with padding so emojis don't go off screen)
+    if (x <= 0 || x >= 92) {
+      vx = -vx;
+      x = Math.max(0, Math.min(92, x));
+    }
+    if (y <= 0 || y >= 85) {
+      vy = -vy;
+      y = Math.max(0, Math.min(85, y));
+    }
+    
+    el.dataset.vx = vx.toFixed(2);
+    el.dataset.vy = vy.toFixed(2);
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    
+    // Add slight rotation for DVD feel
+    const rot = (x + y) * 2;
+    el.style.transform = `scale(${0.9 + Math.abs(Math.sin(Date.now() / 500 + x)) * 0.3}) rotate(${rot}deg)`;
+  });
+  
+  animFrame = requestAnimationFrame(bounceLoop);
+}
+
+function stopBounce() {
+  running = false;
+  if (animFrame) {
+    cancelAnimationFrame(animFrame);
+    animFrame = null;
+  }
+  updateCount();
+}
+
+function addMore() {
+  const count = parseInt(prompt('How many to add?', '10')) || 10;
+  for (let i = 0; i < count; i++) {
+    emojis.push(createEmoji(40 + Math.random() * 20, 30 + Math.random() * 20));
+  }
+  updateCount();
+  if (!running) startBounce();
+}
+
+function clearAll() {
+  stopBounce();
+  emojis.forEach(el => el.remove());
+  emojis = [];
+  updateCount();
+}
+
+function updateCount() {
+  const label = document.getElementById('countLabel');
+  if (emojis.length === 0) {
+    label.innerHTML = 'Click <span>Start</span> to begin';
+  } else {
+    label.innerHTML = `<span>${emojis.length}</span> emojis bouncing${running ? ' • click <span>Stop</span> to pause' : ' • paused'}`;
+  }
+}
+
+// Auto-start for demo
+setTimeout(() => {
+  startBounce();
+}, 300);
+</script>
+</body>
+</html>
