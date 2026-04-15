@@ -13,6 +13,7 @@ body {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 header {
   background: rgba(255,255,255,0.95);
@@ -22,6 +23,8 @@ header {
   height: 60px;
   display: flex;
   align-items: center;
+  position: relative;
+  z-index: 10;
 }
 header .logo { display: flex; align-items: center; gap: 10px; }
 header .icon {
@@ -32,6 +35,19 @@ header .icon {
   font-size: 20px;
 }
 header span { font-size: 18px; font-weight: 700; }
+.emoji-field {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.emoji {
+  position: absolute;
+  font-size: 28px;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  will-change: transform;
+  user-select: none;
+}
 .loading-area {
   flex: 1;
   display: flex;
@@ -39,6 +55,8 @@ header span { font-size: 18px; font-weight: 700; }
   align-items: center;
   justify-content: flex-start;
   padding: 80px 20px 40px;
+  position: relative;
+  z-index: 5;
 }
 .glass-panel {
   background: rgba(255,255,255,0.85);
@@ -83,6 +101,7 @@ header span { font-size: 18px; font-weight: 700; }
     <span>Recipe Rip</span>
   </div>
 </header>
+<div class="emoji-field" id="emojiField"></div>
 <div class="loading-area">
   <div class="glass-panel">
     <div class="spinner"></div>
@@ -90,5 +109,66 @@ header span { font-size: 18px; font-weight: 700; }
     <p class="loading-url">allrecipes.com</p>
   </div>
 </div>
+<script>
+const FOOD_EMOJIS = [
+  '🍕','🍔','🍟','🌮','🌯','🥙','🧀','🥩','🍗','🍖','🥓',
+  '🍣','🍤','🥟','🥠','🍱','🍙','🍘','🥐','🥖','🧇','🥞',
+  '🍞','🍩','🍪','🎂','🍰','🧁','🍫','🍬','🍭','🍿',
+  '🥜','🌰','🍯','🍳','🥞','🍗','🍖','🍔','🍟','🌮',
+  '🌯','🍣','🍤','🥟','🥠','🍱','🍙','🍘','🍩','🍪',
+  '🎂','🍰','🧁','🍫','🥐','🥯','🥨','🧀','🍞','🥖',
+  '🥚','🍯','🧂','🥚','🍳','🧺','🥗','🍜','🍝','🍲',
+  '🍛','🍣','🍱','🥘','🍲','🫕','🍶','🍾','🥂','🍷',
+  '🫖','☕','🍵','🧃','🥛','🥜','🌽','🥕','🍆','🥑',
+  '🥔','🍠','🧄','🧅','🥦','🍄','🥬','🌶️','🥥','🥑'
+];
+
+let emojis = [];
+let animId = null;
+
+function init() {
+  const field = document.getElementById('emojiField');
+  for (let i = 0; i < 14; i++) {
+    const el = document.createElement('div');
+    el.className = 'emoji';
+    el.textContent = FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)];
+    el.style.left = (5 + Math.random() * 85) + '%';
+    el.style.top = (5 + Math.random() * 85) + '%';
+    el.dataset.vx = ((Math.random() * 1.2 + 0.3) * (Math.random() > 0.5 ? 1 : -1)).toFixed(3);
+    el.dataset.vy = ((Math.random() * 1.2 + 0.3) * (Math.random() > 0.5 ? 1 : -1)).toFixed(3);
+    el.dataset.size = (22 + Math.random() * 14);
+    el.style.fontSize = el.dataset.size + 'px';
+    el.style.opacity = (0.25 + Math.random() * 0.35).toFixed(2);
+    field.appendChild(el);
+    emojis.push(el);
+  }
+  loop();
+}
+
+function loop() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  emojis.forEach(el => {
+    let x = parseFloat(el.style.left);
+    let y = parseFloat(el.style.top);
+    let vx = parseFloat(el.dataset.vx);
+    let vy = parseFloat(el.dataset.vy);
+    x += vx * 0.3;
+    y += vy * 0.3;
+    if (x < 2) { x = 2; vx = Math.abs(vx); }
+    if (x > 88) { x = 88; vx = -Math.abs(vx); }
+    if (y < 2) { y = 2; vy = Math.abs(vy); }
+    if (y > 88) { y = 88; vy = -Math.abs(vy); }
+    el.dataset.vx = vx.toFixed(3);
+    el.dataset.vy = vy.toFixed(3);
+    el.style.left = x + '%';
+    el.style.top = y + '%';
+    el.style.transform = `scale(${0.9 + Math.abs(Math.sin(Date.now() / 1000 + x)) * 0.15})`;
+  });
+  animId = requestAnimationFrame(loop);
+}
+
+init();
+</script>
 </body>
 </html>
