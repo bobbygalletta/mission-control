@@ -2,6 +2,56 @@ const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const https = require('https');
+const path = require('path');
+const fs2 = require('fs');
+
+// Serve recipe images
+if (get('/recipe-images/')) {
+  const filename = url.pathname.replace('/recipe-images/', '');
+  const filepath = path.join(__dirname, 'recipe-images', filename);
+  if (fs2.existsSync(filepath)) {
+    const ext = filename.split('.').pop() || 'jpg';
+    const ct = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
+    res.end(fs2.readFileSync(filepath));
+  } else {
+    res.writeHead(404); res.end('Not found');
+  }
+  return;
+}
+
+// Download image helper
+async function downloadImage(imgUrl, recipeId) {
+  return new Promise((resolve) => {
+    if (!imgUrl || !imgUrl.startsWith('http')) { resolve(null); return; }
+    const protocol = imgUrl.startsWith('https') ? https : http;
+    const ext = (imgUrl.split('.').pop().split('?')[0] || 'jpg').substring(0, 4);
+    const filename = recipeId + '-' + Date.now() + '.' + ext;
+    const filepath = path.join(__dirname, 'recipe-images', filename);
+    if (!fs2.existsSync(path.join(__dirname, 'recipe-images'))) {
+      fs2.mkdirSync(path.join(__dirname, 'recipe-images'), { recursive: true });
+    }
+    const req = protocol.get(imgUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Referer': imgUrl.split('/')[2] ? 'https://' + imgUrl.split('/')[2] : ''
+      },
+      timeout: 15000
+    }, (res) => {
+      if (res.statusCode === 200) {
+        const stream = fs2.createWriteStream(filepath);
+        res.pipe(stream);
+        stream.on('finish', () => resolve('/recipe-images/' + filename));
+        stream.on('error', () => resolve(null));
+      } else { resolve(null); }
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+  });
+}
+
 
 // Lazy-load Puppeteer for recipe fetching (heavy, only load when needed)
 let fetchWithPuppeteer = null;
@@ -902,6 +952,14 @@ const server = http.createServer(async (req, res) => {
         }
         if (Array.isArray(ldData.image)) ldData.image = ldData.image[0];
         if (typeof ldData.image === 'object' && ldData.image.url) ldData.image = ldData.image.url;
+        // Download image locally
+        const origImg = ldData.image;
+        if (origImg && typeof origImg === 'string' && origImg.startsWith('http')) {
+          try {
+            const downloaded = await downloadImage(origImg, Date.now().toString());
+            if (downloaded) ldData.image = downloaded;
+          } catch(e) {}
+        }
         if (typeof ldData.author === 'object') ldData.author = ldData.author.name || '';
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({ success: true, recipe: ldData }));
