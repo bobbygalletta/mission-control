@@ -45,7 +45,7 @@ header span { font-size: 18px; font-weight: 700; }
 .panel-container {
   position: relative;
   width: 320px;
-  height: 320px;
+  height: 280px;
   border-radius: 28px;
   border: 3px solid rgba(255,107,53,0.4);
   box-shadow: 0 0 0 5px rgba(255,107,53,0.06), 0 4px 32px rgba(255,107,53,0.15);
@@ -63,28 +63,14 @@ header span { font-size: 18px; font-weight: 700; }
     box-shadow: 0 0 0 8px rgba(255,107,53,0.03), 0 4px 48px rgba(255,107,53,0.25);
   }
 }
-.emoji-layer {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1;
-  pointer-events: none;
-  border-radius: 28px;
-}
-.emoji {
-  position: absolute;
-  font-size: 28px;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-  will-change: transform;
-  user-select: none;
-}
 .glass-panel {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 5;
-  background: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.82);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-radius: 28px;
+  border-radius: 25px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -95,7 +81,7 @@ header span { font-size: 18px; font-weight: 700; }
   width: 44px; height: 44px;
   border: 3px solid #E5E5E5;
   border-top-color: #FF6B35;
-  border-radius: 28px;
+  border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -112,7 +98,6 @@ header span { font-size: 18px; font-weight: 700; }
 </header>
 <div class="loading-area">
   <div class="panel-container">
-    <div class="emoji-layer" id="emojiLayer"></div>
     <div class="glass-panel">
       <div class="spinner"></div>
       <p class="loading-text">Extracting recipe...</p>
@@ -120,57 +105,5 @@ header span { font-size: 18px; font-weight: 700; }
     </div>
   </div>
 </div>
-<script>
-const FOOD_EMOJIS = [
-  '🍕','🍔','🍟','🌮','🌯','🥙','🧀','🥩','🍗','🍖','🥓',
-  '🍣','🍤','🥟','🥠','🍱','🍙','🍘','🥐','🥖','🧇','🥞',
-  '🍞','🍩','🍪','🎂','🍰','🧁','🍫','🍬','🍭','🍿',
-  '🥜','🌰','🍯','🍳','🥞','🍗','🍖','🍔','🍟','🌮',
-  '🌯','🍣','🍤','🥟','🥠','🍱','🍙','🍘','🍩','🍪',
-  '🎂','🍰','🧁','🍫','🥐','🥯','🥨','🧀','🍞','🥖',
-  '🥚','🍯','🧂','🥚','🍳','🧺','🥗','🍜','🍝','🍲',
-  '🍛','🍣','🍱','🥘','🍲','🫕','🍶','🍾','🥂','🍷'
-];
-
-let emojis = [];
-function init() {
-  const layer = document.getElementById('emojiLayer');
-  for (let i = 0; i < 14; i++) {
-    const el = document.createElement('div');
-    el.className = 'emoji';
-    el.textContent = FOOD_EMOJIS[Math.floor(Math.random() * FOOD_EMOJIS.length)];
-    el.style.left = (5 + Math.random() * 80) + '%';
-    el.style.top = (5 + Math.random() * 80) + '%';
-    el.dataset.vx = ((Math.random() * 1.2 + 0.4) * (Math.random() > 0.5 ? 1 : -1)).toFixed(3);
-    el.dataset.vy = ((Math.random() * 1.2 + 0.4) * (Math.random() > 0.5 ? 1 : -1)).toFixed(3);
-    el.style.fontSize = (22 + Math.random() * 12) + 'px';
-    el.style.opacity = '0.7';
-    layer.appendChild(el);
-    emojis.push(el);
-  }
-  loop();
-}
-function loop() {
-  emojis.forEach(el => {
-    let x = parseFloat(el.style.left);
-    let y = parseFloat(el.style.top);
-    let vx = parseFloat(el.dataset.vx);
-    let vy = parseFloat(el.dataset.vy);
-    x += vx * 0.3;
-    y += vy * 0.3;
-    if (x < 3) { x = 3; vx = Math.abs(vx); }
-    if (x > 78) { x = 78; vx = -Math.abs(vx); }
-    if (y < 3) { y = 3; vy = Math.abs(vy); }
-    if (y > 78) { y = 78; vy = -Math.abs(vy); }
-    el.dataset.vx = vx.toFixed(3);
-    el.dataset.vy = vy.toFixed(3);
-    el.style.left = x + '%';
-    el.style.top = y + '%';
-    el.style.transform = `scale(${0.8 + Math.abs(Math.sin(Date.now() / 600 + x)) * 0.25})`;
-  });
-  requestAnimationFrame(loop);
-}
-init();
-</script>
 </body>
 </html>
