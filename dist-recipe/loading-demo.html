@@ -39,7 +39,30 @@ header span { font-size: 18px; font-weight: 700; }
   align-items: center;
   justify-content: flex-start;
   padding: 80px 20px 40px;
+}
+.glass-panel {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 16px;
+  border: 2px solid rgba(255,107,53,0.3);
+  box-shadow: 0 0 0 4px rgba(255,107,53,0.08);
+  animation: border-pulse 2s ease-in-out infinite;
+}
+@keyframes border-pulse {
+  0%, 100% {
+    border-color: rgba(255,107,53,0.3);
+    box-shadow: 0 0 0 4px rgba(255,107,53,0.08), 0 4px 20px rgba(255,107,53,0.1);
+  }
+  50% {
+    border-color: rgba(255,107,53,0.7);
+    box-shadow: 0 0 0 8px rgba(255,107,53,0.04), 0 4px 32px rgba(255,107,53,0.2);
+  }
 }
 .spinner {
   width: 44px; height: 44px;
@@ -61,9 +84,11 @@ header span { font-size: 18px; font-weight: 700; }
   </div>
 </header>
 <div class="loading-area">
-  <div class="spinner"></div>
-  <p class="loading-text">Extracting recipe...</p>
-  <p class="loading-url">allrecipes.com</p>
+  <div class="glass-panel">
+    <div class="spinner"></div>
+    <p class="loading-text">Extracting recipe...</p>
+    <p class="loading-url">allrecipes.com</p>
+  </div>
 </div>
 </body>
 </html>
