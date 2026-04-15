@@ -23,7 +23,8 @@ header {
   height: 60px;
   display: flex;
   align-items: center;
-  position: relative;
+  position: fixed;
+  top: 0; left: 0; right: 0;
   z-index: 10;
 }
 header .logo { display: flex; align-items: center; gap: 10px; }
@@ -139,45 +140,54 @@ var foods = [
   '🫕','🍲','🥘','🥗','🍛'
 ];
 var balls = [];
-var headerH = 60;
 
-for (var i = 0; i < 30; i++) {
-  var d = document.createElement('div');
-  d.className = 'emoji';
-  d.textContent = foods[Math.floor(Math.random() * foods.length)];
-  var maxX = window.innerWidth - 30;
-  var maxY = window.innerHeight - 10;
-  d.style.left = (5 + Math.random() * (maxX - 10)) + 'px';
-  d.style.top = (headerH + 5 + Math.random() * (maxY - headerH - 10)) + 'px';
-  d.vx = (Math.random() * 0.5 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
-  d.vy = (Math.random() * 0.5 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
-  d.rot = Math.random() * 360;
-  d.rv = (Math.random() * 1.5 - 0.75);
-  d.style.fontSize = (26 + Math.random() * 16) + 'px';
-  bg.appendChild(d);
-  balls.push(d);
+function init() {
+  var areaH = window.innerHeight - 60;
+  var areaW = window.innerWidth;
+  for (var i = 0; i < 30; i++) {
+    var d = document.createElement('div');
+    d.className = 'emoji';
+    d.textContent = foods[Math.floor(Math.random() * foods.length)];
+    var emojiSize = 26 + Math.random() * 16;
+    var startX = Math.random() * (areaW - emojiSize);
+    var startY = Math.random() * (areaH - emojiSize);
+    d.style.left = startX + 'px';
+    d.style.top = startY + 'px';
+    d.vx = (Math.random() * 0.6 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
+    d.vy = (Math.random() * 0.6 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
+    d.rot = Math.random() * 360;
+    d.rv = (Math.random() * 1.5 - 0.75);
+    d.style.fontSize = emojiSize + 'px';
+    bg.appendChild(d);
+    balls.push(d);
+  }
 }
 
 function loop() {
-  var maxX = window.innerWidth - 30;
-  var maxY = window.innerHeight - 10;
+  var areaW = window.innerWidth;
+  var areaH = window.innerHeight - 60;
   for (var i = 0; i < balls.length; i++) {
     var b = balls[i];
+    var emojiSize = parseFloat(b.style.fontSize);
     var x = parseFloat(b.style.left);
     var y = parseFloat(b.style.top);
     x += b.vx;
     y += b.vy;
     b.rot += b.rv;
-    if (x < 5) { b.vx = Math.abs(b.vx); x = 5; }
-    if (x > maxX) { b.vx = -Math.abs(b.vx); x = maxX; }
-    if (y < headerH) { b.vy = Math.abs(b.vy); y = headerH; }
-    if (y > maxY) { b.vy = -Math.abs(b.vy); y = maxY; }
+    // bounce at left/right edges
+    if (x < 0) { b.vx = Math.abs(b.vx); x = 0; }
+    if (x > areaW - emojiSize) { b.vx = -Math.abs(b.vx); x = areaW - emojiSize; }
+    // bounce at top (header line = 0) and bottom (screen bottom)
+    if (y < 0) { b.vy = Math.abs(b.vy); y = 0; }
+    if (y > areaH - emojiSize) { b.vy = -Math.abs(b.vy); y = areaH - emojiSize; }
     b.style.transform = 'rotate(' + b.rot + 'deg)';
     b.style.left = x + 'px';
     b.style.top = y + 'px';
   }
   requestAnimationFrame(loop);
 }
+
+init();
 loop();
 </script>
 </body>
