@@ -63,19 +63,26 @@ header span { font-size: 18px; font-weight: 700; }
   width: 200px;
   height: 160px;
   border-radius: 24px;
-  border: 2px solid rgba(255,107,53,0.4);
-  box-shadow: 0 0 0 4px rgba(255,107,53,0.06), 0 4px 24px rgba(255,107,53,0.12);
-  animation: border-pulse 2s ease-in-out infinite;
-  background: rgba(255,240,235,0.3);
+  border: 2px solid rgba(255,107,53,0.2);
+  box-shadow:
+    0 0 8px rgba(255,107,53,0.08),
+    0 0 16px rgba(255,107,53,0.05),
+    inset 0 0 12px rgba(255,107,53,0.03);
+  animation: border-glow 2.5s ease-in-out infinite;
+  background: rgba(255,240,235,0.25);
 }
-@keyframes border-pulse {
-  0%, 100% {
-    border-color: rgba(255,107,53,0.35);
-    box-shadow: 0 0 0 4px rgba(255,107,53,0.06), 0 4px 24px rgba(255,107,53,0.12);
+@keyframes border-glow {
+  0% {
+    border-color: rgba(255,107,53,0.15);
+    box-shadow: 0 0 6px rgba(255,107,53,0.06), 0 0 12px rgba(255,107,53,0.04), inset 0 0 10px rgba(255,107,53,0.02);
   }
   50% {
-    border-color: rgba(255,107,53,0.8);
-    box-shadow: 0 0 0 6px rgba(255,107,53,0.03), 0 4px 40px rgba(255,107,53,0.22);
+    border-color: rgba(255,107,53,0.5);
+    box-shadow: 0 0 16px rgba(255,107,53,0.2), 0 0 32px rgba(255,107,53,0.12), inset 0 0 20px rgba(255,107,53,0.06);
+  }
+  100% {
+    border-color: rgba(255,107,53,0.15);
+    box-shadow: 0 0 6px rgba(255,107,53,0.06), 0 0 12px rgba(255,107,53,0.04), inset 0 0 10px rgba(255,107,53,0.02);
   }
 }
 .glass-panel {
@@ -142,11 +149,7 @@ for (var i = 0; i < 12; i++) {
 
 function isBehindPanel(x, y) {
   var rect = area.getBoundingClientRect();
-  var panelLeft = rect.left;
-  var panelRight = rect.left + 200;
-  var panelTop = rect.top;
-  var panelBottom = rect.top + 160;
-  return x >= panelLeft && x <= panelRight && y >= panelTop && y <= panelBottom;
+  return x >= rect.left && x <= rect.left + 200 && y >= rect.top && y <= rect.top + 160;
 }
 
 function loop() {
