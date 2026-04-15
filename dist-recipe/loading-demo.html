@@ -44,11 +44,11 @@ header span { font-size: 18px; font-weight: 700; }
 .emoji {
   position: absolute;
   font-size: 28px;
+  opacity: 1;
   will-change: transform, left, top;
   user-select: none;
 }
-.emoji.clear { opacity: 1; filter: none; }
-.emoji.glass { opacity: 0.45; filter: blur(0.5px); }
+.emoji.glass { opacity: 0.4; filter: blur(0.5px); }
 .loading-area {
   flex: 1;
   display: flex;
@@ -63,33 +63,33 @@ header span { font-size: 18px; font-weight: 700; }
   width: 200px;
   height: 160px;
   border-radius: 24px;
-  border: 2px solid rgba(255,107,53,0.2);
+  border: 2px solid rgba(255,107,53,0.15);
   box-shadow:
-    0 0 8px rgba(255,107,53,0.08),
-    0 0 16px rgba(255,107,53,0.05),
-    inset 0 0 12px rgba(255,107,53,0.03);
+    0 0 8px rgba(255,107,53,0.06),
+    0 0 16px rgba(255,107,53,0.04),
+    inset 0 0 12px rgba(255,107,53,0.02);
   animation: border-glow 2.5s ease-in-out infinite;
-  background: rgba(255,240,235,0.25);
+  background: rgba(255,240,235,0.2);
 }
 @keyframes border-glow {
   0% {
-    border-color: rgba(255,107,53,0.15);
-    box-shadow: 0 0 6px rgba(255,107,53,0.06), 0 0 12px rgba(255,107,53,0.04), inset 0 0 10px rgba(255,107,53,0.02);
+    border-color: rgba(255,107,53,0.1);
+    box-shadow: 0 0 6px rgba(255,107,53,0.05), 0 0 12px rgba(255,107,53,0.03), inset 0 0 10px rgba(255,107,53,0.02);
   }
   50% {
-    border-color: rgba(255,107,53,0.5);
-    box-shadow: 0 0 16px rgba(255,107,53,0.2), 0 0 32px rgba(255,107,53,0.12), inset 0 0 20px rgba(255,107,53,0.06);
+    border-color: rgba(255,107,53,0.45);
+    box-shadow: 0 0 16px rgba(255,107,53,0.18), 0 0 32px rgba(255,107,53,0.1), inset 0 0 20px rgba(255,107,53,0.05);
   }
   100% {
-    border-color: rgba(255,107,53,0.15);
-    box-shadow: 0 0 6px rgba(255,107,53,0.06), 0 0 12px rgba(255,107,53,0.04), inset 0 0 10px rgba(255,107,53,0.02);
+    border-color: rgba(255,107,53,0.1);
+    box-shadow: 0 0 6px rgba(255,107,53,0.05), 0 0 12px rgba(255,107,53,0.03), inset 0 0 10px rgba(255,107,53,0.02);
   }
 }
 .glass-panel {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 5;
-  background: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.68);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 22px;
@@ -136,10 +136,10 @@ var balls = [];
 
 for (var i = 0; i < 12; i++) {
   var d = document.createElement('div');
-  d.className = 'emoji clear';
+  d.className = 'emoji';
   d.textContent = foods[Math.floor(Math.random() * foods.length)];
-  d.style.left = (5 + Math.random() * 85) + '%';
-  d.style.top = (5 + Math.random() * 85) + '%';
+  d.style.left = (8 + Math.random() * 80) + '%';
+  d.style.top = (8 + Math.random() * 80) + '%';
   d.vx = (Math.random() * 0.5 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
   d.vy = (Math.random() * 0.5 + 0.15) * (Math.random() > 0.5 ? 1 : -1);
   d.style.fontSize = (22 + Math.random() * 14) + 'px';
@@ -161,8 +161,8 @@ function loop() {
     var y = parseFloat(b.style.top);
     x += b.vx * 0.35;
     y += b.vy * 0.35;
-    if (x < 2 || x > 88) { b.vx = -b.vx; x = Math.max(2, Math.min(88, x)); }
-    if (y < 2 || y > 90) { b.vy = -b.vy; y = Math.max(2, Math.min(90, y)); }
+    if (x < 3 || x > 90) { b.vx = -b.vx; x = Math.max(3, Math.min(90, x)); }
+    if (y < 3 || y > 92) { b.vy = -b.vy; y = Math.max(3, Math.min(92, y)); }
     b.style.left = x + '%';
     b.style.top = y + '%';
     var px = (x / 100) * w;
@@ -170,7 +170,7 @@ function loop() {
     if (isBehindPanel(px, py)) {
       b.className = 'emoji glass';
     } else {
-      b.className = 'emoji clear';
+      b.className = 'emoji';
     }
   }
   requestAnimationFrame(loop);
