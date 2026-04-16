@@ -42,5 +42,32 @@
     "category": "Phone",
     "paid": true,
     "paidDate": "2026-03-26T03:36:03.787Z"
+  },
+  {
+    "id": "capone-4-15",
+    "name": "Capitol One Quicksilver",
+    "amount": 25,
+    "dueDate": "2026-04-15",
+    "category": "Credit",
+    "paid": true,
+    "paidDate": "2026-04-15T00:00:00.000Z"
+  },
+  {
+    "id": "discover-4-15",
+    "name": "Discover",
+    "amount": 25,
+    "dueDate": "2026-04-15",
+    "category": "Credit",
+    "paid": true,
+    "paidDate": "2026-04-15T00:00:00.000Z"
+  },
+  {
+    "id": "geico-4-15",
+    "name": "GEICO",
+    "amount": 187.25,
+    "dueDate": "2026-04-15",
+    "category": "Insurance",
+    "paid": true,
+    "paidDate": "2026-04-15T00:00:00.000Z"
   }
 ]
