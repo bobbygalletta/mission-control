@@ -481,8 +481,8 @@ function htmlInstructions(html) {
 
 function toFraction(s) {
   if (!s || typeof s !== 'string') return s;
-  // Convert decimal numbers at start of string to Unicode fractions
-  // e.g. "0.75 cup" -> "¾ cup", "1.5 tsp" -> "1½ tsp"
+  // Convert decimal numbers to text fractions like 1/2, 1/4, 2/3 instead of Unicode
+  // e.g. "0.5 cup" -> "1/2 cup", "1.5 tsp" -> "1 1/2 tsp"
   return s.replace(/^(\d+(?:\.\d+)?)(?=\s|$)/g, function(match) {
     var n = parseFloat(match);
     if (isNaN(n)) return match;
@@ -490,27 +490,31 @@ function toFraction(s) {
     // Split into whole + fractional parts
     var whole = Math.floor(n);
     var frac = n - whole;
-    // Fraction lookup table
+    // Fraction lookup table - text versions
     var fracs = [
-      [0.125, '\u215B'], // ⅛
-      [0.25,  '\u00BC'], // ¼
-      [0.333, '\u2153'], // ⅓
-      [0.375, '\u215C'], // ⅜
-      [0.5,   '\u00BD'], // ½
-      [0.625, '\u215D'], // ⅝
-      [0.666, '\u2154'], // ⅔
-      [0.75,  '\u00BE'], // ¾
-      [0.875, '\u215E'], // ⅞
+      [0.125, '1/8'],
+      [0.25,  '1/4'],
+      [0.333, '1/3'],
+      [0.375, '3/8'],
+      [0.5,   '1/2'],
+      [0.625, '5/8'],
+      [0.666, '2/3'],
+      [0.75,  '3/4'],
+      [0.875, '7/8'],
     ];
     var fracStr = '';
     for (var i = 0; i < fracs.length; i++) {
       if (Math.abs(frac - fracs[i][0]) < 0.02) { fracStr = fracs[i][1]; break; }
     }
     if (fracStr === '' && frac > 0.02) {
-      // Recursively convert remaining fraction
-      fracStr = toFraction(frac.toFixed(3).replace(/^0/, ''));
+      // Try to convert remaining decimal to fraction
+      var d = frac.toFixed(2).replace(/^0/, '');
+      // Simple decimal to fraction conversion for uncommon values
+      if (d === '03') { fracStr = '1/3'; }
+      else if (d === '06' || d === '07') { fracStr = '1/6'; }
+      else { fracStr = d; } // fallback to decimal
     }
-    if (whole > 0 && fracStr) return whole + fracStr;
+    if (whole > 0 && fracStr) return whole + ' ' + fracStr;
     if (whole > 0 && !fracStr) return String(whole);
     if (fracStr) return fracStr;
     return match;
