@@ -546,7 +546,7 @@ function toast(m){var t=document.getElementById('toast');t.textContent=m;t.class
 function save(){localStorage.setItem(SK,JSON.stringify(st.saved));}
 function isSaved(id){return st.saved.some(function(r){return r._id===id;});}
 function toggleIng(rid,idx){var k=rid+'-'+idx;st.chk[k]=!st.chk[k];var el=document.getElementById('ing-'+idx);if(el){var c=!!st.chk[k];el.classList.toggle('chk',c);el.querySelector('.ci').textContent=c?'\u2713':'\u25CB';}}
-function toggleSave(){if(!st.recipe)return;var id=st.recipe._id;if(isSaved(id)){st.saved=st.saved.filter(function(r){return r._id!==id;});toast('Removed');}else{st.saved.unshift(JSON.parse(JSON.stringify(st.recipe)));toast('Recipe saved!');}st.recipe._saved=!isSaved(id);save();render();}
+function toggleSave(){if(!st.recipe)return;var id=st.recipe._id;if(isSaved(id)){st.saved=st.saved.filter(function(r){return r._id!==id;});toast('Removed');}else{st.saved.unshift(JSON.parse(JSON.stringify(st.recipe)));toast('Recipe saved!');}st.recipe._saved=isSaved(id);save();render();}
 function delSaved(id,e){e.stopPropagation();st.saved=st.saved.filter(function(r){return r._id!==id;});save();toast('Deleted');render();}
 function showDetail(id){var r=st.saved.find(function(s){return s._id===id;});if(r){st.recipe=r;st.view='detail';st.chk={};render();}}
 
