@@ -191,7 +191,7 @@ var _burstEls=[];
 function startBurst(cnt){cnt=cnt||18;for(var i=0;i<cnt;i++){!function(i){setTimeout(function(){var el=document.createElement('div');el.className='eb2';el.textContent=_foodEmojis[Math.floor(Math.random()*_foodEmojis.length)];el.style.left=(10+Math.random()*80)+'%';el.style.top=(10+Math.random()*80)+'%';el.style.animationDuration=(0.9+Math.random()*0.8)+'s';document.querySelector('.rp').appendChild(el);_burstEls.push(el);setTimeout(function(){el.remove();_burstEls=_burstEls.filter(function(e){return e!==el});},1600);},i*55);}(i);}(function(){var rp=document.querySelector('.rp');if(rp){rp.classList.add('gp','pulse');}})();}
 function stopBurst(){_burstEls.forEach(function(el){try{el.remove();}catch(e){}});_burstEls=[];var rp=document.querySelector('.rp');if(rp){rp.classList.remove('gp','pulse');}};
 
-function addTitleEmojis(){var R=st.recipe;if(!R)return;var e=prompt('Add emojis (e.g. 🍕🌮🍔):','🍕🌮🍔');if(e&&e.trim()){R.title=(R.title||'')+' '+e.trim();R.title=R.title.trim();render();}}
+function addTitleEmojis(){var R=st.recipe;if(!R)return;var e=prompt('Add emojis to title:','');if(e&&e.trim()){R.title=(R.title||'')+' '+e.trim();R.title=R.title.trim();render();}}
 
 // Recipe extraction engine v5 — stronger instruction/ingredient separation
 
