@@ -3,23 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const path = require('path');
 const fs2 = require('fs');
-
-// Serve recipe images
-if (get('/recipe-images/')) {
-  const filename = url.pathname.replace('/recipe-images/', '');
-  const filepath = path.join(__dirname, 'recipe-images', filename);
-  if (fs2.existsSync(filepath)) {
-    const ext = filename.split('.').pop() || 'jpg';
-    const ct = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-    res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
-    res.end(fs2.readFileSync(filepath));
-  } else {
-    res.writeHead(404); res.end('Not found');
-  }
-  return;
-}
 
 // Download image helper
 async function downloadImage(imgUrl, recipeId) {
@@ -215,6 +199,27 @@ function writeDataFile(name, data) {
     snaps.slice(10).forEach(f => fs.unlinkSync(path.join(backupDir, f)));
   } catch (e) { /* ignore snapshot errors */ }
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+}
+
+function normalizeRecipeLd(ldData) {
+  if (Array.isArray(ldData)) {
+    const recipeItem = ldData.find(item => {
+      const type = item && item['@type'];
+      return type === 'Recipe' || type === 'https://schema.org/Recipe' || (Array.isArray(type) && type.includes('Recipe'));
+    });
+    if (recipeItem) ldData = recipeItem;
+    else if (ldData.length === 1) ldData = ldData[0];
+  }
+  if (ldData && ldData['@graph']) {
+    for (const item of ldData['@graph']) {
+      const type = item && item['@type'];
+      if (type === 'Recipe' || type === 'https://schema.org/Recipe' || (Array.isArray(type) && type.includes('Recipe'))) {
+        ldData = item;
+        break;
+      }
+    }
+  }
+  return ldData;
 }
 
 // ─── Calendar ─────────────────────────────────────────────
@@ -457,6 +462,21 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
   const get = (p) => url.pathname === p && req.method === 'GET';
   const post = (p) => url.pathname === p && req.method === 'POST';
+
+  // Serve recipe images
+  if (req.method === 'GET' && url.pathname.startsWith('/recipe-images/')) {
+    const filename = url.pathname.replace('/recipe-images/', '');
+    const filepath = path.join(__dirname, 'recipe-images', filename);
+    if (fs2.existsSync(filepath)) {
+      const ext = filename.split('.').pop() || 'jpg';
+      const ct = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
+      res.end(fs2.readFileSync(filepath));
+    } else {
+      res.writeHead(404); res.end('Not found');
+    }
+    return;
+  }
 
   // GET /api/calendar
   if (get('/api/calendar')) {
@@ -901,20 +921,19 @@ const server = http.createServer(async (req, res) => {
         'Referer': imgUrl.split('/')[2] || ''
       },
       timeout: 10000
-    }, (res) => {
-      if (res.statusCode === 200) {
+    }, (proxyRes) => {
+      if (proxyRes.statusCode === 200) {
         const chunks = [];
-        res.on('data', chunk => chunks.push(chunk));
-        res.on('end', () => {
+        proxyRes.on('data', chunk => chunks.push(chunk));
+        proxyRes.on('end', () => {
           const buf = Buffer.concat(chunks);
           const ext = imgUrl.split('.').pop().split('?')[0] || 'jpg';
           const ct = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-          res.headers['Content-Type'] = ct;
           res.writeHead(200, { 'Content-Type': ct, 'Cache-Control': 'public, max-age=86400' });
           res.end(buf);
         });
       } else {
-        res.writeHead(502); res.end('Status: ' + res.statusCode);
+        res.writeHead(502); res.end('Status: ' + proxyRes.statusCode);
       }
     });
     req.on('error', e => { res.writeHead(502); res.end(e.message); });
@@ -938,12 +957,7 @@ const server = http.createServer(async (req, res) => {
         if (!scriptMatch) {
           res.writeHead(200); res.end(JSON.stringify({ success: false, error: 'No JSON-LD found on page' })); return;
         }
-        let ldData = JSON.parse(scriptMatch[1]);
-        if (ldData['@graph']) {
-          for (const item of ldData['@graph']) {
-            if (item['@type'] === 'Recipe' || item['@type'] === 'https://schema.org/Recipe') { ldData = item; break; }
-          }
-        }
+        let ldData = normalizeRecipeLd(JSON.parse(scriptMatch[1]));
         if (ldData.recipeIngredient) {
           ldData.recipeIngredient = ldData.recipeIngredient.map(function(s) { return typeof s === 'object' ? (s.text || s.name || '') : String(s); }).filter(Boolean);
         }
@@ -995,46 +1009,6 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(500);
       res.end(JSON.stringify({ error: String(e), emails: [], unread: 0 }));
     }
-    return;
-  }
-
-  // GET /api/recipe-from-url?url= — Puppeteer renders + JSON-LD (exact copy, no AI)
-  if (get('/api/recipe-from-url')) {
-    const recipeUrl = url.searchParams.get('url') || '';
-    if (!recipeUrl || !recipeUrl.startsWith('http')) {
-      res.writeHead(400); res.end(JSON.stringify({ error: 'url parameter required' })); return;
-    }
-    (async function() {
-      try {
-        if (!fetchWithPuppeteer) {
-          res.writeHead(500); res.end(JSON.stringify({ error: 'Puppeteer not available' })); return;
-        }
-        const html = await fetchWithPuppeteer(recipeUrl);
-        const scriptMatch = html.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
-        if (!scriptMatch) {
-          res.writeHead(200); res.end(JSON.stringify({ success: false, error: 'No JSON-LD found on page' })); return;
-        }
-        let ldData = JSON.parse(scriptMatch[1]);
-        if (ldData['@graph']) {
-          for (const item of ldData['@graph']) {
-            if (item['@type'] === 'Recipe' || item['@type'] === 'https://schema.org/Recipe') { ldData = item; break; }
-          }
-        }
-        if (ldData.recipeIngredient) {
-          ldData.recipeIngredient = ldData.recipeIngredient.map(function(s) { return typeof s === 'object' ? (s.text || s.name || '') : String(s); }).filter(Boolean);
-        }
-        if (ldData.recipeInstructions) {
-          ldData.recipeInstructions = ldData.recipeInstructions.map(function(s) { return typeof s === 'object' ? (s.text || s.name || '') : String(s); }).filter(Boolean);
-        }
-        if (Array.isArray(ldData.image)) ldData.image = ldData.image[0];
-        if (typeof ldData.image === 'object' && ldData.image.url) ldData.image = ldData.image.url;
-        if (typeof ldData.author === 'object') ldData.author = ldData.author.name || '';
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ success: true, recipe: ldData }));
-      } catch(e) {
-        res.writeHead(500); res.end(JSON.stringify({ error: e.message }));
-      }
-    })();
     return;
   }
 
