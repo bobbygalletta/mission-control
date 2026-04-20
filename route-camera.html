@@ -203,12 +203,12 @@ function init() {
 init();
 
 function updateProgress() {
-  const pct = ((currentStop - 1) / 41) * 100;
+  const pct = ((currentStop - 2) / 44) * 100;
   progressFill.style.width = pct + '%';
   if (currentStop) {
     progressBar.style.display = 'block';
     progressText.style.display = 'block';
-    progressText.querySelector('span').textContent = (currentStop ? currentStop : '--') + ' of 42 stops';
+    progressText.querySelector('span').textContent = (currentStop ? currentStop : '--') + ' of 45 stops';
   }
 }
 
