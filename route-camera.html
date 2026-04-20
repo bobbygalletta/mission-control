@@ -12,20 +12,20 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 #overlay{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
 #status-bar{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid rgba(255,255,255,0.1)}
 #status-text{color:#fff;font-size:14px;font-weight:600}
-#stop-counter{display:flex;align-items:center;gap:8px}
-#current-stop{background:#ff6b35;color:#fff;font-size:13px;font-weight:700;padding:4px 10px;border-radius:8px}
-#ocr-status{position:fixed;top:70px;left:12px;right:100px;height:36px;background:rgba(0,0,0,0.75);border-radius:8px;display:flex;align-items:center;justify-content:center;z-index:20}
+#stop-display{background:#22c55e;color:#fff;font-size:14px;font-weight:700;padding:6px 14px;border-radius:10px}
+#ocr-status{position:fixed;top:70px;left:12px;right:12px;height:36px;background:rgba(0,0,0,0.75);border-radius:8px;display:flex;align-items:center;justify-content:center;z-index:20}
 #ocr-text{color:#888;font-size:12px;font-weight:500}
 #scan-line{position:fixed;top:50%;left:12px;right:12px;height:2px;background:rgba(255,107,53,0.6);z-index:15;display:none}
 #scan-line.active{display:block;animation:scan 2s ease-in-out infinite}
 @keyframes scan{0%,100%{top:30%}50%{top:70%}}
 #detected{position:fixed;top:80px;left:12px;right:12px;background:rgba(0,0,0,0.8);border-radius:10px;padding:10px 14px;text-align:center;display:none;z-index:20}
 #detected-text{color:#fff;font-size:13px;font-weight:600}
-#info{position:fixed;bottom:160px;left:12px;right:12px;background:rgba(0,0,0,0.92);border-radius:20px;padding:20px;z-index:20;text-align:center;min-height:100px}
-#stop-num{font-size:48px;font-weight:800;color:#fff;line-height:1}
-#address{font-size:15px;font-weight:500;color:#ccc;margin-top:8px;line-height:1.3}
-#packages{font-size:22px;font-weight:700;margin-top:10px;letter-spacing:1px}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.7;transform:scale(1.05)}}
+#scan-info{position:fixed;bottom:160px;left:12px;right:12px;background:rgba(0,0,0,0.92);border-radius:20px;padding:20px;z-index:20;text-align:center}
+#scan-title{color:#888;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+#scan-num{font-size:56px;font-weight:800;color:#fff;line-height:1}
+#scan-addr{font-size:14px;color:#ccc;margin-top:8px}
+#scan-pkgs{font-size:20px;font-weight:700;margin-top:8px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
 .pulse{animation:pulse 1s ease-in-out infinite}
 #counter-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.95);padding:16px 12px max(16px,env(safe-area-inset-bottom));z-index:30;display:flex;align-items:center;gap:12px;border-top:1px solid rgba(255,255,255,0.1)}
 #enter-stop{display:flex;flex:1;flex-direction:column;gap:4px}
@@ -34,15 +34,14 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 #stop-input:focus{outline:none;border-color:#ff6b35}
 #done-btn{background:#22c55e;color:#fff;font-size:16px;font-weight:700;padding:14px 20px;border-radius:12px;flex-shrink:0;pointer-events:auto;cursor:pointer;border:none}
 #done-btn:active{background:#16a34a}
+#progress-bar{position:fixed;bottom:100px;left:12px;right:12px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;display:none;z-index:20}
+#progress-fill{height:100%;background:#22c55e;border-radius:2px;width:0%;transition:width 0.3s}
+#progress-text{position:fixed;bottom:108px;left:12px;right:12px;display:none;z-index:20;text-align:center}
+#progress-text span{background:rgba(0,0,0,0.8);color:#888;font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px}
 #loading{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100}
 #loading-text{color:#fff;font-size:16px;font-weight:600;margin-top:20px;text-align:center;padding:0 20px}
 .spinner{border:4px solid rgba(255,255,255,0.15);border-top:#ff6b35 4px solid;border-radius:50%;width:48px;height:48px;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.matched{background:rgba(34,197,94,0.95)!important;border:2px solid #22c55e!important}
-.no-match{background:rgba(30,30,30,0.95)!important;border:2px solid #444!important}
-#match-badge{font-size:12px;color:#666;margin-top:4px}
-#progress-bar{position:fixed;bottom:100px;left:12px;right:12px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;display:none;z-index:20}
-#progress-fill{height:100%;background:#22c55e;border-radius:2px;width:0%;transition:width 0.3s}
 </style>
 </head>
 <body>
@@ -57,10 +56,8 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 
 <div id="overlay">
   <div id="status-bar">
-    <span id="status-text">Route Camera - 42 Stops</span>
-    <div id="stop-counter">
-      <span id="current-stop">--</span>
-    </div>
+    <span id="status-text">Route Camera</span>
+    <span id="stop-display">Stop --</span>
   </div>
   
   <div id="ocr-status">
@@ -72,12 +69,13 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
   </div>
   
   <div id="progress-bar"><div id="progress-fill"></div></div>
+  <div id="progress-text"><span></span></div>
   
-  <div id="info" class="no-match">
-    <div id="stop-num">--</div>
-    <div id="address">Enter a stop # to begin</div>
-    <div id="packages"></div>
-    <div id="match-badge"></div>
+  <div id="scan-info">
+    <div id="scan-title">Scanning...</div>
+    <div id="scan-num">--</div>
+    <div id="scan-addr"></div>
+    <div id="scan-pkgs"></div>
   </div>
 </div>
 
@@ -146,19 +144,20 @@ const video = document.getElementById('camera');
 const loading = document.getElementById('loading');
 const loadingText = document.getElementById('loading-text');
 const statusText = document.getElementById('status-text');
-const currentStopEl = document.getElementById('current-stop');
+const stopDisplay = document.getElementById('stop-display');
 const ocrText = document.getElementById('ocr-text');
 const scanLine = document.getElementById('scan-line');
-const info = document.getElementById('info');
-const stopNum = document.getElementById('stop-num');
-const address = document.getElementById('address');
-const packages = document.getElementById('packages');
-const matchBadge = document.getElementById('match-badge');
+const scanInfo = document.getElementById('scan-info');
+const scanTitle = document.getElementById('scan-title');
+const scanNum = document.getElementById('scan-num');
+const scanAddr = document.getElementById('scan-addr');
+const scanPkgs = document.getElementById('scan-pkgs');
 const detected = document.getElementById('detected');
 const detectedText = document.getElementById('detected-text');
 const stopInput = document.getElementById('stop-input');
 const progressBar = document.getElementById('progress-bar');
 const progressFill = document.getElementById('progress-fill');
+const progressText = document.getElementById('progress-text');
 
 let currentStop = null;
 let completedStops = [];
@@ -179,7 +178,7 @@ function init() {
   completedStops = getStorage('route_completed', []);
   currentStop = getStorage('route_current', null);
   updateProgress();
-  updateUI();
+  updateStopDisplay();
 }
 init();
 
@@ -188,37 +187,18 @@ function updateProgress() {
   progressFill.style.width = pct + '%';
   if (completedStops.length > 0) {
     progressBar.style.display = 'block';
+    progressText.style.display = 'block';
+    progressText.querySelector('span').textContent = completedStops.length + ' of 41 completed';
   }
 }
 
-function updateUI() {
+function updateStopDisplay() {
   if (currentStop) {
-    currentStopEl.textContent = '#' + currentStop;
-    const stop = stopMap[currentStop];
-    if (stop) {
-      info.className = 'matched';
-      stopNum.textContent = 'Stop #' + stop.stopNumber;
-      address.textContent = stop.fullAddress;
-      if (stop.packages >= 2) {
-        packages.textContent = '⚠️ ' + stop.packages + ' PACKAGES';
-        packages.className = 'pulse';
-        packages.style.color = '#fbbf24';
-      } else {
-        packages.textContent = stop.packages + ' package';
-        packages.className = '';
-        packages.style.color = '#22c55e';
-      }
-      matchBadge.textContent = completedStops.includes(currentStop) ? '✓ Completed' : 'In Progress';
-      matchBadge.style.color = completedStops.includes(currentStop) ? '#22c55e' : '#888';
-    }
+    stopDisplay.textContent = 'Stop #' + currentStop;
+    stopDisplay.style.background = '#22c55e';
   } else {
-    currentStopEl.textContent = '--';
-    info.className = 'no-match';
-    stopNum.textContent = '--';
-    address.textContent = 'Enter a stop # to begin';
-    packages.textContent = '';
-    packages.className = '';
-    matchBadge.textContent = '';
+    stopDisplay.textContent = 'Stop --';
+    stopDisplay.style.background = '#ff6b35';
   }
 }
 
@@ -231,19 +211,18 @@ function markDone() {
     updateProgress();
   }
   
-  // Vibrate
   if (navigator.vibrate) navigator.vibrate(100);
   
   const next = currentStop + 1;
   if (next <= 42) {
     currentStop = next;
     setStorage('route_current', currentStop);
-    updateUI();
+    updateStopDisplay();
     stopInput.value = '';
   } else {
     currentStop = null;
     setStorage('route_current', null);
-    updateUI();
+    updateStopDisplay();
   }
 }
 
@@ -252,7 +231,7 @@ stopInput.addEventListener('input', function() {
   if (val >= 2 && val <= 42) {
     currentStop = val;
     setStorage('route_current', currentStop);
-    updateUI();
+    updateStopDisplay();
   }
 });
 
@@ -262,7 +241,7 @@ stopInput.addEventListener('keydown', function(e) {
     if (val >= 2 && val <= 42) {
       currentStop = val;
       setStorage('route_current', currentStop);
-      updateUI();
+      updateStopDisplay();
       this.blur();
     }
   }
@@ -285,7 +264,6 @@ async function initCamera() {
 
 async function initOCR() {
   try {
-    statusText.textContent = 'Route Camera';
     worker = await Tesseract.createWorker('eng', 1, {
       logger: m => {
         if (m.status === 'recognizing text') {
@@ -298,7 +276,7 @@ async function initOCR() {
     
     ocrText.textContent = 'OCR Ready!';
     scanLine.classList.add('active');
-    statusText.textContent = 'Route Camera - 42 Stops';
+    statusText.textContent = 'Route Camera';
     startScanning();
   } catch(e) {
     ocrText.textContent = 'OCR failed: ' + e.message;
@@ -330,8 +308,33 @@ async function startScanning() {
       
       if (numbers.length > 0) {
         const unique = [...new Set(numbers)];
-        detectedText.textContent = 'Detected: ' + unique.join(', ');
-        detected.style.display = 'block';
+        const routeNums = unique.filter(n => houseToStop[n]);
+        
+        if (routeNums.length > 0) {
+          const stop = houseToStop[routeNums[0]];
+          scanTitle.textContent = 'Stop #' + stop.stopNumber + ' Detected';
+          scanNum.textContent = stop.houseNumber;
+          scanAddr.textContent = stop.fullAddress;
+          if (stop.packages >= 2) {
+            scanPkgs.textContent = '⚠️ ' + stop.packages + ' PACKAGES';
+            scanPkgs.className = 'pulse';
+            scanPkgs.style.color = '#fbbf24';
+          } else {
+            scanPkgs.textContent = stop.packages + ' package';
+            scanPkgs.className = '';
+            scanPkgs.style.color = '#22c55e';
+          }
+          detectedText.textContent = 'Route Stop #' + stop.stopNumber + ' - ' + stop.houseNumber;
+          detected.style.display = 'block';
+        } else {
+          scanTitle.textContent = 'Detected';
+          scanNum.textContent = unique.join(', ');
+          scanAddr.textContent = '';
+          scanPkgs.textContent = '';
+          scanPkgs.className = '';
+          detectedText.textContent = 'Detected: ' + unique.join(', ');
+          detected.style.display = 'block';
+        }
       } else {
         detected.style.display = 'none';
       }
