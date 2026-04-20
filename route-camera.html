@@ -350,11 +350,18 @@ async function startScanning() {
         const uniqueNums = [...new Set(allNumbers)];
         for (const num of uniqueNums) {
           if (houseToStop[num]) {
-            console.log('MATCH FOUND: ' + num + ' = ' + JSON.stringify(houseToStop[num]));
             detectedStop = houseToStop[num];
             break;
-          } else {
-            console.log('NOT MATCHED: ' + num);
+          }
+        }
+        // If no house number match, try street name only
+        if (!detectedStop) {
+          const upperText = text.toUpperCase();
+          for (const street in streetToStop) {
+            if (upperText.includes(street)) {
+              detectedStop = streetToStop[street];
+              break;
+            }
           }
         }
       }
