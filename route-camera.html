@@ -276,7 +276,7 @@ searchInput.addEventListener('input', function() {
   if (matches.length > 0) {
     searchResults.innerHTML = matches.slice(0, 5).map(s => 
       '<div class="search-result" onclick="selectStop(' + s.stopNumber + ')">' + 
-      s.houseNumber + ' ' + s.fullAddress.split(',')[0] + 
+      s.fullAddress.split(',')[0] + 
       ' <span>#' + s.stopNumber + '</span></div>'
     ).join('');
   } else {
