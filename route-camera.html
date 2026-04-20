@@ -368,8 +368,7 @@ async function startScanning() {
       
       if (detectedStop) {
         const stop = detectedStop;
-        const isStreetMatch = street && !houseToStop[houseNum];
-        scanTitle.textContent = isStreetMatch ? 'Suggested Stop #' + stop.stopNumber : 'Detected Stop #' + stop.stopNumber;
+        scanTitle.textContent = 'Detected Stop #' + stop.stopNumber;
         scanNum.textContent = '#' + stop.stopNumber;
         scanAddr.textContent = stop.fullAddress;
         if (stop.packages >= 2) {
