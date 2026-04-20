@@ -63,7 +63,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 <div id="overlay">
   <div id="status-bar">
     <span id="status-text">Route Camera</span>
-    <button id="flash-top-btn" onclick="toggleFlash()" style="background:#333;color:#fff;font-size:16px;padding:6px 10px;border-radius:8px;border:none;cursor:pointer">🔦</button>
+    <button id="flash-btn" onclick="toggleFlash()" style="background:#333;color:#fff;font-size:16px;padding:6px 10px;border-radius:8px;border:none;cursor:pointer">🔦</button>
   </div>
   
   <div id="ocr-status">
@@ -91,7 +91,6 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
     <span id="enter-label">Go to Stop #</span>
     <input type="number" id="stop-input" value="" min="2" max="42">
   </div>
-  <button id="flash-btn" onclick="toggleFlash()">🔦</button>
   <button id="done-btn" onclick="markDone()">Done ✓</button>
 </div>
 
@@ -258,14 +257,20 @@ let track = null;
 async function toggleFlash() {
   try {
     if (!track) {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
       track = stream.getVideoTracks()[0];
     }
     flashOn = !flashOn;
-    await track.applyConstraints({ advanced: [{ torch: flashOn }] });
-    document.getElementById('flash-btn').classList.toggle('active', flashOn);
+    const constraints = track.getConstraints();
+    const newConstraints = { ...constraints, advanced: [{ torch: flashOn }] };
+    await track.applyConstraints(newConstraints);
+    const btn = document.getElementById('flash-btn');
+    btn.style.background = flashOn ? '#fbbf24' : '#333';
+    btn.textContent = flashOn ? '🔦 ON' : '🔦';
+    if (navigator.vibrate) navigator.vibrate(50);
   } catch(e) {
-    console.warn('Flash error:', e);
+    console.warn('Flash error:', e.message);
+    flashOn = false;
   }
 }
 
