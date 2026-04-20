@@ -336,7 +336,6 @@ async function startScanning() {
       
       // Look for house number + nearby street name
       const allNumbers = text.match(/\b\d{4,5}\b/g) || [];
-      const words = text.match(/[A-Za-z]{3,}/g) || [];
       
       let detectedStop = null;
       
@@ -345,7 +344,6 @@ async function startScanning() {
         for (const num of uniqueNums) {
           if (houseToStop[num]) {
             const expectedStreet = houseToStreet[num];
-            // Check if any word near this number looks like the street name
             const idx = text.indexOf(num);
             const nearby = text.substring(Math.max(0, idx - 40), idx + 50).toUpperCase();
             if (nearby.includes(expectedStreet)) {
@@ -360,29 +358,26 @@ async function startScanning() {
         const stop = detectedStop;
         scanTitle.textContent = 'Detected Stop #' + stop.stopNumber;
         scanNum.textContent = '#' + stop.stopNumber;
-          scanAddr.textContent = stop.fullAddress;
-          if (stop.packages >= 2) {
-            scanPkgs.textContent = '⚠️ ' + stop.packages + ' PACKAGES';
-            scanPkgs.className = 'pulse';
-            scanPkgs.style.color = '#fbbf24';
-          } else {
-            scanPkgs.textContent = stop.packages + ' package';
-            scanPkgs.className = '';
-            scanPkgs.style.color = '#22c55e';
-          }
-          detectedText.textContent = 'Stop #' + stop.stopNumber + ' - ' + stop.houseNumber;
-          detected.style.display = 'block';
+        scanAddr.textContent = stop.fullAddress;
+        if (stop.packages >= 2) {
+          scanPkgs.textContent = '⚠️ ' + stop.packages + ' PACKAGES';
+          scanPkgs.className = 'pulse';
+          scanPkgs.style.color = '#fbbf24';
         } else {
-          scanTitle.textContent = 'Not a route stop';
-          scanNum.textContent = unique.join(', ');
-          scanAddr.textContent = '';
-          scanPkgs.textContent = '';
+          scanPkgs.textContent = stop.packages + ' package';
           scanPkgs.className = '';
-          detectedText.textContent = 'Detected: ' + unique.join(', ');
-          detected.style.display = 'block';
+          scanPkgs.style.color = '#22c55e';
         }
+        detectedText.textContent = 'Stop #' + stop.stopNumber + ' - ' + stop.houseNumber;
+        detected.style.display = 'block';
       } else {
-        detected.style.display = 'none';
+        scanTitle.textContent = 'Not a route stop';
+        scanNum.textContent = allNumbers.length > 0 ? [...new Set(allNumbers)].join(', ') : '--';
+        scanAddr.textContent = '';
+        scanPkgs.textContent = '';
+        scanPkgs.className = '';
+        detectedText.textContent = allNumbers.length > 0 ? 'Detected: ' + [...new Set(allNumbers)].join(', ') : '';
+        detected.style.display = allNumbers.length > 0 ? 'block' : 'none';
       }
     } catch(e) {
       console.warn('OCR error:', e);
