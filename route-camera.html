@@ -70,7 +70,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 </div>
 
 <video id="camera" autoplay playsinline muted></video>
-<div id="scan-window"></div>
+<div id="scan-window" ondblclick="toggleCamera()"></div>
 
 <div id="overlay">
   <div id="status-bar">
@@ -190,7 +190,7 @@ function toggleCamera() {
       video.srcObject.getTracks().forEach(t => t.enabled = false);
     }
   } else {
-    ocrText.textContent = 'Scanning... (dblclick to pause)';
+    ocrText.textContent = 'Scanning...';
     ocrText.style.color = '#888';
     if (video.srcObject) {
       video.srcObject.getTracks().forEach(t => t.enabled = true);
