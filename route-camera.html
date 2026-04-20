@@ -194,7 +194,7 @@ function init() {
 init();
 
 function updateProgress() {
-  const pct = ((currentStop - 2 + 1) / 41) * 100;
+  const pct = ((currentStop - 1) / 41) * 100;
   progressFill.style.width = pct + '%';
   if (currentStop) {
     progressBar.style.display = 'block';
