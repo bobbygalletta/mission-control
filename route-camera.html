@@ -287,15 +287,22 @@ searchInput.addEventListener('input', function() {
     return;
   }
   let matches = [];
+  let startsWith = [];
+  let contains = [];
   for (const sn in stopMap) {
     const stop = stopMap[sn];
     const addr = stop.fullAddress.toUpperCase();
-    if (addr.includes(q) || stop.houseNumber.includes(q) || stop.streetName.toUpperCase().includes(q.split(' ')[0])) {
-      matches.push(stop);
+    const house = stop.houseNumber;
+    // Prioritize: address starts with query OR house number starts with query
+    if (addr.startsWith(q) || house.startsWith(q)) {
+      startsWith.push(stop);
+    } else if (addr.includes(q) || house.includes(q) || stop.streetName.toUpperCase().includes(q.split(' ')[0])) {
+      contains.push(stop);
     }
   }
+  matches = [...startsWith, ...contains].slice(0, 8);
   if (matches.length > 0) {
-    searchResults.innerHTML = matches.slice(0, 5).map(s => 
+    searchResults.innerHTML = matches.map(s => 
       '<div class="search-result" onclick="selectStop(' + s.stopNumber + ')">' + 
       s.fullAddress.split(',')[0] + 
       ' <span>#' + s.stopNumber + '</span></div>'
