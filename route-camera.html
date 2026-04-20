@@ -282,7 +282,7 @@ const searchBox = document.getElementById('search-box');
 
 searchInput.addEventListener('input', function() {
   const q = this.value.trim().toUpperCase();
-  if (q.length < 3) {
+  if (q.length < 1) {
     searchResults.innerHTML = '';
     return;
   }
