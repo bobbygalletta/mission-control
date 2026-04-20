@@ -357,14 +357,14 @@ let track = null;
 
 async function toggleFlash() {
   try {
-    if (!track) {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } });
-      track = stream.getVideoTracks()[0];
+    // Get current track from video element
+    if (!video.srcObject || !video.srcObject.getTracks().length) {
+      console.warn('No camera track available');
+      return;
     }
+    const currentTrack = video.srcObject.getTracks()[0];
     flashOn = !flashOn;
-    const constraints = track.getConstraints();
-    const newConstraints = { ...constraints, advanced: [{ torch: flashOn }] };
-    await track.applyConstraints(newConstraints);
+    await currentTrack.applyConstraints({ advanced: [{ torch: flashOn }] });
     const btn = document.getElementById('flash-btn');
     btn.style.background = flashOn ? '#fbbf24' : '#333';
     btn.textContent = flashOn ? '🔦 ON' : '🔦';
