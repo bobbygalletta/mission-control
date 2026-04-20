@@ -35,6 +35,12 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 #counter-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.95);padding:16px 12px max(16px,env(safe-area-inset-bottom));z-index:30;display:flex;align-items:center;gap:12px;border-top:1px solid rgba(255,255,255,0.1)}
 #enter-stop{display:flex;flex:1;flex-direction:column;gap:4px}
 #enter-label{color:#888;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
+#search-box{position:fixed;bottom:160px;left:12px;right:12px;background:rgba(0,0,0,0.95);border-radius:12px;padding:12px;z-index:35;display:none}
+#search-input{width:100%;background:#1a1a1a;border:1px solid #333;color:#fff;font-size:14px;padding:10px 12px;border-radius:8px}
+#search-results{margin-top:8px;max-height:200px;overflow-y:auto}
+.search-result{padding:8px 10px;background:#222;color:#fff;border-radius:6px;margin-bottom:4px;cursor:pointer;font-size:12px}
+.search-result:hover{background:#333}
+.search-result span{color:#22c55e;font-weight:600}
 #stop-input{background:#1a1a1a;border:1px solid #333;color:#fff;font-size:18px;font-weight:700;padding:10px 14px;border-radius:10px;width:100%;text-align:center}
 #stop-input:focus{outline:none;border-color:#ff6b35}
 #done-btn{background:#22c55e;color:#fff;font-size:16px;font-weight:700;padding:14px 20px;border-radius:12px;flex-shrink:0;pointer-events:auto;cursor:pointer;border:none}
@@ -66,6 +72,10 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
     <span id="status-text">Route Camera</span>
   </div>
   
+  <div id="search-box">
+    <input type="text" id="search-input" placeholder="Type address to search stops...">
+    <div id="search-results"></div>
+  </div>
   <div id="ocr-status">
     <span id="ocr-text">Initializing OCR engine...</span>
   </div>
@@ -238,6 +248,55 @@ function markDone() {
   
   updateProgress();
 }
+
+const searchInput = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
+const searchBox = document.getElementById('search-box');
+
+searchInput.addEventListener('input', function() {
+  const q = this.value.trim().toUpperCase();
+  if (q.length < 3) {
+    searchResults.innerHTML = '';
+    return;
+  }
+  let matches = [];
+  for (const sn in stopMap) {
+    const stop = stopMap[sn];
+    const addr = stop.fullAddress.toUpperCase();
+    if (addr.includes(q) || stop.houseNumber.includes(q) || stop.streetName.toUpperCase().includes(q.split(' ')[0])) {
+      matches.push(stop);
+    }
+  }
+  if (matches.length > 0) {
+    searchResults.innerHTML = matches.slice(0, 5).map(s => 
+      '<div class="search-result" onclick="selectStop(' + s.stopNumber + ')">' + 
+      s.houseNumber + ' ' + s.fullAddress.split(',')[0] + 
+      ' <span>#' + s.stopNumber + '</span></div>'
+    ).join('');
+  } else {
+    searchResults.innerHTML = '<div style="color:#888;font-size:12px;padding:8px">No matches found</div>';
+  }
+});
+
+function selectStop(num) {
+  currentStop = num;
+  setStorage('route_current', currentStop);
+  stopInput.value = currentStop;
+  updateProgress();
+  updateTracker();
+  searchInput.value = '';
+  searchResults.innerHTML = '';
+}
+
+// Show/hide search box when search input is focused
+searchInput.addEventListener('focus', function() {
+  searchBox.style.display = 'block';
+});
+document.addEventListener('click', function(e) {
+  if (!searchBox.contains(e.target) && e.target !== searchInput) {
+    searchBox.style.display = 'none';
+  }
+});
 
 stopInput.addEventListener('input', function() {
   updateProgress();
