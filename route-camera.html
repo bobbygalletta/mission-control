@@ -97,54 +97,56 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 const stops = [
-  {stopNumber:2,fullAddress:"3116 CUNNINGHAM RD UNIT B6, KNOXVILLE, TN",houseNumber:"3116",packages:2},
-  {stopNumber:3,fullAddress:"3401 N FOUNTAINCREST DR, KNOXVILLE, TN",houseNumber:"3401",packages:1},
-  {stopNumber:4,fullAddress:"6849 AUDRIANNA LN, KNOXVILLE, TN",houseNumber:"6849",packages:1},
-  {stopNumber:5,fullAddress:"3716 SEEBER DR, KNOXVILLE, TN",houseNumber:"3716",packages:1},
-  {stopNumber:6,fullAddress:"7120 BONAIR RD, KNOXVILLE, TN",houseNumber:"7120",packages:1},
-  {stopNumber:7,fullAddress:"6964 HOLLIDAY PARK LN, KNOXVILLE, TN",houseNumber:"6964",packages:1},
-  {stopNumber:8,fullAddress:"4817 CRIPPEN RD APT A, KNOXVILLE, TN",houseNumber:"4817",packages:1},
-  {stopNumber:9,fullAddress:"5400 MEADOW RUE TRL, KNOXVILLE, TN",houseNumber:"5400",packages:1},
-  {stopNumber:10,fullAddress:"5507 MALACHI CIR, KNOXVILLE, TN",houseNumber:"5507",packages:1},
-  {stopNumber:11,fullAddress:"5420 MALACHI CIR, KNOXVILLE, TN",houseNumber:"5420",packages:1},
-  {stopNumber:12,fullAddress:"7304 RED CLOVER LN, KNOXVILLE, TN",houseNumber:"7304",packages:1},
-  {stopNumber:13,fullAddress:"7715 WOLF VALLEY LN, KNOXVILLE, TN",houseNumber:"7715",packages:1},
-  {stopNumber:14,fullAddress:"7837 LAKE MOUNTAIN LN, KNOXVILLE, TN",houseNumber:"7837",packages:1},
-  {stopNumber:15,fullAddress:"5518 E EMORY RD, KNOXVILLE, TN",houseNumber:"5518",packages:1},
-  {stopNumber:16,fullAddress:"5135 E EMORY RD, KNOXVILLE, TN",houseNumber:"5135",packages:1},
-  {stopNumber:17,fullAddress:"5201 ROCKY STREAM LN, KNOXVILLE, TN",houseNumber:"5201",packages:1},
-  {stopNumber:18,fullAddress:"7344 WILLOW PATH LN, KNOXVILLE, TN",houseNumber:"7344",packages:2},
-  {stopNumber:19,fullAddress:"7356 WILLOW PATH LN, KNOXVILLE, TN",houseNumber:"7356",packages:1},
-  {stopNumber:20,fullAddress:"7642 EMORY COVE WAY, KNOXVILLE, TN",houseNumber:"7642",packages:1},
-  {stopNumber:21,fullAddress:"7656 EMORY COVE WAY, KNOXVILLE, TN",houseNumber:"7656",packages:1},
-  {stopNumber:22,fullAddress:"4909 SPRING GARDEN WAY, KNOXVILLE, TN",houseNumber:"4909",packages:1},
-  {stopNumber:23,fullAddress:"7409 PALMYRA DR, KNOXVILLE, TN",houseNumber:"7409",packages:1},
-  {stopNumber:24,fullAddress:"7417 PALM LEAF RD, KNOXVILLE, TN",houseNumber:"7417",packages:1},
-  {stopNumber:25,fullAddress:"4624 MARSHALL DR, KNOXVILLE, TN",houseNumber:"4624",packages:1},
-  {stopNumber:26,fullAddress:"7308 COUNTRY MEADOW DR, KNOXVILLE, TN",houseNumber:"7308",packages:2},
-  {stopNumber:27,fullAddress:"7609 SCENIC VIEW DR, KNOXVILLE, TN",houseNumber:"7609",packages:1},
-  {stopNumber:28,fullAddress:"7700 W SESAME LN, KNOXVILLE, TN",houseNumber:"7700",packages:1},
-  {stopNumber:29,fullAddress:"7804 SCENIC VIEW DR, KNOXVILLE, TN",houseNumber:"7804",packages:2},
-  {stopNumber:30,fullAddress:"4513 COBBLESTONE CIR, KNOXVILLE, TN",houseNumber:"4513",packages:1},
-  {stopNumber:31,fullAddress:"4615 HAY WAGON LN, KNOXVILLE, TN",houseNumber:"4615",packages:1},
-  {stopNumber:32,fullAddress:"8013 FREE RANGE LN, KNOXVILLE, TN",houseNumber:"8013",packages:1},
-  {stopNumber:33,fullAddress:"7825 BAILEY BRIDGE WAY, KNOXVILLE, TN",houseNumber:"7825",packages:1},
-  {stopNumber:34,fullAddress:"4217 MCCLOUD RD, KNOXVILLE, TN",houseNumber:"4217",packages:1},
-  {stopNumber:35,fullAddress:"7500 LARUE LN, KNOXVILLE, TN",houseNumber:"7500",packages:1},
-  {stopNumber:36,fullAddress:"7516 LARUE LN, KNOXVILLE, TN",houseNumber:"7516",packages:1},
-  {stopNumber:37,fullAddress:"7423 ANDERSONVILLE PIKE, KNOXVILLE, TN",houseNumber:"7423",packages:1},
-  {stopNumber:38,fullAddress:"7635 BRECKENRIDGE LN, KNOXVILLE, TN",houseNumber:"7635",packages:1},
-  {stopNumber:39,fullAddress:"3958 ARCHIBALD WAY, KNOXVILLE, TN",houseNumber:"3958",packages:1},
-  {stopNumber:40,fullAddress:"3946 ARCHIBALD WAY, KNOXVILLE, TN",houseNumber:"3946",packages:1},
-  {stopNumber:41,fullAddress:"7722 MAYS CHAPEL RD, KNOXVILLE, TN",houseNumber:"7722",packages:1},
-  {stopNumber:42,fullAddress:"7637 MAYS CHAPEL RD, KNOXVILLE, TN",houseNumber:"7637",packages:1}
+  {stopNumber:2,fullAddress:"3116 CUNNINGHAM RD UNIT B6, KNOXVILLE, TN",houseNumber:"3116",streetName:"CUNNINGHAM",packages:2},
+  {stopNumber:3,fullAddress:"3401 N FOUNTAINCREST DR, KNOXVILLE, TN",houseNumber:"3401",streetName:"N",packages:1},
+  {stopNumber:4,fullAddress:"6849 AUDRIANNA LN, KNOXVILLE, TN",houseNumber:"6849",streetName:"AUDRIANNA",packages:1},
+  {stopNumber:5,fullAddress:"3716 SEEBER DR, KNOXVILLE, TN",houseNumber:"3716",streetName:"SEEBER",packages:1},
+  {stopNumber:6,fullAddress:"7120 BONAIR RD, KNOXVILLE, TN",houseNumber:"7120",streetName:"BONAIR",packages:1},
+  {stopNumber:7,fullAddress:"6964 HOLLIDAY PARK LN, KNOXVILLE, TN",houseNumber:"6964",streetName:"HOLLIDAY",packages:1},
+  {stopNumber:8,fullAddress:"4817 CRIPPEN RD APT A, KNOXVILLE, TN",houseNumber:"4817",streetName:"CRIPPEN",packages:1},
+  {stopNumber:9,fullAddress:"5400 MEADOW RUE TRL, KNOXVILLE, TN",houseNumber:"5400",streetName:"MEADOW",packages:1},
+  {stopNumber:10,fullAddress:"5507 MALACHI CIR, KNOXVILLE, TN",houseNumber:"5507",streetName:"MALACHI",packages:1},
+  {stopNumber:11,fullAddress:"5420 MALACHI CIR, KNOXVILLE, TN",houseNumber:"5420",streetName:"MALACHI",packages:1},
+  {stopNumber:12,fullAddress:"7304 RED CLOVER LN, KNOXVILLE, TN",houseNumber:"7304",streetName:"RED",packages:1},
+  {stopNumber:13,fullAddress:"7715 WOLF VALLEY LN, KNOXVILLE, TN",houseNumber:"7715",streetName:"WOLF",packages:1},
+  {stopNumber:14,fullAddress:"7837 LAKE MOUNTAIN LN, KNOXVILLE, TN",houseNumber:"7837",streetName:"LAKE",packages:1},
+  {stopNumber:15,fullAddress:"5518 E EMORY RD, KNOXVILLE, TN",houseNumber:"5518",streetName:"E",packages:1},
+  {stopNumber:16,fullAddress:"5135 E EMORY RD, KNOXVILLE, TN",houseNumber:"5135",streetName:"E",packages:1},
+  {stopNumber:17,fullAddress:"5201 ROCKY STREAM LN, KNOXVILLE, TN",houseNumber:"5201",streetName:"ROCKY",packages:1},
+  {stopNumber:18,fullAddress:"7344 WILLOW PATH LN, KNOXVILLE, TN",houseNumber:"7344",streetName:"WILLOW",packages:2},
+  {stopNumber:19,fullAddress:"7356 WILLOW PATH LN, KNOXVILLE, TN",houseNumber:"7356",streetName:"WILLOW",packages:1},
+  {stopNumber:20,fullAddress:"7642 EMORY COVE WAY, KNOXVILLE, TN",houseNumber:"7642",streetName:"EMORY",packages:1},
+  {stopNumber:21,fullAddress:"7656 EMORY COVE WAY, KNOXVILLE, TN",houseNumber:"7656",streetName:"EMORY",packages:1},
+  {stopNumber:22,fullAddress:"4909 SPRING GARDEN WAY, KNOXVILLE, TN",houseNumber:"4909",streetName:"SPRING",packages:1},
+  {stopNumber:23,fullAddress:"7409 PALMYRA DR, KNOXVILLE, TN",houseNumber:"7409",streetName:"PALMYRA",packages:1},
+  {stopNumber:24,fullAddress:"7417 PALM LEAF RD, KNOXVILLE, TN",houseNumber:"7417",streetName:"PALM",packages:1},
+  {stopNumber:25,fullAddress:"4624 MARSHALL DR, KNOXVILLE, TN",houseNumber:"4624",streetName:"MARSHALL",packages:1},
+  {stopNumber:26,fullAddress:"7308 COUNTRY MEADOW DR, KNOXVILLE, TN",houseNumber:"7308",streetName:"COUNTRY",packages:2},
+  {stopNumber:27,fullAddress:"7609 SCENIC VIEW DR, KNOXVILLE, TN",houseNumber:"7609",streetName:"SCENIC",packages:1},
+  {stopNumber:28,fullAddress:"7700 W SESAME LN, KNOXVILLE, TN",houseNumber:"7700",streetName:"W",packages:1},
+  {stopNumber:29,fullAddress:"7804 SCENIC VIEW DR, KNOXVILLE, TN",houseNumber:"7804",streetName:"SCENIC",packages:2},
+  {stopNumber:30,fullAddress:"4513 COBBLESTONE CIR, KNOXVILLE, TN",houseNumber:"4513",streetName:"COBBLESTONE",packages:1},
+  {stopNumber:31,fullAddress:"4615 HAY WAGON LN, KNOXVILLE, TN",houseNumber:"4615",streetName:"HAY",packages:1},
+  {stopNumber:32,fullAddress:"8013 FREE RANGE LN, KNOXVILLE, TN",houseNumber:"8013",streetName:"FREE",packages:1},
+  {stopNumber:33,fullAddress:"7825 BAILEY BRIDGE WAY, KNOXVILLE, TN",houseNumber:"7825",streetName:"BAILEY",packages:1},
+  {stopNumber:34,fullAddress:"4217 MCCLOUD RD, KNOXVILLE, TN",houseNumber:"4217",streetName:"MCCLOUD",packages:1},
+  {stopNumber:35,fullAddress:"7500 LARUE LN, KNOXVILLE, TN",houseNumber:"7500",streetName:"LARUE",packages:1},
+  {stopNumber:36,fullAddress:"7516 LARUE LN, KNOXVILLE, TN",houseNumber:"7516",streetName:"LARUE",packages:1},
+  {stopNumber:37,fullAddress:"7423 ANDERSONVILLE PIKE, KNOXVILLE, TN",houseNumber:"7423",streetName:"ANDERSONVILLE",packages:1},
+  {stopNumber:38,fullAddress:"7635 BRECKENRIDGE LN, KNOXVILLE, TN",houseNumber:"7635",streetName:"BRECKENRIDGE",packages:1},
+  {stopNumber:39,fullAddress:"3958 ARCHIBALD WAY, KNOXVILLE, TN",houseNumber:"3958",streetName:"ARCHIBALD",packages:1},
+  {stopNumber:40,fullAddress:"3946 ARCHIBALD WAY, KNOXVILLE, TN",houseNumber:"3946",streetName:"ARCHIBALD",packages:1},
+  {stopNumber:41,fullAddress:"7722 MAYS CHAPEL RD, KNOXVILLE, TN",houseNumber:"7722",streetName:"MAYS",packages:1},
+  {stopNumber:42,fullAddress:"7637 MAYS CHAPEL RD, KNOXVILLE, TN",houseNumber:"7637",streetName:"MAYS",packages:1}
 ];
 
 const stopMap = {};
 const houseToStop = {};
+const houseToStreet = {};
 stops.forEach(s => { 
   stopMap[s.stopNumber] = s; 
   houseToStop[s.houseNumber] = s;
+  houseToStreet[s.houseNumber] = s.streetName;
 });
 
 const video = document.getElementById('camera');
@@ -332,16 +334,32 @@ async function startScanning() {
       const result = await worker.recognize(canvas);
       const text = result.data.text;
       
-      const numbers = text.match(/\b\d{4}\b/g) || [];
+      // Look for house number + nearby street name
+      const allNumbers = text.match(/\b\d{4,5}\b/g) || [];
+      const words = text.match(/[A-Za-z]{3,}/g) || [];
       
-      if (numbers.length > 0) {
-        const unique = [...new Set(numbers)];
-        const routeNums = unique.filter(n => houseToStop[n]);
-        
-        if (routeNums.length > 0) {
-          const stop = houseToStop[routeNums[0]];
-          scanTitle.textContent = 'Detected Stop #' + stop.stopNumber;
-          scanNum.textContent = '#' + stop.stopNumber;
+      let detectedStop = null;
+      
+      if (allNumbers.length > 0) {
+        const uniqueNums = [...new Set(allNumbers)];
+        for (const num of uniqueNums) {
+          if (houseToStop[num]) {
+            const expectedStreet = houseToStreet[num];
+            // Check if any word near this number looks like the street name
+            const idx = text.indexOf(num);
+            const nearby = text.substring(Math.max(0, idx - 40), idx + 50).toUpperCase();
+            if (nearby.includes(expectedStreet)) {
+              detectedStop = houseToStop[num];
+              break;
+            }
+          }
+        }
+      }
+      
+      if (detectedStop) {
+        const stop = detectedStop;
+        scanTitle.textContent = 'Detected Stop #' + stop.stopNumber;
+        scanNum.textContent = '#' + stop.stopNumber;
           scanAddr.textContent = stop.fullAddress;
           if (stop.packages >= 2) {
             scanPkgs.textContent = '⚠️ ' + stop.packages + ' PACKAGES';
