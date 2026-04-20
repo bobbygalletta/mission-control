@@ -203,11 +203,10 @@ function updateTracker() { }
 
 function markDone() {
   if (!currentStop) return;
-  updateProgress();
+  
   if (!completedStops.includes(currentStop)) {
     completedStops.push(currentStop);
     setStorage('route_completed', completedStops);
-    updateProgress();
   }
   
   if (navigator.vibrate) navigator.vibrate(100);
@@ -216,13 +215,15 @@ function markDone() {
   if (next <= 42) {
     currentStop = next;
     setStorage('route_current', currentStop);
-    updateTracker();
     stopInput.value = currentStop || '';
   } else {
     currentStop = null;
     setStorage('route_current', null);
-    updateTracker();
   }
+  
+  updateProgress();
+  stopInput.focus();
+}
 }
 
 stopInput.addEventListener('input', function() {
