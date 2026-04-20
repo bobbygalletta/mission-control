@@ -38,6 +38,8 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 #stop-input:focus{outline:none;border-color:#ff6b35}
 #done-btn{background:#22c55e;color:#fff;font-size:16px;font-weight:700;padding:14px 20px;border-radius:12px;flex-shrink:0;pointer-events:auto;cursor:pointer;border:none}
 #done-btn:active{background:#16a34a}
+#flash-btn{background:#333;color:#fff;font-size:18px;padding:10px 14px;border-radius:10px;flex-shrink:0;pointer-events:auto;cursor:pointer;border:none}
+#flash-btn.active{background:#fbbf24;color:#000}
 #progress-bar{position:fixed;bottom:100px;left:12px;right:12px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;display:none;z-index:20}
 #progress-fill{height:100%;background:#22c55e;border-radius:2px;width:0%;transition:width 0.3s}
 #progress-text{position:fixed;bottom:108px;left:12px;right:12px;display:none;z-index:20;text-align:center}
@@ -169,6 +171,7 @@ let currentStop = null;
 let completedStops = [];
 let worker = null;
 let processing = false;
+let flashOn = false;
 
 function getStorage(key, defaultVal) {
   try {
@@ -248,11 +251,28 @@ stopInput.addEventListener('keydown', function(e) {
   }
 });
 
+let track = null;
+
+async function toggleFlash() {
+  try {
+    if (!track) {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      track = stream.getVideoTracks()[0];
+    }
+    flashOn = !flashOn;
+    await track.applyConstraints({ advanced: [{ torch: flashOn }] });
+    document.getElementById('flash-btn').classList.toggle('active', flashOn);
+  } catch(e) {
+    console.warn('Flash error:', e);
+  }
+}
+
 async function initCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
     });
+    track = stream.getVideoTracks()[0];
     video.srcObject = stream;
     await video.play();
     loading.style.display = 'none';
