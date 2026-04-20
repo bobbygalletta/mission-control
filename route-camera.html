@@ -226,6 +226,7 @@ function markDone() {
 }
 
 stopInput.addEventListener('input', function() {
+  updateProgress();
   const val = parseInt(this.value);
   if (val >= 2 && val <= 42) {
     currentStop = val;
@@ -241,6 +242,7 @@ stopInput.addEventListener('keydown', function(e) {
       currentStop = val;
       setStorage('route_current', currentStop);
       updateTracker();
+      updateProgress();
       this.blur();
     }
   }
