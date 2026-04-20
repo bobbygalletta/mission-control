@@ -338,7 +338,7 @@ async function startScanning() {
       const result = await worker.recognize(canvas);
       const text = result.data.text;
       
-      // Look for house number + nearby street name
+      // Look for house numbers only
       const allNumbers = text.match(/\b\d{4,5}\b/g) || [];
       
       let detectedStop = null;
@@ -347,13 +347,8 @@ async function startScanning() {
         const uniqueNums = [...new Set(allNumbers)];
         for (const num of uniqueNums) {
           if (houseToStop[num]) {
-            const expectedStreet = houseToStreet[num];
-            const idx = text.indexOf(num);
-            const nearby = text.substring(Math.max(0, idx - 40), idx + 50).toUpperCase();
-            if (nearby.includes(expectedStreet)) {
-              detectedStop = houseToStop[num];
-              break;
-            }
+            detectedStop = houseToStop[num];
+            break;
           }
         }
       }
