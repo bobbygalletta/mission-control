@@ -363,24 +363,17 @@ async function startScanning() {
           }
         }
         
-        // Second: try numbers BEFORE street name + street name (for cut labels)
+        // Second: if street name matches, also check for partial/full house number match
         if (!detectedStop) {
-          for (const street in streetToStop) {
-            const streetIdx = upperText.indexOf(street);
-            if (streetIdx !== -1) {
-              // Look for numbers in the 30 chars before the street name
-              const beforeText = upperText.substring(Math.max(0, streetIdx - 30), streetIdx);
-              const numsBefore = beforeText.match(/\d+/g);
-              if (numsBefore) {
-                // Try the last number found before street (usually the house#)
-                for (const n of numsBefore) {
-                  if (houseToStop[n]) {
-                    detectedStop = houseToStop[n];
-                    break;
-                  }
-                }
+          const stop = streetToStop[street];
+          if (stop) {
+            // Check all numbers in OCR - if any share the last 3 digits with our house number, match
+            const houseLast3 = stop.houseNumber.slice(-3);
+            for (const num of uniqueNums) {
+              if (num.endsWith(houseLast3) || stop.houseNumber.endsWith(num)) {
+                detectedStop = stop;
+                break;
               }
-              if (detectedStop) break;
             }
           }
         }
