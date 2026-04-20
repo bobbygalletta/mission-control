@@ -338,8 +338,10 @@ async function startScanning() {
       const result = await worker.recognize(canvas);
       const text = result.data.text;
       
-      // Look for house numbers only
+      // Look for house number + street name in same frame
       const allNumbers = text.match(/\b\d{4,5}\b/g) || [];
+      const words = text.toUpperCase().match(/[A-Z]{3,}/g) || [];
+      const combined = words.join(' ');
       
       let detectedStop = null;
       
@@ -347,8 +349,22 @@ async function startScanning() {
         const uniqueNums = [...new Set(allNumbers)];
         for (const num of uniqueNums) {
           if (houseToStop[num]) {
-            detectedStop = houseToStop[num];
-            break;
+            const stop = houseToStop[num];
+            const streetWords = stop.streetName.split(' ');
+            // Check if first word of street name appears in OCR text
+            if (combined.includes(streetWords[0])) {
+              detectedStop = stop;
+              break;
+            }
+          }
+        }
+        // Fallback: if no street match, just use house number
+        if (!detectedStop) {
+          for (const num of uniqueNums) {
+            if (houseToStop[num]) {
+              detectedStop = houseToStop[num];
+              break;
+            }
           }
         }
       }
