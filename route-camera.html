@@ -367,7 +367,7 @@ async function toggleFlash() {
     await currentTrack.applyConstraints({ advanced: [{ torch: flashOn }] });
     const btn = document.getElementById('flash-btn');
     btn.style.background = flashOn ? '#fbbf24' : '#333';
-    btn.textContent = flashOn ? '🔦 ON' : '🔦';
+    btn.textContent = '🔦';
     if (navigator.vibrate) navigator.vibrate(50);
   } catch(e) {
     console.warn('Flash error:', e.message);
