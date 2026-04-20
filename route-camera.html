@@ -91,7 +91,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 <div id="counter-bar">
   <div id="enter-stop">
     <span id="enter-label">Go to Stop #</span>
-    <input type="number" id="stop-input" placeholder="2-42" min="2" max="42">
+    <input type="number" id="stop-input" value="" min="2" max="42">
   </div>
   <button id="done-btn" onclick="markDone()">Done ✓</button>
 </div>
@@ -190,6 +190,7 @@ function init() {
   currentStop = getStorage('route_current', null);
   updateProgress();
   updateTracker();
+  stopInput.value = currentStop || "";
 }
 init();
 
@@ -231,7 +232,7 @@ function markDone() {
     currentStop = next;
     setStorage('route_current', currentStop);
     updateTracker();
-    stopInput.value = '';
+    stopInput.value = currentStop || '';
   } else {
     currentStop = null;
     setStorage('route_current', null);
