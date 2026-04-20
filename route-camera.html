@@ -203,7 +203,7 @@ function updateTracker() { }
 
 function markDone() {
   if (!currentStop) return;
-  
+  updateProgress();
   if (!completedStops.includes(currentStop)) {
     completedStops.push(currentStop);
     setStorage('route_completed', completedStops);
