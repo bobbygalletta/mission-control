@@ -219,8 +219,8 @@ function markDone() {
   if (next <= 42) {
     currentStop = next;
     setStorage('route_current', currentStop);
-    stopInput.value = currentStop || '';
     stopInput.blur();
+    stopInput.value = currentStop || '';
   } else {
     currentStop = null;
     setStorage('route_current', null);
