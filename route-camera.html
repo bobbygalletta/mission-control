@@ -339,8 +339,8 @@ async function startScanning() {
       const result = await worker.recognize(canvas);
       const text = result.data.text;
       
-      // Simple house number matching - look for 4-digit numbers (most house numbers)
-      console.log("ALL NUMBERS FOUND: " + JSON.stringify(allNumbers));
+      // Find house numbers (3-5 digits)
+      const allNumbers = text.match(/\b\d{3,5}\b/g) || [];
       
       let detectedStop = null;
       
