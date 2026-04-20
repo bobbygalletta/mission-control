@@ -72,8 +72,8 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
     <span id="status-text">Route Camera</span>
   </div>
   
-  <div id="search-box" onclick="document.getElementById('search-input').focus()">
-    <input type="text" id="search-input" placeholder="Type address to search stops..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="search">
+  <div id="search-box" style="pointer-events:auto">
+    <input type="text" id="search-input" placeholder="Tap here to search stops..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="cursor:pointer;-webkit-user-select:text;pointer-events:auto"
     <div id="search-results"></div>
   </div>
   <div id="ocr-status">
