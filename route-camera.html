@@ -178,6 +178,7 @@ const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 
 let currentStop = null;
+let totalStops = stops.length;
 let completedStops = [];
 let worker = null;
 let processing = false;
@@ -203,12 +204,12 @@ function init() {
 init();
 
 function updateProgress() {
-  const pct = ((currentStop - 2) / 44) * 100;
+  const pct = totalStops > 0 ? ((currentStop - 2) / (totalStops - 1)) * 100 : 0;
   progressFill.style.width = pct + '%';
   if (currentStop) {
     progressBar.style.display = 'block';
     progressText.style.display = 'block';
-    progressText.querySelector('span').textContent = (currentStop ? currentStop : '--') + ' of 46 stops';
+    progressText.querySelector('span').textContent = (currentStop ? currentStop : '--') + ' of ' + totalStops + ' stops';
   }
 }
 
