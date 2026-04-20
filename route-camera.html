@@ -148,10 +148,12 @@ const stops = [
 const stopMap = {};
 const houseToStop = {};
 const houseToStreet = {};
+const streetToStop = {};
 stops.forEach(s => { 
   stopMap[s.stopNumber] = s; 
   houseToStop[s.houseNumber] = s;
   houseToStreet[s.houseNumber] = s.streetName;
+streetToStop[s.streetName.toUpperCase()] = s;
 });
 
 const video = document.getElementById('camera');
@@ -359,7 +361,8 @@ async function startScanning() {
       
       if (detectedStop) {
         const stop = detectedStop;
-        scanTitle.textContent = 'Detected Stop #' + stop.stopNumber;
+        const isStreetMatch = street && !houseToStop[houseNum];
+        scanTitle.textContent = isStreetMatch ? 'Suggested Stop #' + stop.stopNumber : 'Detected Stop #' + stop.stopNumber;
         scanNum.textContent = '#' + stop.stopNumber;
         scanAddr.textContent = stop.fullAddress;
         if (stop.packages >= 2) {
