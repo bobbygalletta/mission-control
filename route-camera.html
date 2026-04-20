@@ -350,18 +350,42 @@ async function startScanning() {
       if (allNumbers.length > 0) {
         const uniqueNums = [...new Set(allNumbers)];
         const upperText = text.toUpperCase();
+        
+        // First: look for house number + street name match (exact)
         for (const num of uniqueNums) {
           if (houseToStop[num]) {
             const stop = houseToStop[num];
             const streetWord = stop.streetName.toUpperCase();
-            // Check if BOTH house number AND street name are in the OCR text
             if (upperText.includes(num) && upperText.includes(streetWord)) {
               detectedStop = stop;
               break;
             }
           }
         }
-        // If no exact match (house+street), try just house number as fallback
+        
+        // Second: try numbers BEFORE street name + street name (for cut labels)
+        if (!detectedStop) {
+          for (const street in streetToStop) {
+            const streetIdx = upperText.indexOf(street);
+            if (streetIdx !== -1) {
+              // Look for numbers in the 30 chars before the street name
+              const beforeText = upperText.substring(Math.max(0, streetIdx - 30), streetIdx);
+              const numsBefore = beforeText.match(/\d+/g);
+              if (numsBefore) {
+                // Try the last number found before street (usually the house#)
+                for (const n of numsBefore) {
+                  if (houseToStop[n]) {
+                    detectedStop = houseToStop[n];
+                    break;
+                  }
+                }
+              }
+              if (detectedStop) break;
+            }
+          }
+        }
+        
+        // Third: fallback to just house number
         if (!detectedStop) {
           for (const num of uniqueNums) {
             if (houseToStop[num]) {
