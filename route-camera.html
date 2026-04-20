@@ -220,6 +220,7 @@ function markDone() {
     currentStop = next;
     setStorage('route_current', currentStop);
     stopInput.value = currentStop || '';
+    stopInput.blur();
   } else {
     currentStop = null;
     setStorage('route_current', null);
