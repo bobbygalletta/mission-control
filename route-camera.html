@@ -10,9 +10,8 @@
 html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,BlinkMacSystemFont,sans-serif}
 #camera{position:fixed;top:0;left:0;width:100%;height:100%;object-fit:cover}
 #overlay{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
-#status-bar{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:space-between;padding:0 16px;z-index:20;border-bottom:1px solid rgba(255,255,255,0.1)}
+#status-bar{position:fixed;top:0;left:0;right:0;height:60px;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:20;border-bottom:1px solid rgba(255,255,255,0.1)}
 #status-text{color:#fff;font-size:14px;font-weight:600}
-#stop-display{background:#22c55e;color:#fff;font-size:14px;font-weight:700;padding:6px 14px;border-radius:10px}
 #ocr-status{position:fixed;top:70px;left:12px;right:12px;height:36px;background:rgba(0,0,0,0.75);border-radius:8px;display:flex;align-items:center;justify-content:center;z-index:20}
 #ocr-text{color:#888;font-size:12px;font-weight:500}
 #scan-line{position:fixed;top:50%;left:12px;right:12px;height:2px;background:rgba(255,107,53,0.6);z-index:15;display:none}
@@ -20,13 +19,18 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 @keyframes scan{0%,100%{top:30%}50%{top:70%}}
 #detected{position:fixed;top:80px;left:12px;right:12px;background:rgba(0,0,0,0.8);border-radius:10px;padding:10px 14px;text-align:center;display:none;z-index:20}
 #detected-text{color:#fff;font-size:13px;font-weight:600}
-#scan-info{position:fixed;bottom:160px;left:12px;right:12px;background:rgba(0,0,0,0.92);border-radius:20px;padding:20px;z-index:20;text-align:center}
-#scan-title{color:#888;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
-#scan-num{font-size:56px;font-weight:800;color:#fff;line-height:1}
-#scan-addr{font-size:14px;color:#ccc;margin-top:8px}
-#scan-pkgs{font-size:20px;font-weight:700;margin-top:8px}
+#scan-info{position:fixed;bottom:220px;left:12px;right:12px;background:rgba(0,0,0,0.92);border-radius:20px;padding:16px;z-index:20;text-align:center}
+#scan-title{color:#888;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+#scan-num{font-size:40px;font-weight:800;color:#fff;line-height:1}
+#scan-addr{font-size:12px;color:#ccc;margin-top:4px}
+#scan-pkgs{font-size:16px;font-weight:700;margin-top:4px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
 .pulse{animation:pulse 1s ease-in-out infinite}
+#tracker{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:25;text-align:center;display:none}
+#tracker.active{display:block}
+#tracker-label{color:#888;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
+#tracker-num{font-size:120px;font-weight:800;color:#fff;line-height:1;text-shadow:0 4px 20px rgba(0,0,0,0.5)}
+#tracker-status{color:#22c55e;font-size:14px;font-weight:600;margin-top:8px}
 #counter-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.95);padding:16px 12px max(16px,env(safe-area-inset-bottom));z-index:30;display:flex;align-items:center;gap:12px;border-top:1px solid rgba(255,255,255,0.1)}
 #enter-stop{display:flex;flex:1;flex-direction:column;gap:4px}
 #enter-label{color:#888;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px}
@@ -57,7 +61,6 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 <div id="overlay">
   <div id="status-bar">
     <span id="status-text">Route Camera</span>
-    <span id="stop-display">Stop --</span>
   </div>
   
   <div id="ocr-status">
@@ -71,8 +74,14 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
   <div id="progress-bar"><div id="progress-fill"></div></div>
   <div id="progress-text"><span></span></div>
   
+  <div id="tracker">
+    <div id="tracker-label">Current Stop</div>
+    <div id="tracker-num">--</div>
+    <div id="tracker-status"></div>
+  </div>
+  
   <div id="scan-info">
-    <div id="scan-title">Scanning...</div>
+    <div id="scan-title">Camera Scan</div>
     <div id="scan-num">--</div>
     <div id="scan-addr"></div>
     <div id="scan-pkgs"></div>
@@ -81,7 +90,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 
 <div id="counter-bar">
   <div id="enter-stop">
-    <span id="enter-label">Enter Stop #</span>
+    <span id="enter-label">Go to Stop #</span>
     <input type="number" id="stop-input" placeholder="2-42" min="2" max="42">
   </div>
   <button id="done-btn" onclick="markDone()">Done ✓</button>
@@ -144,9 +153,11 @@ const video = document.getElementById('camera');
 const loading = document.getElementById('loading');
 const loadingText = document.getElementById('loading-text');
 const statusText = document.getElementById('status-text');
-const stopDisplay = document.getElementById('stop-display');
 const ocrText = document.getElementById('ocr-text');
 const scanLine = document.getElementById('scan-line');
+const tracker = document.getElementById('tracker');
+const trackerNum = document.getElementById('tracker-num');
+const trackerStatus = document.getElementById('tracker-status');
 const scanInfo = document.getElementById('scan-info');
 const scanTitle = document.getElementById('scan-title');
 const scanNum = document.getElementById('scan-num');
@@ -178,7 +189,7 @@ function init() {
   completedStops = getStorage('route_completed', []);
   currentStop = getStorage('route_current', null);
   updateProgress();
-  updateStopDisplay();
+  updateTracker();
 }
 init();
 
@@ -192,13 +203,15 @@ function updateProgress() {
   }
 }
 
-function updateStopDisplay() {
+function updateTracker() {
   if (currentStop) {
-    stopDisplay.textContent = 'Stop #' + currentStop;
-    stopDisplay.style.background = '#22c55e';
+    tracker.classList.add('active');
+    trackerNum.textContent = '#' + currentStop;
+    const isDone = completedStops.includes(currentStop);
+    trackerStatus.textContent = isDone ? '✓ Completed' : 'In Progress';
+    trackerStatus.style.color = isDone ? '#22c55e' : '#fbbf24';
   } else {
-    stopDisplay.textContent = 'Stop --';
-    stopDisplay.style.background = '#ff6b35';
+    tracker.classList.remove('active');
   }
 }
 
@@ -217,12 +230,12 @@ function markDone() {
   if (next <= 42) {
     currentStop = next;
     setStorage('route_current', currentStop);
-    updateStopDisplay();
+    updateTracker();
     stopInput.value = '';
   } else {
     currentStop = null;
     setStorage('route_current', null);
-    updateStopDisplay();
+    updateTracker();
   }
 }
 
@@ -231,7 +244,7 @@ stopInput.addEventListener('input', function() {
   if (val >= 2 && val <= 42) {
     currentStop = val;
     setStorage('route_current', currentStop);
-    updateStopDisplay();
+    updateTracker();
   }
 });
 
@@ -241,7 +254,7 @@ stopInput.addEventListener('keydown', function(e) {
     if (val >= 2 && val <= 42) {
       currentStop = val;
       setStorage('route_current', currentStop);
-      updateStopDisplay();
+      updateTracker();
       this.blur();
     }
   }
@@ -312,7 +325,7 @@ async function startScanning() {
         
         if (routeNums.length > 0) {
           const stop = houseToStop[routeNums[0]];
-          scanTitle.textContent = 'Stop #' + stop.stopNumber + ' Detected';
+          scanTitle.textContent = 'Detected Stop #' + stop.stopNumber;
           scanNum.textContent = stop.houseNumber;
           scanAddr.textContent = stop.fullAddress;
           if (stop.packages >= 2) {
@@ -324,7 +337,7 @@ async function startScanning() {
             scanPkgs.className = '';
             scanPkgs.style.color = '#22c55e';
           }
-          detectedText.textContent = 'Route Stop #' + stop.stopNumber + ' - ' + stop.houseNumber;
+          detectedText.textContent = 'Stop #' + stop.stopNumber + ' - ' + stop.houseNumber;
           detected.style.display = 'block';
         } else {
           scanTitle.textContent = 'Detected';
