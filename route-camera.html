@@ -181,7 +181,7 @@ const ocrStatus = document.getElementById('ocr-status');
 
 let scanInterval = null;
 
-let savedStream = null;
+let cameraOff = false;
 
 function toggleCamera() {
   cameraOff = !cameraOff;
@@ -189,17 +189,16 @@ function toggleCamera() {
     ocrText.textContent = 'Tap to resume';
     ocrText.style.color = '#fbbf24';
     if (video.srcObject) {
-      savedStream = video.srcObject;
       video.srcObject.getTracks().forEach(t => t.stop());
       video.srcObject = null;
     }
   } else {
     ocrText.textContent = 'Scanning...';
     ocrText.style.color = '#888';
-    if (savedStream) {
-      video.srcObject = savedStream;
-      savedStream = null;
-    }
+    // Re-request camera
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(stream => {
+      video.srcObject = stream;
+    }).catch(e => console.warn('Camera error:', e));
   }
 }
 const scanLine = document.getElementById('scan-window');
