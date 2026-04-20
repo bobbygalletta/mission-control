@@ -363,14 +363,24 @@ async function startScanning() {
           }
         }
         
-        // Second: if street name matches, also check for partial/full house number match
+        // Second: if street name matches, try to find the house number nearby
         if (!detectedStop) {
           const stop = streetToStop[street];
           if (stop) {
-            // Check all numbers in OCR - if any share the last 3 digits with our house number, match
-            const houseLast3 = stop.houseNumber.slice(-3);
-            for (const num of uniqueNums) {
-              if (num.endsWith(houseLast3) || stop.houseNumber.endsWith(num)) {
+            // Find where street name appears in OCR
+            const streetIdx = upperText.indexOf(street);
+            // Get text before street name (where house number usually is)
+            const beforeText = upperText.substring(Math.max(0, streetIdx - 40), streetIdx);
+            // Find any numbers in that area
+            const numsInRange = beforeText.match(/\d+/g) || [];
+            // Try to match - either exact or last 3-4 digits
+            for (const n of numsInRange) {
+              if (n === stop.houseNumber || n === stop.houseNumber.slice(-3) || n === stop.houseNumber.slice(-4)) {
+                detectedStop = stop;
+                break;
+              }
+              // Also try if our house number ends with this number (for partials like 309 from 2309)
+              if (stop.houseNumber.endsWith(n)) {
                 detectedStop = stop;
                 break;
               }
