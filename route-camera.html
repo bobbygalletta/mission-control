@@ -82,7 +82,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
     <div id="search-results"></div>
   </div>
 </div>
-  <div id="ocr-status">
+  <div id="ocr-status" ondblclick="toggleCamera()">
     <span id="ocr-text">Initializing OCR engine...</span>
   </div>
   
@@ -177,6 +177,26 @@ const loading = document.getElementById('loading');
 const loadingText = document.getElementById('loading-text');
 const statusText = document.getElementById('status-text');
 const ocrText = document.getElementById('ocr-text');
+const ocrStatus = document.getElementById('ocr-status');
+
+let scanInterval = null;
+
+function toggleCamera() {
+  cameraOff = !cameraOff;
+  if (cameraOff) {
+    ocrText.textContent = 'Tap to resume';
+    ocrText.style.color = '#fbbf24';
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.enabled = false);
+    }
+  } else {
+    ocrText.textContent = 'Scanning... (dblclick to pause)';
+    ocrText.style.color = '#888';
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.enabled = true);
+    }
+  }
+}
 const scanLine = document.getElementById('scan-window');
 
 
@@ -198,6 +218,7 @@ let totalStops = stops.length;
 let completedStops = [];
 let worker = null;
 let processing = false;
+let cameraOff = false;
 let flashOn = false;
 
 function getStorage(key, defaultVal) {
