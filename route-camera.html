@@ -63,6 +63,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
 <div id="overlay">
   <div id="status-bar">
     <span id="status-text">Route Camera</span>
+    <button id="flash-top-btn" onclick="toggleFlash()" style="background:#333;color:#fff;font-size:16px;padding:6px 10px;border-radius:8px;border:none;cursor:pointer">🔦</button>
   </div>
   
   <div id="ocr-status">
@@ -90,6 +91,7 @@ html,body{height:100%;overflow:hidden;background:#000;font-family:-apple-system,
     <span id="enter-label">Go to Stop #</span>
     <input type="number" id="stop-input" value="" min="2" max="42">
   </div>
+  <button id="flash-btn" onclick="toggleFlash()">🔦</button>
   <button id="done-btn" onclick="markDone()">Done ✓</button>
 </div>
 
