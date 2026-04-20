@@ -348,18 +348,23 @@ async function startScanning() {
       
       if (allNumbers.length > 0) {
         const uniqueNums = [...new Set(allNumbers)];
+        const upperText = text.toUpperCase();
         for (const num of uniqueNums) {
           if (houseToStop[num]) {
-            detectedStop = houseToStop[num];
-            break;
+            const stop = houseToStop[num];
+            const streetWord = stop.streetName.toUpperCase();
+            // Check if BOTH house number AND street name are in the OCR text
+            if (upperText.includes(num) && upperText.includes(streetWord)) {
+              detectedStop = stop;
+              break;
+            }
           }
         }
-        // If no house number match, try street name only
+        // If no exact match (house+street), try just house number as fallback
         if (!detectedStop) {
-          const upperText = text.toUpperCase();
-          for (const street in streetToStop) {
-            if (upperText.includes(street)) {
-              detectedStop = streetToStop[street];
+          for (const num of uniqueNums) {
+            if (houseToStop[num]) {
+              detectedStop = houseToStop[num];
               break;
             }
           }
