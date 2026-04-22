@@ -11,6 +11,12 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Allow scrolling in specific content areas */
+* {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Ensure the dark body bg fills the full viewport (covers any edge gaps) */
