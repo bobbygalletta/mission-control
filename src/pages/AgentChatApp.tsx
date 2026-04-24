@@ -271,7 +271,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       const msgs: Message[] = data.messages
         .filter((m: any) =>
           (m.role === 'user' || m.role === 'assistant') &&
-          m.content?.some?.((c: any) => c.type === 'text' && c.text?.trim())
+          m.content?.some?.((c: any) => c.type === 'text' && c.text?.trim() && !c.text.includes('BOOTSTRAP') && !c.text.includes('Read BOOTSTRAP'))
         )
         .map((m: any) => {
           const textBlock = m.content.find((c: any) => c.type === 'text')
@@ -327,7 +327,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         const newMsgs: Message[] = data.messages
           .filter((m: any) =>
             (m.role === 'user' || m.role === 'assistant') &&
-            m.content?.some?.((c: any) => c.type === 'text' && c.text?.trim())
+            m.content?.some?.((c: any) => c.type === 'text' && c.text?.trim() && !c.text.includes('BOOTSTRAP') && !c.text.includes('Read BOOTSTRAP'))
           )
           .map((m: any) => {
             const textBlock = m.content.find((c: any) => c.type === 'text')
@@ -500,7 +500,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
   return (
     <div
       data-agent-panel={agent.id}
-      onClick={() => {
+      onClick={() => { setFocused(true);
         setUnread(false)
         setUnreadAgent(agent.id, false)
         mergeState(getUnreadAgents(), getVisibleAgents())
@@ -508,6 +508,7 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       onMouseLeave={() => {
         setFocused(false)
       }}
+      onTouchStart={() => setFocused(true)}
       onTouchMove={handleTouchMove}
       onWheel={handleWheel}
       className={unread ? 'agent-panel-unread' : undefined}
