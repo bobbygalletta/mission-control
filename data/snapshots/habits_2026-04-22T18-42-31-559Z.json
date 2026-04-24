@@ -6,7 +6,7 @@
     "laundry": false,
     "bedMade": false,
     "vacuum": 0,
-    "breakfast": true,
+    "breakfast": false,
     "lunch": false,
     "dinner": false
   }

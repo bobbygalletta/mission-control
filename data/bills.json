@@ -69,5 +69,13 @@
     "category": "Insurance",
     "paid": true,
     "paidDate": "2026-04-15T00:00:00.000Z"
+  },
+  {
+    "id": "capone-4-27",
+    "name": "Capital One Quicksilver",
+    "amount": 96,
+    "dueDate": "2026-04-27",
+    "category": "Credit",
+    "paid": false
   }
 ]

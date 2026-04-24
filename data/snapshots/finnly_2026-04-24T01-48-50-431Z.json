@@ -1,5 +1,33 @@
 [
   {
+    "date": "Apr 14, 2026",
+    "waterAM": false,
+    "waterPM": false,
+    "breakfast": false,
+    "dinner": false,
+    "walk1": false,
+    "walk2": false,
+    "walk3": false,
+    "walk1Poop": false,
+    "walk2Poop": false,
+    "walk3Poop": false,
+    "treats": 0
+  },
+  {
+    "date": "Apr 11, 2026",
+    "waterAM": false,
+    "waterPM": false,
+    "breakfast": false,
+    "dinner": false,
+    "walk1": false,
+    "walk2": false,
+    "walk3": false,
+    "walk1Poop": false,
+    "walk2Poop": false,
+    "walk3Poop": false,
+    "treats": 0
+  },
+  {
     "date": "Apr 8, 2026",
     "waterAM": false,
     "waterPM": false,
@@ -66,6 +94,20 @@
     "walk3": false,
     "walk1Poop": false,
     "walk2Poop": true,
+    "walk3Poop": false,
+    "treats": 1
+  },
+  {
+    "date": "Apr 22, 2026",
+    "waterAM": false,
+    "waterPM": false,
+    "breakfast": true,
+    "dinner": false,
+    "walk1": true,
+    "walk2": true,
+    "walk3": false,
+    "walk1Poop": true,
+    "walk2Poop": false,
     "walk3Poop": false,
     "treats": 1
   }
