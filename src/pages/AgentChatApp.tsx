@@ -477,26 +477,23 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
     }
   }
 
-  // Prevent iOS from treating panel interior as a scrollable touch target
-  // All pan gestures should bubble up to the grid for page-level scrolling
+  // When NOT focused: allow page-level scrolling by not capturing touch/wheel
+  // When focused: allow panel to scroll its own messages
   const handleTouchMove = (e: React.TouchEvent) => {
-    // Allow scrolling within the messages area - only block page-level pan gestures
-    const target = e.target as HTMLElement
-    if (target.closest('.agent-msgs')) {
-      // Let the messages area handle its own scroll
+    if (!focused) {
+      // Not focused - let page handle scrolling, don't capture
       return
     }
+    // Focused - allow panel to scroll
     e.stopPropagation()
   }
 
-  // On desktop: allow scroll inside panel (it's the user's intended interaction)
   const handleWheel = (e: React.WheelEvent) => {
-    // Allow scroll when interacting with messages area
-    const target = e.target as HTMLElement
-    if (target.closest('.agent-msgs')) {
-      return // let it scroll naturally
+    if (!focused) {
+      // Not focused - let page handle scrolling
+      return
     }
-    // Only block if user is trying to scroll the whole page with mouse wheel while hovering panel
+    // Focused - allow panel to scroll
     e.stopPropagation()
   }
 
