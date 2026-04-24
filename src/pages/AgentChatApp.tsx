@@ -848,8 +848,8 @@ export default function AgentChatApp() {
         .agent-msgs {
           overflow-y: auto;
           -webkit-overflow-scrolling: touch;
-          /* Don't capture pan gestures - let grid handle all page-level scrolling */
-          touch-action: none;
+          /* Allow touch scroll in messages, let grid handle page-level pan */
+          touch-action: pan-y;
         }
         /* Prevent iOS Safari from making inner elements scrollable on touch */
         .agent-panel-inner {
