@@ -271,7 +271,28 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       const msgs: Message[] = data.messages
         .filter((m: any) =>
           (m.role === 'user' || m.role === 'assistant') &&
-          m.content?.some?.((c: any) => c.type === 'text' && c.text?.trim() && !c.text.includes('BOOTSTRAP') && !c.text.includes('Read BOOTSTRAP'))
+          m.content?.some?.((c: any) => {
+            if (c.type !== 'text' || !c.text?.trim()) return false
+            const t = c.text.trim()
+            // Filter out ALL internal/system messages
+            if (t.includes('BOOTSTRAP') || t.includes('Read BOOTSTRAP')) return false
+            if (t.includes('NO_REPLY')) return false
+            if (t.includes('Pre-compaction') || t.includes('memory flush')) return false
+            if (t.includes('memory/2026') || t.includes('memory/')) return false
+            if (t.includes('Store durable memories')) return false
+            if (t.includes('agent:main:main') || t.includes('sessions_send')) return false
+            if (t.includes('agent-to-agent') || t.includes('Agent-to-agent')) return false
+            if (t.startsWith('[') && t.includes('EDT]')) return false // internal timestamps
+            if (t.includes('tool')) return false
+            if (t.includes('invoke')) return false
+            if (t.includes('processing') || t.includes('Processing')) return false
+            if (t.includes('sessionKey') || t.includes('gateway')) return false
+            if (t.includes('http://') || t.includes('https://')) return false
+            if (t.includes('const ') || t.includes('function ') || t.includes('import ')) return false
+            // Skip very short messages that are likely system
+            if (t.length < 5 && (t.includes('✅') || t.includes('❌') || t.includes('⚠️'))) return false
+            return true
+          })
         )
         .map((m: any) => {
           const textBlock = m.content.find((c: any) => c.type === 'text')
@@ -327,7 +348,25 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
         const newMsgs: Message[] = data.messages
           .filter((m: any) =>
             (m.role === 'user' || m.role === 'assistant') &&
-            m.content?.some?.((c: any) => c.type === 'text' && c.text?.trim() && !c.text.includes('BOOTSTRAP') && !c.text.includes('Read BOOTSTRAP'))
+            m.content?.some?.((c: any) => {
+            if (c.type !== 'text' || !c.text?.trim()) return false
+            const t = c.text.trim()
+            // Filter out ALL internal/system messages
+            if (t.includes('BOOTSTRAP') || t.includes('Read BOOTSTRAP')) return false
+            if (t.includes('NO_REPLY')) return false
+            if (t.includes('Pre-compaction') || t.includes('memory flush')) return false
+            if (t.includes('memory/2026') || t.includes('memory/')) return false
+            if (t.includes('Store durable memories')) return false
+            if (t.includes('agent:main:main') || t.includes('sessions_send')) return false
+            if (t.includes('agent-to-agent') || t.includes('Agent-to-agent')) return false
+            if (t.startsWith('[') && t.includes('EDT]')) return false
+            if (t.includes('tool') || t.includes('invoke')) return false
+            if (t.includes('processing') || t.includes('Processing')) return false
+            if (t.includes('sessionKey') || t.includes('gateway')) return false
+            if (t.includes('http://') || t.includes('https://')) return false
+            if (t.includes('const ') || t.includes('function ') || t.includes('import ')) return false
+            return true
+          })
           )
           .map((m: any) => {
             const textBlock = m.content.find((c: any) => c.type === 'text')
