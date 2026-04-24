@@ -1,12 +1,5 @@
 [
   {
-    "id": "1776997143330",
-    "date": "Apr 23, 2026",
-    "description": "Capitol One Payment",
-    "amount": -50,
-    "type": "expense"
-  },
-  {
     "id": "1774806831424",
     "date": "Mar 29, 2026",
     "description": "Chase Payment",

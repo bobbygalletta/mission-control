@@ -7,7 +7,7 @@
     "bedMade": false,
     "vacuum": 0,
     "breakfast": false,
-    "lunch": true,
+    "lunch": false,
     "dinner": false
   }
 ]
