@@ -514,7 +514,8 @@ function AgentPanel({ agent, onContact }: { agent: Agent; onContact: () => void 
       style={{
         display: 'flex', flexDirection: 'column',
         background: 'rgba(255,255,255,0.03)',
-        border: focused ? `1.5px solid ${agent.color}66` : unread ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
+        border: focused ? `2px solid ${agent.color}` : unread ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.06)',
+        boxShadow: focused ? `0 0 16px ${agent.color}50, 0 0 4px ${agent.color}30` : 'none',
         borderRadius: 14, overflow: 'hidden', height: '100%',
         transition: 'border-color 0.15s', minWidth: 0,
         touchAction: 'manipulation',
