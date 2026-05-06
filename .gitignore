@@ -26,3 +26,8 @@ dist-ssr
 
 # Recipe Rip (separate repo)
 recipe-rip/
+
+# Environment variables (contains API keys - NEVER commit)
+.env
+.env.local
+.env.production
