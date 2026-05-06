@@ -36,8 +36,8 @@ export function useAgentStatus(pollIntervalMs = 3000) {
     if (pollingSinceRef.current === null) {
       pollingSinceRef.current = now;
     }
-    // If polling for > 5s, actually show polling state
-    if (now - pollingSinceRef.current > 5000) {
+    // If polling for > 30s, actually show polling state
+    if (now - pollingSinceRef.current > 30000) {
       setConnectionState('polling');
     }
     try {
@@ -64,11 +64,11 @@ export function useAgentStatus(pollIntervalMs = 3000) {
       setConnectionState('connected');
       if (!initialized) setInitialized(true);
     } catch {
-      // Only show disconnected after 5s of failures
+      // Only show disconnected after 30s of failures
       if (disconnectedSinceRef.current === null) {
         disconnectedSinceRef.current = now;
       }
-      if (now - disconnectedSinceRef.current > 5000) {
+      if (now - disconnectedSinceRef.current > 30000) {
         setConnectionState('disconnected');
       }
     }

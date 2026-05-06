@@ -106,3 +106,10 @@ INSERT OR IGNORE INTO agents (id, name, role) VALUES
     ('reese', 'Reese', 'Chef & Baker'),
     ('tt', 'TT', 'TikTok Specialist'),
     ('yoyos', 'YoYo', 'YouTube Specialist');
+
+-- Metadata table for system info (Phase 13)
+CREATE TABLE IF NOT EXISTS metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

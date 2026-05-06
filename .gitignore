@@ -31,3 +31,5 @@ recipe-rip/
 .env
 .env.local
 .env.production
+dist-recipe/
+server/recipe-api.cjs

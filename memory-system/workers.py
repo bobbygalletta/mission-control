@@ -30,6 +30,8 @@ from src.api import (
     register_agent,
 )
 from src.database import get_database
+import sqlite3
+import os
 
 # Try to import embeddings
 try:
@@ -48,20 +50,147 @@ class MemoryWorker:
         if EMBEDDINGS_AVAILABLE:
             self.embedding_store = EmbeddingStore()
     
+    def capture_from_openclaw(self, hours: int = 24, limit: int = 500) -> int:
+        """
+        Capture recent messages from OpenClaw's lcm.db into our memory database.
+        This bridges OpenClaw's conversation storage to our memory system.
+        """
+        lcm_path = os.path.expanduser('~/.openclaw/lcm.db')
+        if not os.path.exists(lcm_path):
+            print("[Worker] OpenClaw lcm.db not found")
+            return 0
+        
+        # Get the last capture time from our DB (if exists)
+        last_capture = self.db.fetch_one(
+            "SELECT value FROM metadata WHERE key = 'last_capture_time'")
+        
+        if last_capture:
+            cutoff = last_capture['value']
+        else:
+            # Default to last 24 hours
+            cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+        
+        captured = 0
+        try:
+            lcm_conn = sqlite3.connect(lcm_path)
+            lcm_conn.row_factory = sqlite3.Row
+            
+            # Get recent messages from lcm.db
+            cursor = lcm_conn.execute("""
+                SELECT m.message_id, m.role, m.content, m.created_at, c.session_id, c.title
+                FROM messages m
+                JOIN conversations c ON m.conversation_id = c.conversation_id
+                WHERE m.created_at > ? AND m.role IN ('user', 'assistant')
+                ORDER BY m.created_at ASC
+                LIMIT ?
+            """, (cutoff, limit))
+            
+            rows = cursor.fetchall()
+            lcm_conn.close()
+            
+            if not rows:
+                print(f"[Worker] No new messages since {cutoff}")
+                return 0
+            
+            # Get existing message IDs to avoid duplicates
+            existing = self.db.fetch_all(
+                "SELECT value FROM metadata WHERE key = 'captured_message_ids'")
+            existing_ids = set()
+            if existing:
+                for row in existing:
+                    if row['value']:
+                        try:
+                            existing_ids.update(json.loads(row['value']))
+                        except:
+                            pass
+            
+            new_ids = []
+            for row in rows:
+                msg_id = row['message_id']
+                if msg_id in existing_ids:
+                    continue
+                
+                session_id = row['session_id']
+                role = row['role']
+                content = row['content']
+                created_at = row['created_at']
+                
+                if len(content) < 5:
+                    continue
+                
+                # Extract agent_id from session_id or title
+                agent_id = self._extract_agent_id(row['title'], session_id)
+                
+                # Store in our DB
+                self.db.add_message(
+                    session_id=session_id,
+                    role=role,
+                    content=content,
+                    agent_id=agent_id,
+                    channel='openclaw',
+                    metadata={'lcm_message_id': msg_id, 'title': row['title']}
+                )
+                
+                new_ids.append(str(msg_id))
+                captured += 1
+            
+            # Update last capture time
+            if rows:
+                latest = rows[-1]['created_at']
+                self.db.execute(
+                    "INSERT OR REPLACE INTO metadata (key, value) VALUES ('last_capture_time', ?)",
+                    (latest,)
+                )
+                
+                # Update captured message IDs
+                all_ids = list(existing_ids) + new_ids
+                self.db.execute(
+                    "INSERT OR REPLACE INTO metadata (key, value) VALUES ('captured_message_ids', ?)",
+                    (json.dumps(all_ids[-1000:]),)  # Keep last 1000
+                )
+            
+            if captured > 0:
+                print(f"[Worker] Captured {captured} new messages from OpenClaw")
+                
+        except Exception as e:
+            print(f"[Worker] Capture error: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return captured
+    
+    def _extract_agent_id(self, title: str, session_id: str) -> str:
+        """Extract agent ID from session title or ID."""
+        if title:
+            title_lower = title.lower()
+            for agent in ['dean', 'cody', 'emmy', 'finn', 'x', 'rex', 'dj', 'reese', 'tt', 'yoyos']:
+                if agent in title_lower:
+                    return agent
+        
+        # Try to extract from session_id patterns like "agent:cody:..."
+        if 'cody' in session_id.lower():
+            return 'cody'
+        elif 'emmy' in session_id.lower():
+            return 'emmy'
+        elif 'finn' in session_id.lower():
+            return 'finn'
+        elif 'x' in session_id.lower() and 'x.' in session_id.lower():
+            return 'x'
+        
+        return 'main'  # Default to main/dean
+    
     def embed_new_messages(self, limit: int = 100) -> int:
         """Embed messages that don't have embeddings yet."""
         if not EMBEDDINGS_AVAILABLE:
             return 0
         
-        # Get messages without embeddings
+        # Get ALL messages without embeddings (no limit)
         messages = self.db.fetch_all(
             """SELECT m.id, m.content, m.session_id, m.agent_id, m.role, m.created_at
                FROM messages m
                LEFT JOIN embeddings e ON m.id = e.message_id
                WHERE e.id IS NULL AND m.content IS NOT NULL AND LENGTH(m.content) > 10
-               ORDER BY m.created_at DESC
-               LIMIT ?""",
-            (limit,)
+               ORDER BY m.created_at ASC"""
         )
         
         if not messages:
@@ -213,9 +342,13 @@ class MemoryWorker:
         
         return health
     
-    def run_all(self, embed_limit: int = 100, extract_memories: bool = True):
+    def run_all(self, embed_limit: int = 100, extract_memories: bool = True, capture: bool = True):
         """Run all background tasks."""
         print(f"[Worker] Starting background tasks at {datetime.now().isoformat()}")
+        
+        # 0. Capture new messages from OpenClaw (if enabled)
+        if capture:
+            self.capture_from_openclaw(hours=24, limit=500)
         
         # 1. Embed new messages
         self.embed_new_messages(limit=embed_limit)
@@ -262,10 +395,17 @@ def cmd_health():
     print(json.dumps(health, indent=2))
 
 
-def cmd_run_all(embed_limit: int = 100, extract: bool = True):
+def cmd_capture(hours: int = 24):
+    """Capture messages from OpenClaw."""
+    worker = MemoryWorker()
+    count = worker.capture_from_openclaw(hours=hours)
+    print(f"Captured {count} messages")
+
+
+def cmd_run_all(embed_limit: int = 100, extract: bool = True, capture: bool = True):
     """Run all background tasks."""
     worker = MemoryWorker()
-    worker.run_all(embed_limit=embed_limit, extract_memories=extract)
+    worker.run_all(embed_limit=embed_limit, extract_memories=extract, capture=capture)
 
 
 if __name__ == "__main__":
@@ -278,6 +418,7 @@ if __name__ == "__main__":
     subparsers.add_parser('extract', help='Extract memories')
     subparsers.add_parser('summarize', help='Generate summaries')
     subparsers.add_parser('health', help='Run health check')
+    subparsers.add_parser('capture', help='Capture messages from OpenClaw')
     subparsers.add_parser('run-all', help='Run all background tasks')
     
     args = parser.parse_args()
@@ -290,6 +431,8 @@ if __name__ == "__main__":
         cmd_summarize()
     elif args.command == 'health':
         cmd_health()
+    elif args.command == 'capture':
+        cmd_capture()
     elif args.command == 'run-all':
         cmd_run_all()
     else:

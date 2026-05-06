@@ -1,0 +1,15 @@
+# Mission Control - Bobby's AI Command Center
+# Your link: http://100.103.22.35:8787/
+
+:8787 {
+    # Proxy Mission Control API to port 3001
+    reverse_proxy /api/* localhost:3001
+    
+    # Proxy OpenClaw gateway tools to port 18789
+    reverse_proxy /tools/* localhost:18789
+    reverse_proxy /ws/* localhost:18789
+    
+    # Serve static files
+    root * /Users/bobbygalletta/agent-mission-control/dist
+    file_server
+}

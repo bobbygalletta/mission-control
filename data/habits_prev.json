@@ -1,12 +1,12 @@
 [
   {
-    "date": "Apr 22, 2026",
+    "date": "May 5, 2026",
     "water": 0,
     "stretch": 0,
     "laundry": false,
     "bedMade": false,
     "vacuum": 0,
-    "breakfast": true,
+    "breakfast": false,
     "lunch": false,
     "dinner": false
   }

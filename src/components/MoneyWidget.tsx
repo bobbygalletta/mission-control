@@ -6,6 +6,7 @@ type MoneyType = 'income' | 'expense';
 interface MoneyEntry {
   id: string;
   date: string;
+  timestamp: string;
   description: string;
   amount: number;
   type: MoneyType;
@@ -98,6 +99,7 @@ export function MoneyWidget() {
     const item: MoneyEntry = {
       id: Date.now().toString(),
       date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      timestamp: new Date().toISOString(),
       description: description.trim(),
       amount: isIncome ? numAmount : -numAmount,
       type: isIncome ? 'income' : 'expense',
@@ -322,7 +324,7 @@ export function MoneyWidget() {
                       <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${entry.amount >= 0 ? 'bg-emerald-400' : 'bg-red-400'}`} />
                       <div className="min-w-0">
                         <p className="text-sm text-slate-200 font-medium">{entry.description}</p>
-                        <p className="text-xs text-slate-500">{entry.date}</p>
+                        <p className="text-xs text-slate-500">{entry.date} at {new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">

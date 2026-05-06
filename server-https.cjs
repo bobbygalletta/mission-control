@@ -31,7 +31,9 @@ const server = https.createServer(options, (req, res) => {
   }
 
   // Serve static files from dist
-  let filePath = path.join(distDir, url === '/' ? 'index.html' : url);
+  let filePath = url === '/' 
+    ? path.join(distDir, 'route-camera.html') 
+    : path.join(distDir, url);
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     filePath = path.join(distDir, 'index.html');
   }
