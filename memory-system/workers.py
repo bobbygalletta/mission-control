@@ -77,7 +77,7 @@ class MemoryWorker:
             
             # Get recent messages from lcm.db
             cursor = lcm_conn.execute("""
-                SELECT m.message_id, m.role, m.content, m.created_at, c.session_id, c.title
+                SELECT m.message_id, m.role, m.content, m.created_at, c.session_id, c.title, m.conversation_id
                 FROM messages m
                 JOIN conversations c ON m.conversation_id = c.conversation_id
                 WHERE m.created_at > ? AND m.role IN ('user', 'assistant')
@@ -105,6 +105,9 @@ class MemoryWorker:
                             pass
             
             new_ids = []
+            # Track active agent per conversation for cron-based attribution
+            conversation_agent = {}
+            
             for row in rows:
                 msg_id = row['message_id']
                 if msg_id in existing_ids:
@@ -118,8 +121,15 @@ class MemoryWorker:
                 if len(content) < 5:
                     continue
                 
-                # Extract agent_id from session_id or title
-                agent_id = self._extract_agent_id(row['title'], session_id)
+                # Extract agent_id from content (cron pattern), title, or session_id
+                agent_id = self._extract_agent_id(row['title'], session_id, content)
+                
+                # If this message has a cron trigger, update the tracked agent for this session
+                if content and content.startswith('[cron:'):
+                    conversation_agent[session_id] = agent_id
+                elif agent_id == 'main' and session_id in conversation_agent:
+                    # If we couldn't extract an agent but we know one from earlier cron, use it
+                    agent_id = conversation_agent[session_id]
                 
                 # Store in our DB
                 self.db.add_message(
@@ -159,23 +169,69 @@ class MemoryWorker:
         
         return captured
     
-    def _extract_agent_id(self, title: str, session_id: str) -> str:
-        """Extract agent ID from session title or ID."""
+    def _extract_agent_id(self, title: str, session_id: str, content: str = None) -> str:
+        """Extract agent ID from cron message content, session title, or session ID."""
+        # First priority: check content for cron pattern like "[cron:... JOB_NAME]"
+        if content and content.startswith('[cron:'):
+            # Pattern: [cron:JOB_ID JOB_NAME]
+            # JOB_ID is a UUID (36 chars), followed by space and job name
+            try:
+                # Find the closing bracket and extract job name after UUID
+                end_bracket = content.index(']')
+                cron_part = content[6:end_bracket]  # Skip "[cron:"
+                # cron_part is like "uuid-xxx Agent Name"
+                # UUID is first 36 chars, rest is job name
+                if len(cron_part) > 36:
+                    job_name = cron_part[36:].strip()  # Everything after UUID
+                else:
+                    job_name = cron_part
+                job_name_lower = job_name.lower()
+                
+                # Check for agent names in job name only (not UUID)
+                for agent in ['dean', 'cody', 'emmy', 'finn', 'x', 'rex', 'dj', 'reese', 'tt', 'yoyos']:
+                    if agent in job_name_lower:
+                        return agent
+                # Special cases: job names that imply specific agents
+                if 'morning brief' in job_name_lower or 'schedule' in job_name_lower:
+                    return 'dean'  # Morning/schedule tasks are Dean's
+                if 'reminder' in job_name_lower or 'zyrtec' in job_name_lower or 'flonase' in job_name_lower:
+                    return 'dean'  # Personal care reminders are Dean's
+                if 'email' in job_name_lower:
+                    return 'emmy'
+                if 'battery' in job_name_lower or 'health' in job_name_lower:
+                    return 'dean'
+            except (ValueError, IndexError):
+                pass
+        
+        # Second priority: check title
         if title:
             title_lower = title.lower()
             for agent in ['dean', 'cody', 'emmy', 'finn', 'x', 'rex', 'dj', 'reese', 'tt', 'yoyos']:
                 if agent in title_lower:
                     return agent
         
-        # Try to extract from session_id patterns like "agent:cody:..."
-        if 'cody' in session_id.lower():
+        # Third priority: try to extract from session_id patterns like "agent:cody:..."
+        session_lower = session_id.lower()
+        if 'cody' in session_lower:
             return 'cody'
-        elif 'emmy' in session_id.lower():
+        elif 'emmy' in session_lower:
             return 'emmy'
-        elif 'finn' in session_id.lower():
+        elif 'finn' in session_lower:
             return 'finn'
-        elif 'x' in session_id.lower() and 'x.' in session_id.lower():
+        elif 'x' in session_lower and 'x.' in session_lower:
             return 'x'
+        elif 'rex' in session_lower:
+            return 'rex'
+        elif 'dj' in session_lower:
+            return 'dj'
+        elif 'reese' in session_lower:
+            return 'reese'
+        elif 'tt' in session_lower:
+            return 'tt'
+        elif 'yoyos' in session_lower or 'yoyo' in session_lower:
+            return 'yoyos'
+        elif 'dean' in session_lower:
+            return 'dean'
         
         return 'main'  # Default to main/dean
     
