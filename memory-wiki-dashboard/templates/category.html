@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category }} - Memory Wiki{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a> / <a href="/categories">Categories</a> / {{ category }}
+</div>
+
+<div class="card">
+    <h2>Category: {{ category }}</h2>
+    <p style="color: #888; margin-bottom: 20px;">{{ memories|length }} memories in this category</p>
+    
+    {% if memories %}
+        {% for memory in memories %}
+            <div class="memory-item">
+                <div class="meta">
+                    <span class="agent">{{ memory.agent_name or 'System' }}</span>
+                    <span>{{ memory.created_at[:16] if memory.created_at else 'Unknown' }}</span>
+                    {% if memory.confidence %}
+                        <span class="confidence {% if memory.confidence >= 0.8 %}high{% elif memory.confidence >= 0.5 %}medium{% else %}low{% endif %}">
+                            {{ (memory.confidence * 100)|int }}% confidence
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="content">
+                    {{ memory.content }}
+                </div>
+                <a href="/memory/{{ memory.id }}" class="btn" style="margin-top: 10px; font-size: 12px;">View Details</a>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty">No memories in this category yet</p>
+    {% endif %}
+</div>
+
+<div style="margin-top: 20px;">
+    <a href="/categories" class="btn">← Back to Categories</a>
+</div>
+{% endblock %}

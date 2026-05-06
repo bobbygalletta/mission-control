@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Timeline - Memory Wiki{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a> / Timeline
+</div>
+
+<div class="card">
+    <h2>Memory Timeline</h2>
+    <p style="color: #888; margin-bottom: 20px;">All memories in chronological order (newest first)</p>
+    
+    {% if memories %}
+        <div class="timeline">
+            {% for memory in memories %}
+                <div class="timeline-item">
+                    <div class="date">
+                        {{ memory.created_at[:16] if memory.created_at else 'Unknown' }} 
+                        | {{ memory.agent_name or 'System' }}
+                    </div>
+                    <div class="content">
+                        <div style="margin-bottom: 8px;">
+                            <span class="category">{{ memory.category }}</span>
+                            {% if memory.confidence %}
+                                <span class="confidence {% if memory.confidence >= 0.8 %}high{% elif memory.confidence >= 0.5 %}medium{% else %}low{% endif %}">
+                                    {{ (memory.confidence * 100)|int }}% confidence
+                                </span>
+                            {% endif %}
+                        </div>
+                        {{ memory.content }}
+                        <a href="/memory/{{ memory.id }}" class="btn" style="margin-top: 10px; font-size: 12px;">View Details</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty">No memories in the timeline yet</p>
+    {% endif %}
+</div>
+{% endblock %}

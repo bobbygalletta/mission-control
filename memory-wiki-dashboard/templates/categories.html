@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Categories - Memory Wiki{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a> / Categories
+</div>
+
+<div class="card">
+    <h2>Memory Categories</h2>
+    <p style="color: #888; margin-bottom: 20px;">Browse memories by category</p>
+    
+    {% if categories %}
+        <div class="agent-list" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+            {% for cat in categories %}
+                <a href="/category/{{ cat.category }}" class="agent-card">
+                    <div class="name">{{ cat.category }}</div>
+                    <div class="count">{{ cat.count }} memories</div>
+                    {% if cat.last_updated %}
+                        <div style="font-size: 11px; color: #888; margin-top: 5px;">
+                            Last: {{ cat.last_updated[:10] }}
+                        </div>
+                    {% endif %}
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty">No categories yet</p>
+    {% endif %}
+</div>
+{% endblock %}

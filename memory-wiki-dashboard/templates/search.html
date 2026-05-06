@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Search - Memory Wiki{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="/">Dashboard</a> / Search
+</div>
+
+<div class="card">
+    <h2>Search Memory</h2>
+    <form action="/search" method="get" class="search-box">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search memories by keyword, topic, or content...">
+        <button type="submit">Search</button>
+    </form>
+    
+    <div class="filters">
+        <select onchange="window.location.href='/search?q={{ query }}&category=' + this.value + '&agent={{ agent }}'">
+            <option value="">All Categories</option>
+            {% for cat in categories %}
+                <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
+        
+        <select onchange="window.location.href='/search?q={{ query }}&category={{ category }}&agent=' + this.value">
+            <option value="">All Agents</option>
+            {% for ag in agents %}
+                <option value="{{ ag }}" {% if agent == ag %}selected{% endif %}>{{ ag }}</option>
+            {% endfor %}
+        </select>
+        
+        {% if query or category or agent %}
+            <a href="/search" class="btn" style="margin-left: auto;">Clear Filters</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card">
+    <h2>Results</h2>
+    {% if memories %}
+        <p style="color: #888; margin-bottom: 15px;">Found {{ memories|length }} memory(s)</p>
+        {% for memory in memories %}
+            <div class="memory-item">
+                <div class="meta">
+                    <span class="category">{{ memory.category }}</span>
+                    <span class="agent">{{ memory.agent_name or 'System' }}</span>
+                    <span>{{ memory.created_at[:16] if memory.created_at else 'Unknown' }}</span>
+                    {% if memory.confidence %}
+                        <span class="confidence {% if memory.confidence >= 0.8 %}high{% elif memory.confidence >= 0.5 %}medium{% else %}low{% endif %}">
+                            {{ (memory.confidence * 100)|int }}% confidence
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="content">
+                    {{ memory.content }}
+                </div>
+                <a href="/memory/{{ memory.id }}" class="btn" style="margin-top: 10px; font-size: 12px;">View Details</a>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="empty">
+            {% if query or category or agent %}
+                No memories found matching your search.
+            {% else %}
+                No memories in the system yet.
+            {% endif %}
+        </p>
+    {% endif %}
+</div>
+{% endblock %}
