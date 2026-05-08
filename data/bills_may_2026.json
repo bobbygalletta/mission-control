@@ -1,0 +1,124 @@
+[
+  {
+    "id": "applemusic-may",
+    "name": "Apple Music",
+    "amount": 16.99,
+    "dueDate": "2026-05-02",
+    "category": "Subscription",
+    "paid": false,
+    "note": "Needs payment method update"
+  },
+  {
+    "id": "minimax-may",
+    "name": "MiniMax Token Plan",
+    "amount": 40.00,
+    "dueDate": "2026-05-03",
+    "category": "Subscription",
+    "paid": true
+  },
+  {
+    "id": "tmobile-may",
+    "name": "T-Mobile",
+    "amount": 169.91,
+    "dueDate": "2026-05-09",
+    "category": "Wireless",
+    "paid": false
+  },
+  {
+    "id": "discover-may",
+    "name": "Discover",
+    "amount": 60.00,
+    "dueDate": "2026-05-15",
+    "apr": 0,
+    "aprNote": "0% APR promotional rate until June 18, 2026. Expected APR ~28.49% after promo (not confirmed). Cron reminder set to get confirmed APR.",
+    "balance": 1440.22,
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "geico-may",
+    "name": "GEICO Insurance",
+    "amount": 154.71,
+    "dueDate": "2026-05-15",
+    "category": "Insurance",
+    "paid": false
+  },
+  {
+    "id": "capone-platinum-may",
+    "name": "Capital One Platinum",
+    "amount": 25.00,
+    "dueDate": "2026-05-15",
+    "apr": 28.99,
+    "balance": 284.37,
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "chatgpt-may",
+    "name": "ChatGPT Plus",
+    "amount": 20.00,
+    "dueDate": "2026-05-17",
+    "category": "Subscription",
+    "paid": false
+  },
+  {
+    "id": "citizens-macbook",
+    "name": "Citizens Pay (MacBook Air + Apple Watch Ultra 3)",
+    "amount": 74.52,
+    "dueDate": "2026-05-20",
+    "balance": 1006.53,
+    "category": "Installment",
+    "paid": false
+  },
+  {
+    "id": "citizens-iphone",
+    "name": "Citizens Pay (iPhone 17 Pro Max)",
+    "amount": 122.32,
+    "dueDate": "2026-05-24",
+    "normalPayment": 61.16,
+    "balance": 1233.36,
+    "category": "Installment",
+    "paid": false
+  },
+  {
+    "id": "capone-may",
+    "name": "Capital One Quicksilver",
+    "amount": 437.00,
+    "dueDate": "2026-05-27",
+    "apr": 28.24,
+    "balance": 12133.24,
+    "category": "Credit",
+    "paid": true,
+    "note": "Min payment $437 due 27th of every month"
+  },
+  {
+    "id": "chase-may",
+    "name": "Chase",
+    "amount": 76.00,
+    "dueDate": "2026-05-28",
+    "apr": 27.49,
+    "balance": 2354.08,
+    "minimumPayment": 78.00,
+    "category": "Credit",
+    "paid": false
+  },
+  {
+    "id": "icloud-may",
+    "name": "iCloud+ 2TB",
+    "amount": 9.99,
+    "dueDate": "2026-05-30",
+    "category": "Subscription",
+    "paid": false
+  },
+  {
+    "id": "applecard-may",
+    "name": "Apple Card",
+    "amount": 64.00,
+    "dueDate": "2026-05-31",
+    "apr": 25.49,
+    "balance": 1934.56,
+    "category": "Credit",
+    "paid": true,
+    "note": "Min payment $64, due last day of month"
+  }
+]

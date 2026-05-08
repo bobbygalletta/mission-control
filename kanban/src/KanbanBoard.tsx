@@ -6,7 +6,36 @@ import type { Task, Column, ActivityEntry } from './types';
 const STORAGE_KEY = 'kanban-board-state';
 
 const defaultColumns: Column[] = [
-  { id: 'backlog', title: 'Backlog', tasks: [] },
+  {
+    id: 'backlog',
+    title: 'Backlog',
+    tasks: [
+      {
+        id: `task-${Date.now()}-1`,
+        title: 'Recipe Rip: Decide tech stack (React Native vs Swift)',
+        description: 'Biggest decision - RN is faster to build, Swift is native performance. Bobby to decide.',
+        priority: 'high',
+        assignee: 'Cody',
+        createdAt: Date.now(),
+      },
+      {
+        id: `task-${Date.now()}-2`,
+        title: 'Coloring book: Define product specs',
+        description: 'What is it? Theme? Page count? Target audience? Need specs before building.',
+        priority: 'medium',
+        assignee: 'Bobby',
+        createdAt: Date.now(),
+      },
+      {
+        id: `task-${Date.now()}-3`,
+        title: 'OpenClaw Guide: Define scope and remaining work',
+        description: 'What sections still need to be written? What is the target audience?',
+        priority: 'medium',
+        assignee: 'Bobby',
+        createdAt: Date.now(),
+      },
+    ],
+  },
   { id: 'in-progress', title: 'In Progress', tasks: [] },
   { id: 'done', title: 'Done', tasks: [] },
 ];
@@ -18,7 +47,12 @@ function loadBoard(): { columns: Column[]; activity: ActivityEntry[] } {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      // If all columns are empty, use defaults so initial tasks show
+      const allColumnsEmpty = parsed.columns.every((col: Column) => col.tasks.length === 0);
+      if (!allColumnsEmpty) {
+        return parsed;
+      }
     }
   } catch (e) {
     console.error('Failed to load board:', e);
