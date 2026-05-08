@@ -1097,7 +1097,7 @@ export default function KanbanBoard() {
               </button>
               
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-card border border-border shadow-lg p-2 z-50">
+                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-2xl p-2 z-50">
                   <button
                     onClick={() => {
                       setTheme(theme === 'dark' ? 'light' : 'dark');
