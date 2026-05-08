@@ -555,11 +555,12 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-2xl flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30 flex flex-col"
+        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30 grid"
+        style={{ gridTemplateRows: 'auto 1fr auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-900 to-slate-800/50 flex-shrink-0">
+        <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-900 to-slate-800/50">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -588,7 +589,7 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto flex-1 min-h-0 max-h-[calc(85vh-180px)]">
+        <div className="overflow-y-auto p-6">
           <div className="space-y-6">
             {/* Progress */}
             {typeof task.progress === 'number' && (
@@ -687,7 +688,7 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-700/50 bg-slate-900/50 flex-shrink-0">
+        <div className="p-4 border-t border-slate-700/50 bg-slate-900/50">
           <button
             onClick={() => { onClose(); onEdit(task); }}
             className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
