@@ -483,15 +483,50 @@ export default function KanbanBoard() {
       if (targetColumn.id !== activeTask.columnId) {
         handleMoveTask(taskId, targetColumn.id);
       }
+      // If same column and dropped on empty column area, do nothing
     } else {
       // Dropped on a task - find which column that task belongs to
       const overTaskColumn = findTaskColumn(board.columns, overId);
-      if (overTaskColumn && overTaskColumn.id !== activeTask.columnId) {
-        handleMoveTask(taskId, overTaskColumn.id);
+      if (overTaskColumn) {
+        if (overTaskColumn.id !== activeTask.columnId) {
+          // Cross-column move
+          handleMoveTask(taskId, overTaskColumn.id);
+        } else {
+          // Same-column reordering - find indices and reorder
+          handleReorderWithinColumn(taskId, overId);
+        }
       }
     }
     
     setActiveTask(null);
+  };
+
+  const handleReorderWithinColumn = (draggedTaskId: string, overTaskId: string) => {
+    if (draggedTaskId === overTaskId) return;
+    
+    setBoard((prev) => {
+      const columnId = activeTask?.columnId;
+      if (!columnId) return prev;
+      
+      const columnIndex = prev.columns.findIndex(col => col.id === columnId);
+      if (columnIndex === -1) return prev;
+      
+      const column = prev.columns[columnIndex];
+      const oldIndex = column.tasks.findIndex(t => t.id === draggedTaskId);
+      const newIndex = column.tasks.findIndex(t => t.id === overTaskId);
+      
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      
+      // Reorder the tasks array
+      const newTasks = [...column.tasks];
+      const [removed] = newTasks.splice(oldIndex, 1);
+      newTasks.splice(newIndex, 0, removed);
+      
+      const newColumns = [...prev.columns];
+      newColumns[columnIndex] = { ...column, tasks: newTasks };
+      
+      return { ...prev, columns: newColumns };
+    });
   };
 
   const handleMoveTask = (taskId: string, targetColumnId: string) => {
