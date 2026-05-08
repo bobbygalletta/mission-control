@@ -5,7 +5,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from './lib/utils';
-import type { Task, Column, ActivityEntry, FileItem } from './types';
+import type { Task, Column, ActivityEntry, FileItem, Link } from './types';
 
 const STORAGE_KEY = 'kanban-board-state';
 
@@ -265,6 +265,28 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState<Task['priority']>(task?.priority || 'medium');
   const [assignee, setAssignee] = useState(task?.assignee || '');
+  const [longDescription, setLongDescription] = useState(task?.longDescription || '');
+  const [notes, setNotes] = useState(task?.notes || '');
+  const [links, setLinks] = useState<Link[]>(task?.links || []);
+  const [nextSteps, setNextSteps] = useState(task?.nextSteps || '');
+  const [progress, setProgress] = useState(task?.progress || 0);
+  const [files, setFiles] = useState<FileItem[]>(task?.files || []);
+
+  // For adding new links
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+
+  const handleAddLink = () => {
+    if (newLinkLabel.trim() && newLinkUrl.trim()) {
+      setLinks([...links, { label: newLinkLabel.trim(), url: newLinkUrl.trim() }]);
+      setNewLinkLabel('');
+      setNewLinkUrl('');
+    }
+  };
+
+  const handleRemoveLink = (index: number) => {
+    setLinks(links.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,6 +296,12 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
       id: task?.id || crypto.randomUUID(),
       title: title.trim(),
       description: description.trim() || undefined,
+      longDescription: longDescription.trim() || undefined,
+      notes: notes.trim() || undefined,
+      links: links.length > 0 ? links : undefined,
+      nextSteps: nextSteps.trim() || undefined,
+      progress: progress > 0 ? progress : undefined,
+      files: files.length > 0 ? files : undefined,
       priority,
       assignee: assignee.trim() || undefined,
       createdAt: task?.createdAt || Date.now(),
@@ -282,69 +310,196 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 p-6 w-full max-w-md shadow-2xl shadow-purple-900/20 flex flex-col max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6 flex-shrink-0">
-          <h2 className="text-lg font-bold text-white">{task ? 'Edit Task' : 'Add Task'}</h2>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div 
+        className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 w-full max-w-2xl shadow-2xl shadow-purple-900/20 flex flex-col max-h-[85vh] overflow-hidden" 
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-slate-700/50 flex-shrink-0">
+          <h2 className="text-xl font-bold text-white">{task ? 'Edit Task' : 'Add Task'}</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors">
             <X className="w-5 h-5 text-slate-400" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 flex-1 overflow-y-auto min-h-0">
-          <div>
-            <label className="text-sm font-semibold text-slate-300 block mb-2">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Enter task title..."
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="text-sm font-semibold text-slate-300 block mb-2">Assignee (optional)</label>
-            <input
-              type="text"
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              placeholder="e.g. Cody, Finn, Rex..."
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-semibold text-slate-300 block mb-2">Description (optional)</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a description..."
-              rows={2}
-              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none placeholder-slate-500"
-            />
-          </div>
-          <div>
-            <label className="text-sm font-semibold text-slate-300 block mb-2">Priority</label>
-            <div className="flex gap-2">
-              {(['low', 'medium', 'high'] as const).map((p) => (
+
+        {/* Scrollable form content */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto min-h-0">
+          <div className="p-6 space-y-6">
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-slate-300 block mb-2">Title *</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Enter task title..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-slate-300 block mb-2">Assignee</label>
+                <input
+                  type="text"
+                  value={assignee}
+                  onChange={(e) => setAssignee(e.target.value)}
+                  placeholder="e.g. Cody, Finn, Rex..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Description</h3>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Short Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Brief description..."
+                  rows={2}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none placeholder-slate-500"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-400 block mb-1.5">Long Description / Project Details</label>
+                <textarea
+                  value={longDescription}
+                  onChange={(e) => setLongDescription(e.target.value)}
+                  placeholder="Detailed description, project details, background info..."
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none placeholder-slate-500"
+                />
+              </div>
+            </div>
+
+            {/* Priority & Progress */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Status</h3>
+              <div className="flex gap-6">
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-400 block mb-2">Priority</label>
+                  <div className="flex gap-2">
+                    {(['low', 'medium', 'high'] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setPriority(p)}
+                        className={cn(
+                          'flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all',
+                          priority === p
+                            ? p === 'low' ? 'priority-low'
+                              : p === 'medium' ? 'priority-medium'
+                              : 'priority-high'
+                            : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                        )}
+                      >
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs font-medium text-slate-400 block mb-2">Progress: {progress}%</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="10"
+                    value={progress}
+                    onChange={(e) => setProgress(parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Notes</h3>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Additional notes, thoughts, considerations..."
+                rows={3}
+                className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none placeholder-slate-500"
+              />
+            </div>
+
+            {/* Related Links */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Related Links</h3>
+              {links.length > 0 && (
+                <div className="space-y-2">
+                  {links.map((link, index) => (
+                    <div key={index} className="flex items-center gap-2 bg-slate-800/50 rounded-lg p-2">
+                      <ExternalLink className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <span className="text-sm text-slate-300 truncate flex-1">{link.label}</span>
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-400 hover:text-purple-300 truncate max-w-[150px]">
+                        {link.url}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLink(index)}
+                        className="p-1 hover:bg-red-500/20 rounded transition-colors text-slate-400 hover:text-red-400 flex-shrink-0"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newLinkLabel}
+                  onChange={(e) => setNewLinkLabel(e.target.value)}
+                  placeholder="Link label"
+                  className="flex-1 px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
+                />
+                <input
+                  type="url"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="flex-[2] px-3 py-2 rounded-lg border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
+                />
                 <button
-                  key={p}
                   type="button"
-                  onClick={() => setPriority(p)}
-                  className={cn(
-                    'px-4 py-2 rounded-xl text-sm font-semibold transition-all',
-                    priority === p
-                      ? p === 'low' ? 'priority-low'
-                        : p === 'medium' ? 'priority-medium'
-                        : 'priority-high'
-                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                  )}
+                  onClick={handleAddLink}
+                  disabled={!newLinkLabel.trim() || !newLinkUrl.trim()}
+                  className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-semibold hover:bg-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                  Add
                 </button>
-              ))}
+              </div>
+            </div>
+
+            {/* Next Steps */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Next Steps</h3>
+              <textarea
+                value={nextSteps}
+                onChange={(e) => setNextSteps(e.target.value)}
+                placeholder="What needs to happen next? Action items..."
+                rows={3}
+                className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none placeholder-slate-500"
+              />
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wide">Attachments</h3>
+              <FileDropZone files={files} onFilesChange={setFiles} />
             </div>
           </div>
-          <div className="flex gap-3 pt-4">
+
+          {/* Footer buttons */}
+          <div className="flex gap-3 p-6 border-t border-slate-700/50 bg-slate-900/30 flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
