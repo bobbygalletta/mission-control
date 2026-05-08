@@ -14,11 +14,11 @@ function saveBoard(columns: Column[], activity: ActivityEntry[]) {
   }
 }
 
-// Priority badge colors
-const priorityColors = {
-  low: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-  high: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+// Priority badge colors - using gradient classes
+const priorityBadgeClass = {
+  low: 'priority-low',
+  medium: 'priority-medium',
+  high: 'priority-high',
 };
 
 // Format date as "May 8" or "May 8, 2024" if different year
@@ -46,7 +46,7 @@ function MoveMenu({ task, currentColumnId, columns, onMove, onClose }: MoveMenuP
   return (
     <div className="fixed inset-0 z-50" onClick={onClose}>
       <div 
-        className="absolute bg-card rounded-lg border border-border shadow-lg p-2 min-w-[180px]"
+        className="absolute bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shadow-purple-900/20 p-3 min-w-[200px]"
         style={{
           top: '50%',
           left: '50%',
@@ -54,15 +54,15 @@ function MoveMenu({ task, currentColumnId, columns, onMove, onClose }: MoveMenuP
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Move to...</p>
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-2">Move to...</p>
         {columns.filter(col => col.id !== currentColumnId).map((col) => (
           <button
             key={col.id}
             onClick={() => onMove(task.id, col.id)}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-600/20 text-sm text-left transition-colors"
           >
-            <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            <span>{col.title}</span>
+            <ChevronRight className="w-4 h-4 text-purple-400" />
+            <span className="text-white font-medium">{col.title}</span>
           </button>
         ))}
       </div>
@@ -84,8 +84,8 @@ function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardPro
   return (
     <div 
       className={cn(
-        'bg-card rounded-lg border border-border p-3 hover:border-primary/30 transition-colors group',
-        isDone && 'opacity-75'
+        'card-glow rounded-xl border p-4 transition-all duration-300 group',
+        isDone ? 'opacity-60 border-emerald-500/20' : 'border-slate-700/50'
       )}
     >
       <div className="flex items-start gap-2">
@@ -109,7 +109,7 @@ function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardPro
             </span>
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', priorityColors[task.priority])}>
+            <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wide', priorityBadgeClass[task.priority])}>
               {task.priority}
             </span>
           </div>
@@ -117,21 +117,21 @@ function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardPro
         <div className="flex flex-col items-center gap-1">
           <button
             onClick={() => onMoveClick(task, columnId)}
-            className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1.5 hover:bg-purple-600/20 rounded text-slate-500 hover:text-purple-400 transition-colors"
             title="Move to..."
           >
             <ChevronRight className="w-4 h-4" />
           </button>
           <button
             onClick={() => onEdit(task)}
-            className="p-1 hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 hover:bg-slate-700 rounded opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-white"
             title="Edit"
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onDelete(task.id)}
-            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-red-400"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -151,24 +151,34 @@ interface ColumnProps {
 }
 
 function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onMoveClick }: ColumnProps) {
+  // Gradient class for each column
+  const headerGradient = {
+    'backlog': 'column-header-backlog',
+    'in-progress': 'column-header-inprogress',
+    'done': 'column-header-done',
+  }[column.id] || 'column-header-backlog';
+
   return (
-    <div className="flex flex-col bg-secondary/30 rounded-xl p-3 min-h-[400px] w-72 flex-shrink-0">
-      <div className="flex items-center justify-between mb-3">
+    <div className="flex flex-col bg-slate-900/50 backdrop-blur rounded-2xl p-4 min-h-[450px] w-80 flex-shrink-0 border border-slate-800/50">
+      <div className={cn(
+        'flex items-center justify-between mb-4 px-3 py-2 rounded-xl',
+        headerGradient
+      )}>
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold text-sm">{column.title}</h3>
-          <span className="text-xs text-muted-foreground bg-background px-2 py-0.5 rounded-full">
+          <h3 className="font-bold text-sm text-white">{column.title}</h3>
+          <span className="text-xs font-semibold bg-white/20 text-white px-2.5 py-0.5 rounded-full">
             {column.tasks.length}
           </span>
         </div>
         <button
           onClick={() => onAddTask(column.id)}
-          className="p-1 hover:bg-accent rounded"
+          className="p-1.5 hover:bg-white/20 rounded-lg transition-colors"
           title="Add task"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 text-white" />
         </button>
       </div>
-      <div className="flex-1 space-y-2 overflow-y-auto">
+      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
         {column.tasks.map((task) => (
           <TaskCard
             key={task.id}
@@ -180,8 +190,9 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onMoveCl
           />
         ))}
         {column.tasks.length === 0 && (
-          <div className="text-center text-muted-foreground text-sm py-8">
-            No tasks
+          <div className="text-center text-slate-500 text-sm py-12">
+            <p className="text-2xl mb-2">📋</p>
+            <p>No tasks yet</p>
           </div>
         )}
       </div>
@@ -218,48 +229,48 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">{task ? 'Edit Task' : 'Add Task'}</h2>
-          <button onClick={onClose} className="p-1 hover:bg-accent rounded">
-            <X className="w-5 h-5" />
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 w-full max-w-md shadow-2xl shadow-purple-900/20" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-bold text-white">{task ? 'Edit Task' : 'Add Task'}</h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors">
+            <X className="w-5 h-5 text-slate-400" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium block mb-1">Title</label>
+            <label className="text-sm font-semibold text-slate-300 block mb-2">Title</label>
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter task title..."
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1">Assignee (optional)</label>
+            <label className="text-sm font-semibold text-slate-300 block mb-2">Assignee (optional)</label>
             <input
               type="text"
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
               placeholder="e.g. Cody, Finn, Rex..."
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent placeholder-slate-500"
             />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1">Description (optional)</label>
+            <label className="text-sm font-semibold text-slate-300 block mb-2">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add a description..."
               rows={2}
-              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className="w-full px-4 py-3 rounded-xl border border-slate-700 bg-slate-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none placeholder-slate-500"
             />
           </div>
           <div>
-            <label className="text-sm font-medium block mb-1">Priority</label>
+            <label className="text-sm font-semibold text-slate-300 block mb-2">Priority</label>
             <div className="flex gap-2">
               {(['low', 'medium', 'high'] as const).map((p) => (
                 <button
@@ -267,12 +278,12 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
                   type="button"
                   onClick={() => setPriority(p)}
                   className={cn(
-                    'px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                    'px-4 py-2 rounded-xl text-sm font-semibold transition-all',
                     priority === p
-                      ? p === 'low' ? 'bg-green-500 text-white'
-                        : p === 'medium' ? 'bg-yellow-500 text-white'
-                        : 'bg-red-500 text-white'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                      ? p === 'low' ? 'priority-low'
+                        : p === 'medium' ? 'priority-medium'
+                        : 'priority-high'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
                   )}
                 >
                   {p.charAt(0).toUpperCase() + p.slice(1)}
@@ -280,18 +291,18 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
               ))}
             </div>
           </div>
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors"
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim()}
-              className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/30"
             >
               {task ? 'Save Changes' : 'Add Task'}
             </button>
@@ -312,20 +323,20 @@ function ActivityLog({ entries }: ActivityLogProps) {
   }
 
   return (
-    <div className="mt-6 bg-secondary/30 rounded-xl p-4">
-      <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-        <Check className="w-4 h-4 text-green-600" />
-        Activity
+    <div className="mt-8 bg-slate-900/50 backdrop-blur rounded-2xl p-5 border border-slate-800/50">
+      <h3 className="font-bold text-sm mb-4 flex items-center gap-2 text-slate-300">
+        <Check className="w-4 h-4 text-emerald-400" />
+        <span className="uppercase tracking-wider text-xs">Completed Tasks</span>
       </h3>
       <div className="space-y-2 max-h-48 overflow-y-auto">
         {entries.slice(-10).reverse().map((entry) => (
-          <div key={entry.id} className="flex items-center gap-2 text-sm">
-            <Check className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
-            <span className="text-muted-foreground">
-              <span className="font-medium text-foreground">{entry.taskTitle}</span>
-              {entry.assignee && ` • ${entry.assignee}`}
+          <div key={entry.id} className="flex items-center gap-3 text-sm bg-slate-800/50 rounded-lg px-3 py-2">
+            <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            <span className="text-slate-300">
+              <span className="font-semibold text-white">{entry.taskTitle}</span>
+              {entry.assignee && <span className="text-slate-400"> • {entry.assignee}</span>}
             </span>
-            <span className="text-xs text-muted-foreground ml-auto">
+            <span className="text-xs text-slate-500 ml-auto">
               {formatDate(entry.completedAt)}
             </span>
           </div>
@@ -512,11 +523,11 @@ export default function KanbanBoard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Mission Board</h1>
-          <p className="text-muted-foreground text-sm mt-1">Click the arrow on a card to move it between columns</p>
+        <div className="mb-8">
+          <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
+          <p className="text-slate-400 text-sm mt-1">Click the arrow on a card to move it between columns</p>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-4">
           {board.columns.map((column) => (
