@@ -555,7 +555,7 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-2xl flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30"
+        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -588,7 +588,7 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-200px)]">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           <div className="space-y-6">
             {/* Progress */}
             {typeof task.progress === 'number' && (
