@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    /* Dark theme with vibrant accent colors - blues, purples, oranges */
-    --background: 230 30% 8%;
-    --foreground: 210 40% 98%;
-    --card: 230 25% 12%;
-    --card-foreground: 210 40% 98%;
-    --popover: 230 25% 12%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 270 80% 65%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 230 20% 18%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 230 20% 18%;
-    --muted-foreground: 230 15% 55%;
-    --accent: 25 95% 55%;
-    --accent-foreground: 210 40% 98%;
+    /* Light theme */
+    --background: 60 20% 96%;
+    --foreground: 230 30% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 30% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 30% 10%;
+    --primary: 270 80% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 20% 90%;
+    --secondary-foreground: 230 30% 15%;
+    --muted: 230 20% 88%;
+    --muted-foreground: 230 15% 45%;
+    --accent: 25 95% 53%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 230 20% 22%;
-    --input: 230 20% 22%;
-    --ring: 270 80% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 20% 88%;
+    --input: 230 20% 88%;
+    --ring: 270 80% 60%;
     --radius: 0.75rem;
   }
 
@@ -56,9 +56,13 @@
   
   body {
     background-color: hsl(var(--background));
-    background: linear-gradient(135deg, hsl(230 30% 8%) 0%, hsl(250 25% 10%) 50%, hsl(230 30% 8%) 100%);
     color: hsl(var(--foreground));
     min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  body.dark {
+    background: linear-gradient(135deg, hsl(230 30% 8%) 0%, hsl(250 25% 10%) 50%, hsl(230 30% 8%) 100%);
   }
 }
 

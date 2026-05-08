@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2, Upload, Paperclip, File, FileVideo, Music, Image } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2, Upload, Paperclip, File, FileVideo, Music, Image, Sun, Moon } from 'lucide-react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -813,6 +813,20 @@ export default function KanbanBoard() {
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [detailTaskFiles, setDetailTaskFiles] = useState<FileItem[]>([]);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('kanban-theme');
+    return (saved === 'light' ? 'light' : 'dark'); // default to dark
+  });
+
+  // Apply theme class to body and persist
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.body.classList.add('dark');
+    } else {
+      document.body.classList.remove('dark');
+    }
+    localStorage.setItem('kanban-theme', theme);
+  }, [theme]);
 
   // Configure drag sensors - use pointer for smooth dragging
   const sensors = useSensors(
@@ -1052,9 +1066,18 @@ export default function KanbanBoard() {
         onDragEnd={handleDragEnd}
       >
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
-            <p className="text-slate-400 text-sm mt-1">Drag cards between columns to update their status</p>
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
+              <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
+            </div>
+            <button
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            >
+              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4">
             {board.columns.map((column) => (
