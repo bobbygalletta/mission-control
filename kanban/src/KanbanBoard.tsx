@@ -7,6 +7,37 @@ import { CSS } from '@dnd-kit/utilities';
 import { cn } from './lib/utils';
 import type { Task, Column, ActivityEntry, FileItem, Link } from './types';
 
+// Auto-refresh when new version is deployed
+function useAutoRefresh(intervalMs = 5000) {
+  useEffect(() => {
+    let currentVersion: string | null = null;
+    
+    const checkVersion = async () => {
+      try {
+        const res = await fetch('/version.json?t=' + Date.now());
+        if (res.ok) {
+          const data = await res.json();
+          const newVersion = data.hash || data.timestamp;
+          if (currentVersion && newVersion !== currentVersion) {
+            // Version changed - refresh the page
+            window.location.reload();
+          }
+          currentVersion = newVersion;
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    };
+    
+    // Check immediately
+    checkVersion();
+    
+    // Then poll periodically
+    const interval = setInterval(checkVersion, intervalMs);
+    return () => clearInterval(interval);
+  }, [intervalMs]);
+}
+
 const STORAGE_KEY = 'kanban-board-state';
 
 // Save to localStorage
@@ -973,6 +1004,9 @@ export default function KanbanBoard() {
     return (saved === 'light' ? 'light' : 'dark'); // default to dark
   });
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Auto-refresh when new version deployed
+  useAutoRefresh();
 
   // Apply theme class to body and persist
   useEffect(() => {
