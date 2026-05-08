@@ -1079,7 +1079,7 @@ export default function KanbanBoard() {
         onDragEnd={handleDragEnd}
       >
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8 flex items-center justify-between p-4 rounded-2xl bg-black/20 backdrop-blur-xl border border-white/10">
+          <div className="mb-8 flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
               <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
