@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, ChevronRight, Check, Clock, User } from 'lucide-react';
 import { cn } from './lib/utils';
-import type { Task, Column } from './types';
+import type { Task, Column, ActivityEntry } from './types';
 
 const STORAGE_KEY = 'kanban-board-state';
 
-// Default columns
 const defaultColumns: Column[] = [
-  { id: 'todo', title: 'To Do', tasks: [] },
+  { id: 'backlog', title: 'Backlog', tasks: [] },
   { id: 'in-progress', title: 'In Progress', tasks: [] },
   { id: 'done', title: 'Done', tasks: [] },
 ];
 
+const defaultActivity: ActivityEntry[] = [];
+
 // Load from localStorage
-function loadBoard(): Column[] {
+function loadBoard(): { columns: Column[]; activity: ActivityEntry[] } {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -22,13 +23,13 @@ function loadBoard(): Column[] {
   } catch (e) {
     console.error('Failed to load board:', e);
   }
-  return defaultColumns;
+  return { columns: defaultColumns, activity: defaultActivity };
 }
 
 // Save to localStorage
-function saveBoard(columns: Column[]) {
+function saveBoard(columns: Column[], activity: ActivityEntry[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(columns));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ columns, activity }));
   } catch (e) {
     console.error('Failed to save board:', e);
   }
@@ -41,43 +42,118 @@ const priorityColors = {
   high: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
 };
 
-interface TaskCardProps {
-  task: Task;
-  onEdit: (task: Task) => void;
-  onDelete: (taskId: string) => void;
-  onDragStart: (e: React.DragEvent, task: Task) => void;
+// Format date as "May 8" or "May 8, 2024" if different year
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const isThisYear = date.getFullYear() === now.getFullYear();
+  
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    ...(isThisYear ? {} : { year: 'numeric' })
+  });
 }
 
-function TaskCard({ task, onEdit, onDelete, onDragStart }: TaskCardProps) {
+interface MoveMenuProps {
+  task: Task;
+  currentColumnId: string;
+  columns: Column[];
+  onMove: (taskId: string, targetColumnId: string) => void;
+  onClose: () => void;
+}
+
+function MoveMenu({ task, currentColumnId, columns, onMove, onClose }: MoveMenuProps) {
   return (
-    <div
-      draggable
-      onDragStart={(e) => onDragStart(e, task)}
-      className="bg-card text-card-foreground rounded-lg border border-border p-3 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow group"
+    <div className="fixed inset-0 z-50" onClick={onClose}>
+      <div 
+        className="absolute bg-card rounded-lg border border-border shadow-lg p-2 min-w-[180px]"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)'
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="text-xs font-medium text-muted-foreground px-2 py-1 mb-1">Move to...</p>
+        {columns.filter(col => col.id !== currentColumnId).map((col) => (
+          <button
+            key={col.id}
+            onClick={() => onMove(task.id, col.id)}
+            className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent text-sm text-left"
+          >
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            <span>{col.title}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface TaskCardProps {
+  task: Task;
+  columnId: string;
+  onEdit: (task: Task) => void;
+  onDelete: (taskId: string) => void;
+  onMoveClick: (task: Task, columnId: string) => void;
+}
+
+function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardProps) {
+  const isDone = columnId === 'done';
+  
+  return (
+    <div 
+      className={cn(
+        'bg-card rounded-lg border border-border p-3 hover:border-primary/30 transition-colors group',
+        isDone && 'opacity-75'
+      )}
     >
       <div className="flex items-start gap-2">
-        <GripVertical className="w-4 h-4 text-muted-foreground mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{task.title}</p>
+          <p className={cn('font-medium text-sm truncate', isDone && 'line-through text-muted-foreground')}>
+            {task.title}
+          </p>
           {task.description && (
             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
           )}
+          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+            {task.assignee && (
+              <span className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                {task.assignee}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {formatDate(task.createdAt)}
+            </span>
+          </div>
           <div className="flex items-center gap-2 mt-2">
             <span className={cn('text-xs px-2 py-0.5 rounded-full font-medium', priorityColors[task.priority])}>
               {task.priority}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex flex-col items-center gap-1">
+          <button
+            onClick={() => onMoveClick(task, columnId)}
+            className="p-1 hover:bg-accent rounded text-muted-foreground hover:text-foreground transition-colors"
+            title="Move to..."
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
           <button
             onClick={() => onEdit(task)}
-            className="p-1 hover:bg-accent rounded"
+            className="p-1 hover:bg-accent rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Edit"
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => onDelete(task.id)}
-            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded"
+            className="p-1 hover:bg-destructive/10 hover:text-destructive rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -92,22 +168,12 @@ interface ColumnProps {
   onAddTask: (columnId: string) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, columnId: string) => void;
-  onDragStart: (e: React.DragEvent, task: Task) => void;
-  isDragOver: boolean;
+  onMoveClick: (task: Task, columnId: string) => void;
 }
 
-function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onDragOver, onDrop, onDragStart, isDragOver }: ColumnProps) {
+function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onMoveClick }: ColumnProps) {
   return (
-    <div
-      onDragOver={onDragOver}
-      onDrop={(e) => onDrop(e, column.id)}
-      className={cn(
-        'flex flex-col bg-secondary/50 rounded-xl p-3 min-h-[500px] w-72 flex-shrink-0 transition-colors',
-        isDragOver && 'bg-primary/10 ring-2 ring-primary/30'
-      )}
-    >
+    <div className="flex flex-col bg-secondary/30 rounded-xl p-3 min-h-[400px] w-72 flex-shrink-0">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <h3 className="font-semibold text-sm">{column.title}</h3>
@@ -118,6 +184,7 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onDragOv
         <button
           onClick={() => onAddTask(column.id)}
           className="p-1 hover:bg-accent rounded"
+          title="Add task"
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -127,14 +194,15 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onDragOv
           <TaskCard
             key={task.id}
             task={task}
+            columnId={column.id}
             onEdit={onEditTask}
             onDelete={onDeleteTask}
-            onDragStart={onDragStart}
+            onMoveClick={onMoveClick}
           />
         ))}
         {column.tasks.length === 0 && (
           <div className="text-center text-muted-foreground text-sm py-8">
-            No tasks yet
+            No tasks
           </div>
         )}
       </div>
@@ -144,14 +212,16 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onDragOv
 
 interface TaskModalProps {
   task?: Task | null;
-  onSave: (task: Task) => void;
+  columnId?: string;
+  onSave: (task: Task, columnId?: string) => void;
   onClose: () => void;
 }
 
-function TaskModal({ task, onSave, onClose }: TaskModalProps) {
+function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   const [title, setTitle] = useState(task?.title || '');
   const [description, setDescription] = useState(task?.description || '');
   const [priority, setPriority] = useState<Task['priority']>(task?.priority || 'medium');
+  const [assignee, setAssignee] = useState(task?.assignee || '');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,8 +232,10 @@ function TaskModal({ task, onSave, onClose }: TaskModalProps) {
       title: title.trim(),
       description: description.trim() || undefined,
       priority,
+      assignee: assignee.trim() || undefined,
       createdAt: task?.createdAt || Date.now(),
-    });
+      completedAt: task?.completedAt,
+    }, columnId);
   };
 
   return (
@@ -188,12 +260,22 @@ function TaskModal({ task, onSave, onClose }: TaskModalProps) {
             />
           </div>
           <div>
+            <label className="text-sm font-medium block mb-1">Assignee (optional)</label>
+            <input
+              type="text"
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+              placeholder="e.g. Cody, Finn, Rex..."
+              className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
             <label className="text-sm font-medium block mb-1">Description (optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add a description..."
-              rows={3}
+              rows={2}
               className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
@@ -241,57 +323,107 @@ function TaskModal({ task, onSave, onClose }: TaskModalProps) {
   );
 }
 
+interface ActivityLogProps {
+  entries: ActivityEntry[];
+}
+
+function ActivityLog({ entries }: ActivityLogProps) {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6 bg-secondary/30 rounded-xl p-4">
+      <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+        <Check className="w-4 h-4 text-green-600" />
+        Activity
+      </h3>
+      <div className="space-y-2 max-h-48 overflow-y-auto">
+        {entries.slice(-10).reverse().map((entry) => (
+          <div key={entry.id} className="flex items-center gap-2 text-sm">
+            <Check className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+            <span className="text-muted-foreground">
+              <span className="font-medium text-foreground">{entry.taskTitle}</span>
+              {entry.assignee && ` • ${entry.assignee}`}
+            </span>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {formatDate(entry.completedAt)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function KanbanBoard() {
-  const [columns, setColumns] = useState<Column[]>(loadBoard);
-  const [draggedTask, setDraggedTask] = useState<Task | null>(null);
-  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
+  const [board, setBoard] = useState<{ columns: Column[]; activity: ActivityEntry[] }>(loadBoard);
+  const [selectedTaskForMove, setSelectedTaskForMove] = useState<{ task: Task; columnId: string } | null>(null);
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
 
-  // Save to localStorage whenever columns change
+  // Save to localStorage whenever board changes
   useEffect(() => {
-    saveBoard(columns);
-  }, [columns]);
+    saveBoard(board.columns, board.activity);
+  }, [board]);
 
-  const handleDragStart = (e: React.DragEvent, task: Task) => {
-    setDraggedTask(task);
-    e.dataTransfer.effectAllowed = 'move';
+  const handleMoveClick = (task: Task, columnId: string) => {
+    setSelectedTaskForMove({ task, columnId });
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+  const handleMoveTask = (taskId: string, targetColumnId: string) => {
+    setBoard((prev) => {
+      // Find the task first
+      let foundTask: Task | undefined;
+      let sourceColumnId: string | undefined;
+      
+      for (const col of prev.columns) {
+        const task = col.tasks.find((t) => t.id === taskId);
+        if (task) {
+          foundTask = task;
+          sourceColumnId = col.id;
+          break;
+        }
+      }
 
-  const handleDragEnter = (columnId: string) => {
-    setDragOverColumnId(columnId);
-  };
+      if (!foundTask || !sourceColumnId) return prev;
 
-  const handleDrop = (e: React.DragEvent, targetColumnId: string) => {
-    e.preventDefault();
-    setDragOverColumnId(null);
+      // If moving to Done, add completion timestamp and log activity
+      const isCompleting = targetColumnId === 'done' && sourceColumnId !== 'done';
+      const completedTask: Task = isCompleting
+        ? { ...foundTask, completedAt: Date.now() }
+        : foundTask;
 
-    if (!draggedTask) return;
-
-    // Remove task from its current column
-    setColumns((prev) => {
-      const newColumns = prev.map((col) => ({
-        ...col,
-        tasks: col.tasks.filter((t) => t.id !== draggedTask.id),
-      }));
+      // Build new columns without the task
+      const columnsWithoutTask = prev.columns.map((col) =>
+        col.id === sourceColumnId
+          ? { ...col, tasks: col.tasks.filter((t) => t.id !== taskId) }
+          : col
+      );
 
       // Add task to target column
-      return newColumns.map((col) => {
-        if (col.id === targetColumnId) {
-          return {
-            ...col,
-            tasks: [...col.tasks, draggedTask],
-          };
-        }
-        return col;
-      });
+      const finalColumns = columnsWithoutTask.map((col) =>
+        col.id === targetColumnId
+          ? { ...col, tasks: [...col.tasks, completedTask] }
+          : col
+      );
+
+      // Build activity log if completing
+      const newActivity = isCompleting
+        ? [
+            ...prev.activity,
+            {
+              id: crypto.randomUUID(),
+              taskTitle: completedTask.title,
+              completedAt: completedTask.completedAt!,
+              assignee: completedTask.assignee,
+            },
+          ]
+        : prev.activity;
+
+      return { columns: finalColumns, activity: newActivity };
     });
 
-    setDraggedTask(null);
+    setSelectedTaskForMove(null);
   };
 
   const handleAddTask = (columnId: string) => {
@@ -302,37 +434,46 @@ export default function KanbanBoard() {
     setModalState({ isOpen: true, task });
   };
 
-  const handleSaveTask = (task: Task) => {
-    setColumns((prev) =>
-      prev.map((col) => {
-        // If the task exists in a column, update it
-        const taskExists = col.tasks.some((t) => t.id === task.id);
-        if (taskExists) {
-          return {
+  const handleSaveTask = (task: Task, columnId?: string) => {
+    setBoard((prev) => {
+      const taskExists = prev.columns.some((col) => col.tasks.some((t) => t.id === task.id));
+      
+      if (taskExists) {
+        // Update existing task
+        return {
+          ...prev,
+          columns: prev.columns.map((col) => ({
             ...col,
             tasks: col.tasks.map((t) => (t.id === task.id ? task : t)),
-          };
-        }
-        // Otherwise, add it to the specified column (from modalState.columnId)
-        if (modalState.columnId && col.id === modalState.columnId) {
-          return {
-            ...col,
-            tasks: [...col.tasks, task],
-          };
-        }
-        return col;
-      })
-    );
+          })),
+        };
+      } else {
+        // Add new task to specified column
+        return {
+          ...prev,
+          columns: prev.columns.map((col) => {
+            if (col.id === columnId) {
+              return {
+                ...col,
+                tasks: [...col.tasks, task],
+              };
+            }
+            return col;
+          }),
+        };
+      }
+    });
     setModalState({ isOpen: false });
   };
 
   const handleDeleteTask = (taskId: string) => {
-    setColumns((prev) =>
-      prev.map((col) => ({
+    setBoard((prev) => ({
+      ...prev,
+      columns: prev.columns.map((col) => ({
         ...col,
         tasks: col.tasks.filter((t) => t.id !== taskId),
-      }))
-    );
+      })),
+    }));
   };
 
   const handleCloseModal = () => {
@@ -344,33 +485,37 @@ export default function KanbanBoard() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Mission Board</h1>
-          <p className="text-muted-foreground text-sm mt-1">Drag tasks between columns to update status</p>
+          <p className="text-muted-foreground text-sm mt-1">Click the arrow on a card to move it between columns</p>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((column) => (
-            <div
+          {board.columns.map((column) => (
+            <ColumnComponent
               key={column.id}
-              onDragEnter={() => handleDragEnter(column.id)}
-            >
-              <ColumnComponent
-                column={column}
-                onAddTask={handleAddTask}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onDragStart={handleDragStart}
-                isDragOver={dragOverColumnId === column.id}
-              />
-            </div>
+              column={column}
+              onAddTask={handleAddTask}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+              onMoveClick={handleMoveClick}
+            />
           ))}
         </div>
+        <ActivityLog entries={board.activity} />
       </div>
       {modalState.isOpen && (
         <TaskModal
           task={modalState.task}
+          columnId={modalState.columnId}
           onSave={handleSaveTask}
           onClose={handleCloseModal}
+        />
+      )}
+      {selectedTaskForMove && (
+        <MoveMenu
+          task={selectedTaskForMove.task}
+          currentColumnId={selectedTaskForMove.columnId}
+          columns={board.columns}
+          onMove={handleMoveTask}
+          onClose={() => setSelectedTaskForMove(null)}
         />
       )}
     </div>

@@ -3,7 +3,9 @@ export interface Task {
   title: string;
   description?: string;
   priority: 'low' | 'medium' | 'high';
+  assignee?: string;
   createdAt: number;
+  completedAt?: number;
 }
 
 export interface Column {
@@ -12,6 +14,14 @@ export interface Column {
   tasks: Task[];
 }
 
+export interface ActivityEntry {
+  id: string;
+  taskTitle: string;
+  completedAt: number;
+  assignee?: string;
+}
+
 export type BoardState = {
   columns: Column[];
+  activity: ActivityEntry[];
 };
