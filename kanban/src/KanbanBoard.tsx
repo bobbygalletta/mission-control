@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2 } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2, Upload, Paperclip, File, FileVideo, Music, Image } from 'lucide-react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from './lib/utils';
-import type { Task, Column, ActivityEntry } from './types';
+import type { Task, Column, ActivityEntry, FileItem } from './types';
 
 const STORAGE_KEY = 'kanban-board-state';
 
@@ -368,11 +368,190 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
 
 interface ProjectDetailModalProps {
   task: Task;
+  files: FileItem[];
   onEdit: (task: Task) => void;
   onClose: () => void;
+  onFilesChange: (files: FileItem[]) => void;
 }
 
-function ProjectDetailModal({ task, onEdit, onClose }: ProjectDetailModalProps) {
+// FileDropZone Component
+interface FileDropZoneProps {
+  files: FileItem[];
+  onFilesChange: (files: FileItem[]) => void;
+}
+
+function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length === 0) return;
+
+    const newFileItems: FileItem[] = await Promise.all(
+      droppedFiles.map(async (file) => {
+        const dataUrl = await readFileAsDataUrl(file);
+        return {
+          id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          dataUrl,
+          addedAt: Date.now(),
+        };
+      })
+    );
+
+    onFilesChange([...files, ...newFileItems]);
+  };
+
+  const handleRemoveFile = (fileId: string) => {
+    onFilesChange(files.filter((f) => f.id !== fileId));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) return <Image className="w-5 h-5" />;
+    if (type.startsWith('video/')) return <FileVideo className="w-5 h-5" />;
+    if (type.startsWith('audio/')) return <Music className="w-5 h-5" />;
+    if (type.includes('pdf')) return <FileText className="w-5 h-5" />;
+    return <File className="w-5 h-5" />;
+  };
+
+  return (
+    <div className="bg-slate-800/50 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Paperclip className="w-4 h-4 text-orange-400" />
+        <span className="text-sm font-semibold text-slate-300">Attachments</span>
+        {files.length > 0 && (
+          <span className="text-xs text-slate-500 ml-auto">{files.length} file{files.length !== 1 ? 's' : ''}</span>
+        )}
+      </div>
+
+      {/* Drop Zone */}
+      <div
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        className={cn(
+          "border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200",
+          isDragging
+            ? "border-purple-400 bg-purple-500/20"
+            : "border-slate-600 hover:border-slate-500 hover:bg-slate-800/80"
+        )}
+      >
+        <Upload className={cn("w-8 h-8 mx-auto mb-2", isDragging ? "text-purple-400" : "text-slate-500")} />
+        <p className={cn("text-sm", isDragging ? "text-purple-300" : "text-slate-400")}>
+          {isDragging ? "Drop files here" : "Drag & drop files here"}
+        </p>
+        <p className="text-xs text-slate-500 mt-1">or click to browse</p>
+        <input
+          type="file"
+          multiple
+          onChange={(e) => {
+            const selectedFiles = Array.from(e.target.files || []);
+            if (selectedFiles.length > 0) {
+              Promise.all(selectedFiles.map(async (file) => {
+                const dataUrl = await readFileAsDataUrl(file);
+                return {
+                  id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  name: file.name,
+                  type: file.type,
+                  size: file.size,
+                  dataUrl,
+                  addedAt: Date.now(),
+                };
+              })).then((newFileItems) => {
+                onFilesChange([...files, ...newFileItems]);
+              });
+            }
+            e.target.value = '';
+          }}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          style={{ top: 0, left: 0, position: 'absolute' }}
+        />
+      </div>
+
+      {/* File List */}
+      {files.length > 0 && (
+        <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
+          {files.map((file) => (
+            <div
+              key={file.id}
+              className="flex items-center gap-3 bg-slate-700/50 rounded-lg p-3 group"
+            >
+              {file.dataUrl && file.type.startsWith('image/') ? (
+                <img
+                  src={file.dataUrl}
+                  alt={file.name}
+                  className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-slate-600 rounded-lg flex items-center justify-center text-slate-400 flex-shrink-0">
+                  {getFileIcon(file.type)}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-white truncate">{file.name}</p>
+                <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
+              </div>
+              {file.dataUrl && (
+                <a
+                  href={file.dataUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 hover:bg-slate-600 rounded-lg transition-colors text-slate-400 hover:text-white"
+                  title="Open file"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              )}
+              <button
+                onClick={() => handleRemoveFile(file.id)}
+                className="p-2 hover:bg-red-500/20 rounded-lg transition-colors text-slate-400 hover:text-red-400"
+                title="Remove file"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Helper function to read file as data URL
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: ProjectDetailModalProps) {
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
@@ -484,6 +663,12 @@ function ProjectDetailModal({ task, onEdit, onClose }: ProjectDetailModalProps) 
                 <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{task.nextSteps}</p>
               </div>
             )}
+
+            {/* File Drop Zone */}
+            <FileDropZone
+              files={files}
+              onFilesChange={onFilesChange}
+            />
 
             {/* Timestamps */}
             <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-800">
@@ -627,6 +812,7 @@ export default function KanbanBoard() {
   const [activeTask, setActiveTask] = useState<{ task: Task; columnId: string } | null>(null);
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
   const [detailTask, setDetailTask] = useState<Task | null>(null);
+  const [detailTaskFiles, setDetailTaskFiles] = useState<FileItem[]>([]);
 
   // Configure drag sensors - use pointer for smooth dragging
   const sensors = useSensors(
@@ -828,11 +1014,30 @@ export default function KanbanBoard() {
   };
 
   const handleViewDetail = (task: Task) => {
+    // Load files from localStorage for this task
+    const savedFiles = localStorage.getItem(`kanban-task-files-${task.id}`);
+    if (savedFiles) {
+      try {
+        setDetailTaskFiles(JSON.parse(savedFiles));
+      } catch (e) {
+        setDetailTaskFiles([]);
+      }
+    } else {
+      setDetailTaskFiles([]);
+    }
     setDetailTask(task);
   };
 
   const handleCloseDetail = () => {
     setDetailTask(null);
+    setDetailTaskFiles([]);
+  };
+
+  const handleFilesChange = (files: FileItem[]) => {
+    setDetailTaskFiles(files);
+    if (detailTask) {
+      localStorage.setItem(`kanban-task-files-${detailTask.id}`, JSON.stringify(files));
+    }
   };
 
   const handleEditFromDetail = (task: Task) => {
@@ -885,6 +1090,8 @@ export default function KanbanBoard() {
       {detailTask && (
         <ProjectDetailModal
           task={detailTask}
+          files={detailTaskFiles}
+          onFilesChange={handleFilesChange}
           onEdit={handleEditFromDetail}
           onClose={handleCloseDetail}
         />

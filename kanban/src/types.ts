@@ -3,6 +3,15 @@ export interface Link {
   url: string;
 }
 
+export interface FileItem {
+  id: string;
+  name: string;
+  type: string; // MIME type
+  size: number;
+  dataUrl?: string; // for images/preview
+  addedAt: number;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -13,6 +22,7 @@ export interface Task {
   links?: Link[];
   nextSteps?: string;
   progress?: number; // 0-100
+  files?: FileItem[];
   // Standard fields
   priority: 'low' | 'medium' | 'high';
   assignee?: string;
