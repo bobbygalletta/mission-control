@@ -209,7 +209,7 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onViewDe
       )}
     >
       <div className={cn(
-        'flex items-center justify-between mb-4 px-3 py-2 rounded-xl column-header',
+        'flex items-center justify-between mb-4 px-3 py-2 rounded-xl column-header backdrop-blur-md',
         headerGradient
       )}>
         <div className="flex items-center gap-2">
@@ -553,9 +553,9 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: ProjectDetailModalProps) {
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-2xl flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30"
+        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1079,7 +1079,7 @@ export default function KanbanBoard() {
         onDragEnd={handleDragEnd}
       >
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8 flex items-center justify-between">
+          <div className="mb-8 flex items-center justify-between p-4 rounded-2xl bg-black/20 backdrop-blur-xl border border-white/10">
             <div>
               <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
               <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
