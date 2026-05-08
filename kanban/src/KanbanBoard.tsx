@@ -282,15 +282,15 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-slate-900 rounded-2xl border border-slate-700 p-6 w-full max-w-md shadow-2xl shadow-purple-900/20" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 p-6 w-full max-w-md shadow-2xl shadow-purple-900/20 flex flex-col max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6 flex-shrink-0">
           <h2 className="text-lg font-bold text-white">{task ? 'Edit Task' : 'Add Task'}</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors">
             <X className="w-5 h-5 text-slate-400" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 flex-1 overflow-y-auto min-h-0">
           <div>
             <label className="text-sm font-semibold text-slate-300 block mb-2">Title</label>
             <input
