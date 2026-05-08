@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, Check, Clock, User } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2 } from 'lucide-react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -44,9 +44,10 @@ interface TaskCardProps {
   isDragging?: boolean;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
+  onViewDetail: (task: Task) => void;
 }
 
-function TaskCard({ task, columnId, isDragging, onEdit, onDelete }: TaskCardProps) {
+function TaskCard({ task, columnId, isDragging, onEdit, onDelete, onViewDetail }: TaskCardProps) {
   const { 
     attributes, 
     listeners, 
@@ -70,6 +71,7 @@ function TaskCard({ task, columnId, isDragging, onEdit, onDelete }: TaskCardProp
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => onViewDetail(task)}
       className={cn(
         'card-glow rounded-xl border p-4 transition-all duration-200 group cursor-grab active:cursor-grabbing',
         isDone ? 'opacity-60 border-emerald-500/20' : 'border-slate-700/50',
@@ -83,6 +85,18 @@ function TaskCard({ task, columnId, isDragging, onEdit, onDelete }: TaskCardProp
           </p>
           {task.description && (
             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+          )}
+          {/* Progress bar if set */}
+          {typeof task.progress === 'number' && task.progress > 0 && (
+            <div className="mt-2">
+              <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-purple-500 to-cyan-400 rounded-full transition-all duration-300"
+                  style={{ width: `${task.progress}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5">{task.progress}% complete</span>
+            </div>
           )}
           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
             {task.assignee && (
@@ -100,6 +114,13 @@ function TaskCard({ task, columnId, isDragging, onEdit, onDelete }: TaskCardProp
             <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wide', priorityBadgeClass[task.priority])}>
               {task.priority}
             </span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onViewDetail(task); }}
+              className="ml-auto p-1 hover:bg-slate-700 rounded text-slate-500 hover:text-cyan-400 transition-colors"
+              title="View details"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
         <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -120,7 +141,7 @@ function TaskCard({ task, columnId, isDragging, onEdit, onDelete }: TaskCardProp
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 // Drag overlay card (shown while dragging)
@@ -165,9 +186,10 @@ interface ColumnComponentProps {
   onAddTask: (columnId: string) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  onViewDetail: (task: Task) => void;
 }
 
-function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask }: ColumnComponentProps) {
+function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onViewDetail }: ColumnComponentProps) {
   // Make this column a droppable zone
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -213,6 +235,7 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask }: Column
               columnId={column.id}
               onEdit={onEditTask}
               onDelete={onDeleteTask}
+              onViewDetail={onViewDetail}
             />
           ))}
           {column.tasks.length === 0 && (
@@ -343,6 +366,156 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   );
 }
 
+interface ProjectDetailModalProps {
+  task: Task;
+  onEdit: (task: Task) => void;
+  onClose: () => void;
+}
+
+function ProjectDetailModal({ task, onEdit, onClose }: ProjectDetailModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div 
+        className="bg-slate-900 rounded-2xl border border-slate-700 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-900 to-slate-800/50">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wide', priorityBadgeClass[task.priority])}>
+                  {task.priority}
+                </span>
+                {task.assignee && (
+                  <span className="flex items-center gap-1 text-sm text-slate-400">
+                    <User className="w-4 h-4" />
+                    {task.assignee}
+                  </span>
+                )}
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-1">{task.title}</h2>
+              {task.description && (
+                <p className="text-slate-400 text-sm">{task.description}</p>
+              )}
+            </div>
+            <button 
+              onClick={onClose}
+              className="p-2 hover:bg-slate-700 rounded-xl transition-colors text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[calc(85vh-200px)]">
+          <div className="space-y-6">
+            {/* Progress */}
+            {typeof task.progress === 'number' && (
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Target className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm font-semibold text-slate-300">Progress</span>
+                  <span className="text-sm font-bold text-white ml-auto">{task.progress}%</span>
+                </div>
+                <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gradient-to-r from-purple-500 to-cyan-400 rounded-full transition-all duration-500"
+                    style={{ width: `${task.progress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Long Description */}
+            {task.longDescription && (
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm font-semibold text-slate-300">Project Details</span>
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{task.longDescription}</p>
+              </div>
+            )}
+
+            {/* Notes */}
+            {task.notes && (
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="w-4 h-4 text-yellow-400" />
+                  <span className="text-sm font-semibold text-slate-300">Notes</span>
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{task.notes}</p>
+              </div>
+            )}
+
+            {/* Links */}
+            {task.links && task.links.length > 0 && (
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Link2 className="w-4 h-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-slate-300">Related Links</span>
+                </div>
+                <div className="space-y-2">
+                  {task.links.map((link, idx) => (
+                    <a
+                      key={idx}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-cyan-400 hover:text-cyan-300 transition-colors p-2 rounded-lg hover:bg-slate-700/50"
+                    >
+                      <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                      <span>{link.label}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Next Steps */}
+            {task.nextSteps && (
+              <div className="bg-slate-800/50 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <ChevronRight className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-semibold text-slate-300">Next Steps</span>
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{task.nextSteps}</p>
+              </div>
+            )}
+
+            {/* Timestamps */}
+            <div className="flex items-center gap-4 text-xs text-slate-500 pt-2 border-t border-slate-800">
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                Created {formatDate(task.createdAt)}
+              </span>
+              {task.completedAt && (
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <Check className="w-3 h-3" />
+                  Completed {formatDate(task.completedAt)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-700/50 bg-slate-900/50">
+          <button
+            onClick={() => { onClose(); onEdit(task); }}
+            className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm font-bold hover:opacity-90 transition-opacity shadow-lg shadow-purple-500/30 flex items-center justify-center gap-2"
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit Project Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface ActivityLogProps {
   entries: ActivityEntry[];
 }
@@ -382,6 +555,14 @@ const initialTasks: Task[] = [
     id: 'task-1',
     title: 'Recipe Rip: Decide tech stack (React Native vs Swift)',
     description: 'Biggest decision - RN is faster to build, Swift is native performance. Bobby to decide.',
+    longDescription: 'Recipe Rip needs a complete rebuild. The existing React Native app has working UI but simulated extraction only. Rex\'s spec recommends Swift/SwiftUI with JSON-LD parsing, SQLite storage, and a 3-day trial → $7 unlock flow.',
+    notes: '• Existing app is Expo/React Native\n• Rex recommends Swift/SwiftUI version\n• Need to decide: keep RN (faster) or rebuild (native)?\n• Bobby to make final call',
+    links: [
+      { label: 'Rex\'s Brief for Cody', url: '~/Desktop/Rex/Research/SecondBrain/Projects/RecipeApp/Brief_For_Cody.md' },
+      { label: 'Technical Drafts', url: '~/Desktop/Rex/Research/SecondBrain/Projects/RecipeApp/Technical_Drafts_For_Cody.md' },
+    ],
+    nextSteps: '1. Bobby decides: React Native vs Swift\n2. If Swift: start native iOS build\n3. If RN: add real parsing + SQLite to existing app\n4. Design trial/unlock flow',
+    progress: 15,
     priority: 'high',
     assignee: 'Cody',
     createdAt: Date.now(),
@@ -390,6 +571,10 @@ const initialTasks: Task[] = [
     id: 'task-2',
     title: 'Coloring book: Define product specs',
     description: 'What is it? Theme? Page count? Target audience? Need specs before building.',
+    longDescription: 'Bobby wants to build a coloring book app. We need to define what it actually is before building anything.',
+    notes: '• No specs defined yet\n• Need to understand the vision first\n• What makes it different from other coloring apps?\n• Target audience?',
+    nextSteps: '1. Ask Bobby: what\'s the vision?\n2. Define: theme, page count, features\n3. Research competitors\n4. Create detailed spec doc',
+    progress: 5,
     priority: 'medium',
     assignee: 'Bobby',
     createdAt: Date.now(),
@@ -398,6 +583,10 @@ const initialTasks: Task[] = [
     id: 'task-3',
     title: 'OpenClaw Guide: Define scope and remaining work',
     description: 'What sections still need to be written? What is the target audience?',
+    longDescription: 'The OpenClaw Guide is Bobby\'s comprehensive guide to OpenClaw. Need to define what sections remain and who the target audience is.',
+    notes: '• Some sections already written\n• Need to audit what\'s complete\n• Target audience: new OpenClaw users? Power users? Developers?',
+    nextSteps: '1. Audit current guide content\n2. Define target audience\n3. List remaining sections\n4. Prioritize what to write next',
+    progress: 30,
     priority: 'medium',
     assignee: 'Bobby',
     createdAt: Date.now(),
@@ -437,6 +626,7 @@ export default function KanbanBoard() {
   const [board, setBoard] = useState<{ columns: Column[]; activity: ActivityEntry[] }>(buildInitialBoard);
   const [activeTask, setActiveTask] = useState<{ task: Task; columnId: string } | null>(null);
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   // Configure drag sensors - use pointer for smooth dragging
   const sensors = useSensors(
@@ -637,6 +827,18 @@ export default function KanbanBoard() {
     setModalState({ isOpen: false });
   };
 
+  const handleViewDetail = (task: Task) => {
+    setDetailTask(task);
+  };
+
+  const handleCloseDetail = () => {
+    setDetailTask(null);
+  };
+
+  const handleEditFromDetail = (task: Task) => {
+    setModalState({ isOpen: true, task });
+  };
+
   return (
     <div className="min-h-screen p-8">
       <DndContext
@@ -657,6 +859,7 @@ export default function KanbanBoard() {
                 onAddTask={handleAddTask}
                 onEditTask={handleEditTask}
                 onDeleteTask={handleDeleteTask}
+                onViewDetail={handleViewDetail}
               />
             ))}
           </div>
@@ -676,6 +879,14 @@ export default function KanbanBoard() {
           columnId={modalState.columnId}
           onSave={handleSaveTask}
           onClose={handleCloseModal}
+        />
+      )}
+
+      {detailTask && (
+        <ProjectDetailModal
+          task={detailTask}
+          onEdit={handleEditFromDetail}
+          onClose={handleCloseDetail}
         />
       )}
     </div>

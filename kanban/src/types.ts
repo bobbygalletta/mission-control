@@ -1,7 +1,19 @@
+export interface Link {
+  label: string;
+  url: string;
+}
+
 export interface Task {
   id: string;
   title: string;
   description?: string;
+  // Project detail fields
+  longDescription?: string;
+  notes?: string;
+  links?: Link[];
+  nextSteps?: string;
+  progress?: number; // 0-100
+  // Standard fields
   priority: 'low' | 'medium' | 'high';
   assignee?: string;
   createdAt: number;
