@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, ChevronRight, Check, Clock, User } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Check, Clock, User } from 'lucide-react';
+import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { cn } from './lib/utils';
 import type { Task, Column, ActivityEntry } from './types';
 
@@ -34,58 +38,42 @@ function formatDate(timestamp: number): string {
   });
 }
 
-interface MoveMenuProps {
-  task: Task;
-  currentColumnId: string;
-  columns: Column[];
-  onMove: (taskId: string, targetColumnId: string) => void;
-  onClose: () => void;
-}
-
-function MoveMenu({ task, currentColumnId, columns, onMove, onClose }: MoveMenuProps) {
-  return (
-    <div className="fixed inset-0 z-50" onClick={onClose}>
-      <div 
-        className="absolute bg-slate-900 rounded-xl border border-slate-700 shadow-2xl shadow-purple-900/20 p-3 min-w-[200px]"
-        style={{
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 py-1 mb-2">Move to...</p>
-        {columns.filter(col => col.id !== currentColumnId).map((col) => (
-          <button
-            key={col.id}
-            onClick={() => onMove(task.id, col.id)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-purple-600/20 text-sm text-left transition-colors"
-          >
-            <ChevronRight className="w-4 h-4 text-purple-400" />
-            <span className="text-white font-medium">{col.title}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 interface TaskCardProps {
   task: Task;
   columnId: string;
+  isDragging?: boolean;
   onEdit: (task: Task) => void;
   onDelete: (taskId: string) => void;
-  onMoveClick: (task: Task, columnId: string) => void;
 }
 
-function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardProps) {
+function TaskCard({ task, columnId, isDragging, onEdit, onDelete }: TaskCardProps) {
+  const { 
+    attributes, 
+    listeners, 
+    setNodeRef, 
+    transform, 
+    transition, 
+    isDragging: isSortableDragging 
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const isDone = columnId === 'done';
-  
+  const isCurrentlyDragging = isDragging || isSortableDragging;
+
   return (
-    <div 
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       className={cn(
-        'card-glow rounded-xl border p-4 transition-all duration-300 group',
-        isDone ? 'opacity-60 border-emerald-500/20' : 'border-slate-700/50'
+        'card-glow rounded-xl border p-4 transition-all duration-200 group cursor-grab active:cursor-grabbing',
+        isDone ? 'opacity-60 border-emerald-500/20' : 'border-slate-700/50',
+        isCurrentlyDragging && 'opacity-30 scale-95'
       )}
     >
       <div className="flex items-start gap-2">
@@ -114,24 +102,17 @@ function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardPro
             </span>
           </div>
         </div>
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
-            onClick={() => onMoveClick(task, columnId)}
-            className="p-1.5 hover:bg-purple-600/20 rounded text-slate-500 hover:text-purple-400 transition-colors"
-            title="Move to..."
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => onEdit(task)}
-            className="p-1.5 hover:bg-slate-700 rounded opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-white"
+            onClick={(e) => { e.stopPropagation(); onEdit(task); }}
+            className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
             title="Edit"
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={() => onDelete(task.id)}
-            className="p-1.5 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-red-400"
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+            className="p-1.5 hover:bg-red-500/10 rounded text-slate-500 hover:text-red-400 transition-colors"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -142,15 +123,51 @@ function TaskCard({ task, columnId, onEdit, onDelete, onMoveClick }: TaskCardPro
   );
 }
 
-interface ColumnProps {
+// Drag overlay card (shown while dragging)
+function DragOverlayCard({ task, columnId }: { task: Task; columnId: string }) {
+  const isDone = columnId === 'done';
+  
+  return (
+    <div className="card-glow rounded-xl border p-4 w-72 shadow-2xl shadow-purple-500/30 cursor-grabbing rotate-2 scale-105">
+      <div className="flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <p className={cn('font-medium text-sm truncate', isDone && 'line-through text-muted-foreground')}>
+            {task.title}
+          </p>
+          {task.description && (
+            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+            {task.assignee && (
+              <span className="flex items-center gap-1">
+                <User className="w-3 h-3" />
+                {task.assignee}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {formatDate(task.createdAt)}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <span className={cn('text-xs px-2.5 py-0.5 rounded-full font-semibold text-[10px] uppercase tracking-wide', priorityBadgeClass[task.priority])}>
+              {task.priority}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ColumnComponentProps {
   column: Column;
   onAddTask: (columnId: string) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (taskId: string) => void;
-  onMoveClick: (task: Task, columnId: string) => void;
 }
 
-function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onMoveClick }: ColumnProps) {
+function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask }: ColumnComponentProps) {
   // Gradient class for each column
   const headerGradient = {
     'backlog': 'column-header-backlog',
@@ -178,24 +195,25 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onMoveCl
           <Plus className="w-4 h-4 text-white" />
         </button>
       </div>
-      <div className="flex-1 space-y-3 overflow-y-auto pr-1">
-        {column.tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            columnId={column.id}
-            onEdit={onEditTask}
-            onDelete={onDeleteTask}
-            onMoveClick={onMoveClick}
-          />
-        ))}
-        {column.tasks.length === 0 && (
-          <div className="text-center text-slate-500 text-sm py-12">
-            <p className="text-2xl mb-2">📋</p>
-            <p>No tasks yet</p>
-          </div>
-        )}
-      </div>
+      <SortableContext items={column.tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+          {column.tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              columnId={column.id}
+              onEdit={onEditTask}
+              onDelete={onDeleteTask}
+            />
+          ))}
+          {column.tasks.length === 0 && (
+            <div className="text-center text-slate-500 text-sm py-12 border-2 border-dashed border-slate-700/50 rounded-xl">
+              <p className="text-2xl mb-2">📋</p>
+              <p>Drop tasks here</p>
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 }
@@ -398,18 +416,70 @@ function buildInitialBoard(): { columns: Column[]; activity: ActivityEntry[] } {
   };
 }
 
+// Find which column contains a task
+function findTaskColumn(columns: Column[], taskId: string): Column | undefined {
+  return columns.find(col => col.tasks.some(t => t.id === taskId));
+}
+
 export default function KanbanBoard() {
   const [board, setBoard] = useState<{ columns: Column[]; activity: ActivityEntry[] }>(buildInitialBoard);
-  const [selectedTaskForMove, setSelectedTaskForMove] = useState<{ task: Task; columnId: string } | null>(null);
+  const [activeTask, setActiveTask] = useState<{ task: Task; columnId: string } | null>(null);
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
+
+  // Configure drag sensors - use pointer for smooth dragging
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Start drag after 8px movement to allow clicks
+      },
+    })
+  );
 
   // Save to localStorage whenever board changes
   useEffect(() => {
     saveBoard(board.columns, board.activity);
   }, [board]);
 
-  const handleMoveClick = (task: Task, columnId: string) => {
-    setSelectedTaskForMove({ task, columnId });
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const taskId = active.id as string;
+    const column = findTaskColumn(board.columns, taskId);
+    if (column) {
+      const task = column.tasks.find(t => t.id === taskId);
+      if (task) {
+        setActiveTask({ task, columnId: column.id });
+      }
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || !activeTask) {
+      setActiveTask(null);
+      return;
+    }
+
+    const taskId = active.id as string;
+    const overId = over.id as string;
+    
+    // Check if dropped over a column (not a task)
+    const targetColumn = board.columns.find(col => col.id === overId);
+    
+    if (targetColumn) {
+      // Dropped directly on a column
+      if (targetColumn.id !== activeTask.columnId) {
+        handleMoveTask(taskId, targetColumn.id);
+      }
+    } else {
+      // Dropped on a task - find which column that task belongs to
+      const overTaskColumn = findTaskColumn(board.columns, overId);
+      if (overTaskColumn && overTaskColumn.id !== activeTask.columnId) {
+        handleMoveTask(taskId, overTaskColumn.id);
+      }
+    }
+    
+    setActiveTask(null);
   };
 
   const handleMoveTask = (taskId: string, targetColumnId: string) => {
@@ -464,8 +534,6 @@ export default function KanbanBoard() {
 
       return { columns: finalColumns, activity: newActivity };
     });
-
-    setSelectedTaskForMove(null);
   };
 
   const handleAddTask = (columnId: string) => {
@@ -524,40 +592,44 @@ export default function KanbanBoard() {
 
   return (
     <div className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
-          <p className="text-slate-400 text-sm mt-1">Click the arrow on a card to move it between columns</p>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
+            <p className="text-slate-400 text-sm mt-1">Drag cards between columns to update their status</p>
+          </div>
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {board.columns.map((column) => (
+              <ColumnComponent
+                key={column.id}
+                column={column}
+                onAddTask={handleAddTask}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
+              />
+            ))}
+          </div>
+          <ActivityLog entries={board.activity} />
         </div>
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {board.columns.map((column) => (
-            <ColumnComponent
-              key={column.id}
-              column={column}
-              onAddTask={handleAddTask}
-              onEditTask={handleEditTask}
-              onDeleteTask={handleDeleteTask}
-              onMoveClick={handleMoveClick}
-            />
-          ))}
-        </div>
-        <ActivityLog entries={board.activity} />
-      </div>
+        
+        <DragOverlay>
+          {activeTask ? (
+            <DragOverlayCard task={activeTask.task} columnId={activeTask.columnId} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+      
       {modalState.isOpen && (
         <TaskModal
           task={modalState.task}
           columnId={modalState.columnId}
           onSave={handleSaveTask}
           onClose={handleCloseModal}
-        />
-      )}
-      {selectedTaskForMove && (
-        <MoveMenu
-          task={selectedTaskForMove.task}
-          currentColumnId={selectedTaskForMove.columnId}
-          columns={board.columns}
-          onMove={handleMoveTask}
-          onClose={() => setSelectedTaskForMove(null)}
         />
       )}
     </div>
