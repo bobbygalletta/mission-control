@@ -1066,18 +1066,20 @@ export default function KanbanBoard() {
         onDragEnd={handleDragEnd}
       >
         <div className="max-w-6xl mx-auto">
-          <div className="mb-8 flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
-              <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
-            </div>
+          <div className="relative mb-8">
+            {/* Theme toggle - absolute top-right */}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+              className="absolute right-0 top-0 p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
             >
               {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
+            {/* Centered title */}
+            <div className="text-center">
+              <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
+              <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
+            </div>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4">
             {board.columns.map((column) => (
