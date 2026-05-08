@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Add Test Task</title>
+</head>
+<body>
+  <h2>Adding test task to Kanban board...</h2>
+  <script>
+    const STORAGE_KEY = 'kanban-board-state';
+    
+    // Get current board
+    const saved = localStorage.getItem(STORAGE_KEY);
+    
+    if (!saved) {
+      document.body.innerHTML = '<p>No board found in localStorage. Please open the Kanban board first at <a href="http://100.103.22.35:8788">http://100.103.22.35:8788</a></p>';
+    } else {
+      const board = JSON.parse(saved);
+      
+      // Find backlog column
+      const backlog = board.columns.find(c => c.id === 'backlog');
+      
+      if (!backlog) {
+        document.body.innerHTML = '<p>Backlog column not found!</p>';
+      } else {
+        // Create new task
+        const newTask = {
+          id: 'task-' + Date.now(),
+          title: 'Test task from Dean',
+          description: 'Testing relay pattern',
+          longDescription: 'This is a test task added by Cody to verify the relay pattern between Dean and Cody is working.',
+          notes: 'Added via localStorage script',
+          links: [],
+          nextSteps: 'Verify this task appears in the Backlog column',
+          progress: 0,
+          priority: 'medium',
+          assignee: 'Dean',
+          createdAt: Date.now()
+        };
+        
+        backlog.tasks.push(newTask);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(board));
+        
+        document.body.innerHTML = '<p>✅ Task added successfully!</p><p>Refreshing Kanban board...</p>';
+        
+        // Refresh after a moment
+        setTimeout(() => {
+          window.location.href = 'http://100.103.22.35:8788';
+        }, 1000);
+      }
+    }
+  </script>
+</body>
+</html>

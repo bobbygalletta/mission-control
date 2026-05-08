@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2, Upload, Paperclip, File, FileVideo, Music, Image, Sun, Moon } from 'lucide-react';
+import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2, Upload, Paperclip, File, FileVideo, Music, Image, Sun, Moon, Menu } from 'lucide-react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -817,6 +817,7 @@ export default function KanbanBoard() {
     const saved = localStorage.getItem('kanban-theme');
     return (saved === 'light' ? 'light' : 'dark'); // default to dark
   });
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Apply theme class to body and persist
   useEffect(() => {
@@ -841,6 +842,18 @@ export default function KanbanBoard() {
   useEffect(() => {
     saveBoard(board.columns, board.activity);
   }, [board]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (menuOpen && !target.closest('.menu-dropdown')) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [menuOpen]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -1071,13 +1084,30 @@ export default function KanbanBoard() {
               <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
               <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
             </div>
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            >
-              {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
+                title="Menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-card border border-border shadow-lg p-2 z-50">
+                  <button
+                    onClick={() => {
+                      setTheme(theme === 'dark' ? 'light' : 'dark');
+                      setMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary transition-colors text-sm"
+                  >
+                    {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                    <span>Switch to {theme === 'dark' ? 'light' : 'dark'} mode</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-4">
             {board.columns.map((column) => (
