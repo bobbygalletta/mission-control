@@ -5,61 +5,6 @@ import type { Task, Column, ActivityEntry } from './types';
 
 const STORAGE_KEY = 'kanban-board-state';
 
-const defaultColumns: Column[] = [
-  {
-    id: 'backlog',
-    title: 'Backlog',
-    tasks: [
-      {
-        id: `task-${Date.now()}-1`,
-        title: 'Recipe Rip: Decide tech stack (React Native vs Swift)',
-        description: 'Biggest decision - RN is faster to build, Swift is native performance. Bobby to decide.',
-        priority: 'high',
-        assignee: 'Cody',
-        createdAt: Date.now(),
-      },
-      {
-        id: `task-${Date.now()}-2`,
-        title: 'Coloring book: Define product specs',
-        description: 'What is it? Theme? Page count? Target audience? Need specs before building.',
-        priority: 'medium',
-        assignee: 'Bobby',
-        createdAt: Date.now(),
-      },
-      {
-        id: `task-${Date.now()}-3`,
-        title: 'OpenClaw Guide: Define scope and remaining work',
-        description: 'What sections still need to be written? What is the target audience?',
-        priority: 'medium',
-        assignee: 'Bobby',
-        createdAt: Date.now(),
-      },
-    ],
-  },
-  { id: 'in-progress', title: 'In Progress', tasks: [] },
-  { id: 'done', title: 'Done', tasks: [] },
-];
-
-const defaultActivity: ActivityEntry[] = [];
-
-// Load from localStorage
-function loadBoard(): { columns: Column[]; activity: ActivityEntry[] } {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // If all columns are empty, use defaults so initial tasks show
-      const allColumnsEmpty = parsed.columns.every((col: Column) => col.tasks.length === 0);
-      if (!allColumnsEmpty) {
-        return parsed;
-      }
-    }
-  } catch (e) {
-    console.error('Failed to load board:', e);
-  }
-  return { columns: defaultColumns, activity: defaultActivity };
-}
-
 // Save to localStorage
 function saveBoard(columns: Column[], activity: ActivityEntry[]) {
   try {
@@ -390,8 +335,60 @@ function ActivityLog({ entries }: ActivityLogProps) {
   );
 }
 
+// Initial tasks to show on first load
+const initialTasks: Task[] = [
+  {
+    id: 'task-1',
+    title: 'Recipe Rip: Decide tech stack (React Native vs Swift)',
+    description: 'Biggest decision - RN is faster to build, Swift is native performance. Bobby to decide.',
+    priority: 'high',
+    assignee: 'Cody',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'task-2',
+    title: 'Coloring book: Define product specs',
+    description: 'What is it? Theme? Page count? Target audience? Need specs before building.',
+    priority: 'medium',
+    assignee: 'Bobby',
+    createdAt: Date.now(),
+  },
+  {
+    id: 'task-3',
+    title: 'OpenClaw Guide: Define scope and remaining work',
+    description: 'What sections still need to be written? What is the target audience?',
+    priority: 'medium',
+    assignee: 'Bobby',
+    createdAt: Date.now(),
+  },
+];
+
+// Build initial board state
+function buildInitialBoard(): { columns: Column[]; activity: ActivityEntry[] } {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      // If saved data has tasks, use it
+      const hasTasks = parsed.columns.some((col: Column) => col.tasks.length > 0);
+      if (hasTasks) return parsed;
+    } catch (e) {
+      console.error('Failed to parse saved board:', e);
+    }
+  }
+  // No saved data or empty board - use initial tasks
+  return {
+    columns: [
+      { id: 'backlog', title: 'Backlog', tasks: [...initialTasks] },
+      { id: 'in-progress', title: 'In Progress', tasks: [] },
+      { id: 'done', title: 'Done', tasks: [] },
+    ],
+    activity: [],
+  };
+}
+
 export default function KanbanBoard() {
-  const [board, setBoard] = useState<{ columns: Column[]; activity: ActivityEntry[] }>(loadBoard);
+  const [board, setBoard] = useState<{ columns: Column[]; activity: ActivityEntry[] }>(buildInitialBoard);
   const [selectedTaskForMove, setSelectedTaskForMove] = useState<{ task: Task; columnId: string } | null>(null);
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
 
