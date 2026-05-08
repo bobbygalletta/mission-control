@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, X, Edit2, Trash2, Check, Clock, User } from 'lucide-react';
-import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { cn } from './lib/utils';
 import type { Task, Column, ActivityEntry } from './types';
@@ -168,6 +168,9 @@ interface ColumnComponentProps {
 }
 
 function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask }: ColumnComponentProps) {
+  // Make this column a droppable zone
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+
   // Gradient class for each column
   const headerGradient = {
     'backlog': 'column-header-backlog',
@@ -176,7 +179,13 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask }: Column
   }[column.id] || 'column-header-backlog';
 
   return (
-    <div className="flex flex-col bg-slate-900/50 backdrop-blur rounded-2xl p-4 min-h-[450px] w-80 flex-shrink-0 border border-slate-800/50">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        'flex flex-col bg-slate-900/50 backdrop-blur rounded-2xl p-4 min-h-[450px] w-80 flex-shrink-0 border transition-all duration-200',
+        isOver ? 'border-purple-500 bg-purple-900/10 ring-2 ring-purple-500/50' : 'border-slate-800/50'
+      )}
+    >
       <div className={cn(
         'flex items-center justify-between mb-4 px-3 py-2 rounded-xl',
         headerGradient
@@ -207,7 +216,10 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask }: Column
             />
           ))}
           {column.tasks.length === 0 && (
-            <div className="text-center text-slate-500 text-sm py-12 border-2 border-dashed border-slate-700/50 rounded-xl">
+            <div className={cn(
+              'text-center text-sm py-12 border-2 border-dashed rounded-xl transition-colors',
+              isOver ? 'border-purple-400 text-purple-300 bg-purple-900/10' : 'border-slate-700/50 text-slate-500'
+            )}>
               <p className="text-2xl mb-2">📋</p>
               <p>Drop tasks here</p>
             </div>
@@ -416,7 +428,7 @@ function buildInitialBoard(): { columns: Column[]; activity: ActivityEntry[] } {
   };
 }
 
-// Find which column contains a task
+// Find which column contains a task by task ID
 function findTaskColumn(columns: Column[], taskId: string): Column | undefined {
   return columns.find(col => col.tasks.some(t => t.id === taskId));
 }
@@ -463,11 +475,11 @@ export default function KanbanBoard() {
     const taskId = active.id as string;
     const overId = over.id as string;
     
-    // Check if dropped over a column (not a task)
+    // Check if dropped over a column directly (useDroppable registers column.id)
     const targetColumn = board.columns.find(col => col.id === overId);
     
     if (targetColumn) {
-      // Dropped directly on a column
+      // Dropped directly on column (header area or empty column)
       if (targetColumn.id !== activeTask.columnId) {
         handleMoveTask(taskId, targetColumn.id);
       }
@@ -594,7 +606,6 @@ export default function KanbanBoard() {
     <div className="min-h-screen p-8">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
