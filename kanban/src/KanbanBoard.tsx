@@ -1084,7 +1084,7 @@ export default function KanbanBoard() {
               <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
               <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
             </div>
-            <div className="relative">
+            <div className="relative menu-dropdown">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
