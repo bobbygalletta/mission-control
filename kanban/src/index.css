@@ -124,22 +124,63 @@
   background: linear-gradient(135deg, hsl(160 70% 45%), hsl(170 80% 40%));
 }
 
+/* Kanban column overrides for light mode - use CSS variables for theme-aware colors */
+.kanban-column {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+}
+
+/* Light mode column backgrounds - white with subtle shadow */
+body:not(.dark) .kanban-column {
+  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(230 20% 85%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Light mode column headers - vibrant gradients */
+body:not(.dark) .kanban-column .column-header.column-header-backlog {
+  background: linear-gradient(135deg, hsl(270 75% 55%), hsl(280 70% 50%));
+}
+
+body:not(.dark) .kanban-column .column-header.column-header-inprogress {
+  background: linear-gradient(135deg, hsl(220 80% 55%), hsl(210 80% 50%));
+}
+
+body:not(.dark) .kanban-column .column-header.column-header-done {
+  background: linear-gradient(135deg, hsl(160 75% 45%), hsl(170 80% 40%));
+}
+
 /* Scrollbar styling for dark theme */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
+body.dark ::-webkit-scrollbar-track {
   background: hsl(230 20% 10%);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb {
+body.dark ::-webkit-scrollbar-thumb {
   background: hsl(230 20% 25%);
   border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
+body.dark ::-webkit-scrollbar-thumb:hover {
   background: hsl(270 60% 50%);
+}
+
+/* Light mode scrollbar */
+body:not(.dark) ::-webkit-scrollbar-track {
+  background: hsl(230 20% 92%);
+  border-radius: 4px;
+}
+
+body:not(.dark) ::-webkit-scrollbar-thumb {
+  background: hsl(230 20% 80%);
+  border-radius: 4px;
+}
+
+body:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: hsl(270 60% 60%);
 }

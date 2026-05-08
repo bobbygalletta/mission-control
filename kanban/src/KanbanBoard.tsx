@@ -204,12 +204,12 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onViewDe
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col bg-slate-900/50 backdrop-blur rounded-2xl p-4 min-h-[450px] w-80 flex-shrink-0 border transition-all duration-200',
+        'flex flex-col kanban-column bg-slate-900/50 backdrop-blur rounded-2xl p-4 min-h-[450px] w-80 flex-shrink-0 border transition-all duration-200',
         isOver ? 'border-purple-500 bg-purple-900/10 ring-2 ring-purple-500/50' : 'border-slate-800/50'
       )}
     >
       <div className={cn(
-        'flex items-center justify-between mb-4 px-3 py-2 rounded-xl',
+        'flex items-center justify-between mb-4 px-3 py-2 rounded-xl column-header',
         headerGradient
       )}>
         <div className="flex items-center gap-2">
