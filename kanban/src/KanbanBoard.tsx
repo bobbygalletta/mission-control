@@ -1086,7 +1086,10 @@ export default function KanbanBoard() {
             </div>
             <div className="relative menu-dropdown">
               <button
-                onClick={() => setMenuOpen(!menuOpen)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(!menuOpen);
+                }}
                 className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
                 title="Menu"
               >
