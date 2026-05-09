@@ -275,7 +275,7 @@ function ColumnComponent({ column, onAddTask, onEditTask, onDeleteTask, onViewDe
     <div
       ref={setNodeRef}
       className={cn(
-        'flex flex-col kanban-column bg-slate-900/50 backdrop-blur rounded-2xl p-4 min-h-[450px] w-80 flex-shrink-0 border transition-all duration-200',
+        'flex flex-col kanban-column bg-slate-900/50 backdrop-blur rounded-2xl p-3 sm:p-4 min-h-[400px] sm:min-h-[450px] w-[260px] sm:w-80 flex-shrink-0 border transition-all duration-200',
         isOver ? 'border-purple-500 bg-purple-900/10 ring-2 ring-purple-500/50' : 'border-slate-800/50'
       )}
     >
@@ -383,7 +383,7 @@ function TaskModal({ task, columnId, onSave, onClose }: TaskModalProps) {
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 w-full max-w-2xl shadow-2xl shadow-purple-900/20 flex flex-col max-h-[85vh] overflow-hidden" 
+        className="bg-black/40 backdrop-blur-xl rounded-2xl border border-white/20 w-[95%] sm:w-full max-w-2xl shadow-2xl shadow-purple-900/20 flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden" 
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -1336,7 +1336,7 @@ export default function KanbanBoard() {
   };
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 md:p-8">
+    <div className="min-h-screen p-2 sm:p-4 md:p-6">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
