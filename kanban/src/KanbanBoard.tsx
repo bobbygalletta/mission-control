@@ -741,11 +741,12 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-2xl flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
-        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] overflow-hidden shadow-2xl shadow-purple-900/30 flex flex-col"
+        className="bg-black/40 backdrop-blur-2xl rounded-2xl border border-white/20 w-full max-w-2xl max-h-[85vh] shadow-2xl shadow-purple-900/30 flex flex-col"
+        style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-900 to-slate-800/50 flex-shrink-0">
+        <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-slate-900 to-slate-800/50 flex-shrink-0" style={{ WebkitFlexShrink: 0, flexShrink: 0 }}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
@@ -774,7 +775,7 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
         </div>
 
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6" style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}>
           <div className="space-y-6">
             {/* Progress */}
             {typeof task.progress === 'number' && (
