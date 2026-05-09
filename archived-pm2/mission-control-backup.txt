@@ -1,0 +1,35 @@
+ Describing process with id 1 - name mission-control 
+┌───────────────────┬───────────────────────────────────────────────────────────────────┐
+│ status            │ errored                                                           │
+│ name              │ mission-control                                                   │
+│ namespace         │ default                                                           │
+│ version           │ 0.0.0                                                             │
+│ restarts          │ 15                                                                │
+│ uptime            │ 0                                                                 │
+│ script path       │ /Users/bobbygalletta/agent-mission-control/server/prod-server.cjs │
+│ script args       │ N/A                                                               │
+│ error log path    │ /Users/bobbygalletta/.pm2/logs/mission-control-error.log          │
+│ out log path      │ /Users/bobbygalletta/.pm2/logs/mission-control-out.log            │
+│ pid path          │ /Users/bobbygalletta/.pm2/pids/mission-control-1.pid              │
+│ interpreter       │ /opt/homebrew/Cellar/node/25.8.0/bin/node                         │
+│ interpreter args  │ N/A                                                               │
+│ script id         │ 1                                                                 │
+│ exec cwd          │ /Users/bobbygalletta/agent-mission-control                        │
+│ exec mode         │ fork_mode                                                         │
+│ node.js version   │ 25.8.0                                                            │
+│ node env          │ N/A                                                               │
+│ watch & reload    │ ✔                                                                 │
+│ unstable restarts │ 0                                                                 │
+│ created at        │ N/A                                                               │
+└───────────────────┴───────────────────────────────────────────────────────────────────┘
+ Divergent env variables from local env 
+┌──────────────────┬────────────────────────────────────────────┐
+│ PWD              │ /Users/bobbygalletta/agent-mission-control │
+│ XPC_SERVICE_NAME │ ai.openclaw.gateway                        │
+│ SHLVL            │ 0                                          │
+└──────────────────┴────────────────────────────────────────────┘
+
+ Add your own code metrics: http://bit.ly/code-metrics
+ Use `pm2 logs mission-control [--lines 1000]` to display logs
+ Use `pm2 env 1` to display environment variables
+ Use `pm2 monit` to monitor CPU and Memory usage mission-control

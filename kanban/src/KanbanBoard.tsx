@@ -1336,7 +1336,7 @@ export default function KanbanBoard() {
   };
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-4 sm:p-6 md:p-8">
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -1345,7 +1345,7 @@ export default function KanbanBoard() {
         <div className="max-w-6xl mx-auto">
           <div className="mb-8 flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-black gradient-text mb-2">Mission Board</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black gradient-text mb-2">Mission Board</h1>
               <p className="text-muted-foreground text-sm mt-1">Drag cards between columns to update their status</p>
             </div>
             <div className="relative menu-dropdown">

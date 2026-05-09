@@ -1,1 +1,75 @@
-{"columns":[],"activity":[]}
+{
+  "columns": [
+    {
+      "id": "backlog",
+      "title": "Backlog",
+      "tasks": [
+        {
+          "id": "task-1",
+          "title": "Recipe Rip",
+          "description": "iOS app scraping recipe URLs → structured JSON. $7 one-time purchase. Tech stack decision pending.",
+          "longDescription": "Recipe Rip needs a complete rebuild. The existing React Native app has working UI but simulated extraction only. Rex's spec recommends Swift/SwiftUI with JSON-LD parsing, SQLite storage, and a 3-day trial → $7 unlock flow.",
+          "notes": "• Existing app is Expo/React Native\n• Rex recommends Swift/SwiftUI version\n• Need to decide: keep RN (faster) or rebuild (native)?\n• Bobby to make final call",
+          "links": [
+            {
+              "label": "Rex's Brief for Cody",
+              "url": "~/Desktop/Rex/Research/SecondBrain/Projects/RecipeApp/Brief_For_Cody.md"
+            },
+            {
+              "label": "Technical Drafts",
+              "url": "~/Desktop/Rex/Research/SecondBrain/Projects/RecipeApp/Technical_Drafts_For_Cody.md"
+            }
+          ],
+          "nextSteps": "1. Bobby decides: React Native vs Swift\n2. If Swift: start native iOS build\n3. If RN: add real parsing + SQLite to existing app\n4. Design trial/unlock flow",
+          "progress": 15,
+          "files": [
+            {
+              "id": "file-1778304967258-tllpy21du",
+              "name": "Recipe Rip.webloc",
+              "type": "",
+              "size": 250,
+              "dataUrl": "data:application/octet-stream;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPCFET0NUWVBFIHBsaXN0IFBVQkxJQyAiLS8vQXBwbGUvL0RURCBQTElTVCAxLjAvL0VOIiAiaHR0cDovL3d3dy5hcHBsZS5jb20vRFREcy9Qcm9wZXJ0eUxpc3QtMS4wLmR0ZCI+CjxwbGlzdCB2ZXJzaW9uPSIxLjAiPgo8ZGljdD4KICAgIDxrZXk+VVJMPC9rZXk+CiAgICA8c3RyaW5nPmh0dHA6Ly9sb2NhbGhvc3Q6ODc4OTwvc3RyaW5nPgo8L2RpY3Q+CjwvcGxpc3Q+Cg==",
+              "addedAt": 1778304967258
+            }
+          ],
+          "priority": "high",
+          "assignee": "Cody",
+          "createdAt": 1778263966204
+        },
+        {
+          "id": "task-2",
+          "title": "Coloring Book",
+          "description": "Define product specs - what is it? Theme? Page count? Physical or digital? Amazon KDP?",
+          "notes": "• Needs product specs from Bobby\n• Theme?\n• Page count?\n• Physical or digital?\n• Amazon KDP or other platform?",
+          "progress": 0,
+          "priority": "medium",
+          "assignee": "Dean",
+          "createdAt": 1778263966204
+        }
+      ]
+    },
+    {
+      "id": "in-progress",
+      "title": "In Progress",
+      "tasks": [
+        {
+          "id": "task-3",
+          "title": "OpenClaw Guide",
+          "description": "a full openclaw guide teaching people with no coding knowledge how to set up openclaw for themselves even for your everyday person like me and I also share my experiences and what I know.",
+          "notes": "- have dean proof read all sections\n- review before openclaw v after section in section 1 and update\n- update the My Agent Team — A Real Example section put correct emojis next to each agent name and correct agent name\n-",
+          "nextSteps": "Listen to the full audio of section 1 and approve section 1. Then, approve following sections.",
+          "progress": 30,
+          "priority": "medium",
+          "assignee": "Dean",
+          "createdAt": 1778263966204
+        }
+      ]
+    },
+    {
+      "id": "done",
+      "title": "Done",
+      "tasks": []
+    }
+  ],
+  "activity": []
+}
