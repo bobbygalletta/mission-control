@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, X, Edit2, Trash2, Check, Clock, User, ExternalLink, ChevronRight, Calendar, Target, FileText, Link2, Upload, Paperclip, File, FileVideo, Music, Image, Sun, Moon, Menu } from 'lucide-react';
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -36,6 +36,39 @@ function useAutoRefresh(intervalMs = 5000) {
     const interval = setInterval(checkVersion, intervalMs);
     return () => clearInterval(interval);
   }, [intervalMs]);
+}
+
+// Auto-sync data from server (for cross-device changes without page reload)
+function useDataSync(
+  boardRef: React.RefObject<{ columns: Column[]; activity: ActivityEntry[] }>,
+  setBoard: React.Dispatch<React.SetStateAction<{ columns: Column[]; activity: ActivityEntry[] }>>,
+  intervalMs = 15000
+) {
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        const res = await fetch(KANBAN_API_URL);
+        if (res.ok) {
+          const data = await res.json();
+          // Compare with current board state using ref
+          const currentData = JSON.stringify(boardRef.current);
+          const newData = JSON.stringify(data);
+          if (newData !== currentData) {
+            console.log('Detected data change on server, updating board...');
+            boardRef.current = data;
+            setBoard(data);
+            localStorage.setItem(STORAGE_KEY, newData);
+          }
+        }
+      } catch (e) {
+        // Ignore errors silently
+      }
+    };
+    
+    // Poll every intervalMs
+    const interval = setInterval(checkForUpdates, intervalMs);
+    return () => clearInterval(interval);
+  }, [boardRef, setBoard, intervalMs]);
 }
 
 const STORAGE_KEY = 'kanban-board-state';
@@ -594,11 +627,13 @@ function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
     setIsDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files);
+    console.log('[DEBUG] handleDrop called, files count:', droppedFiles.length);
     if (droppedFiles.length === 0) return;
 
     const newFileItems: FileItem[] = await Promise.all(
       droppedFiles.map(async (file) => {
         const dataUrl = await readFileAsDataUrl(file);
+        console.log('[DEBUG] File read:', file.name, file.type, file.size);
         return {
           id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: file.name,
@@ -610,6 +645,7 @@ function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
       })
     );
 
+    console.log('[DEBUG] Calling onFilesChange with total files:', files.length + newFileItems.length);
     onFilesChange([...files, ...newFileItems]);
   };
 
@@ -688,10 +724,11 @@ function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
       {/* File List */}
       {files.length > 0 && (
         <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
-          {files.map((file) => (
+          {files.map((file, idx) => (
             <div
               key={file.id}
-              className="flex items-center gap-3 bg-slate-700/50 rounded-lg p-3 group"
+              className={`flex items-center gap-3 bg-slate-700/50 rounded-lg p-3 group transition-all duration-300 ${idx === files.length - 1 ? 'ring-2 ring-green-500/50 animate-pulse' : ''}`}
+              style={idx === files.length - 1 ? { animation: 'pulse 0.5s ease-out 3' } : {}}
             >
               {file.dataUrl && file.type.startsWith('image/') ? (
                 <img
@@ -713,10 +750,11 @@ function FileDropZone({ files, onFilesChange }: FileDropZoneProps) {
                   href={file.dataUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 hover:bg-slate-600 rounded-lg transition-colors text-slate-400 hover:text-white"
+                  className="px-3 py-1.5 hover:bg-slate-600 rounded-lg transition-colors text-cyan-400 hover:text-cyan-300 text-sm font-medium flex items-center gap-1.5"
                   title="Open file"
                 >
                   <ExternalLink className="w-4 h-4" />
+                  <span>Open</span>
                 </a>
               )}
               <button
@@ -861,7 +899,10 @@ function ProjectDetailModal({ task, files, onEdit, onClose, onFilesChange }: Pro
             {/* File Drop Zone */}
             <FileDropZone
               files={files}
-              onFilesChange={onFilesChange}
+              onFilesChange={(newFiles) => {
+                console.log('[DEBUG] Files changed, count:', newFiles.length);
+                onFilesChange(newFiles);
+              }}
             />
 
             {/* Timestamps */}
@@ -1003,6 +1044,13 @@ function findTaskColumn(columns: Column[], taskId: string): Column | undefined {
 
 export default function KanbanBoard() {
   const [board, setBoard] = useState<{ columns: Column[]; activity: ActivityEntry[] }>(buildInitialBoard);
+  const boardRef = useRef(board);
+
+  // Keep boardRef in sync with board state
+  useEffect(() => {
+    boardRef.current = board;
+  }, [board]);
+
   const [activeTask, setActiveTask] = useState<{ task: Task; columnId: string } | null>(null);
   const [modalState, setModalState] = useState<{ isOpen: boolean; task?: Task | null; columnId?: string }>({ isOpen: false });
   const [detailTask, setDetailTask] = useState<Task | null>(null);
@@ -1015,6 +1063,9 @@ export default function KanbanBoard() {
 
   // Auto-refresh when new version deployed
   useAutoRefresh();
+  
+  // Auto-sync data from server (detects changes without page reload)
+  useDataSync(boardRef, setBoard);
 
   // Fetch board from server on mount (cross-device sync)
   useEffect(() => {
