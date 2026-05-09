@@ -11,6 +11,7 @@ const API_PORT = 3001;
 const GATEWAY_PORT = 18789;
 const GATEWAY_TOKEN = '286caba2a7d072f065abdec6f5cff840c2c31eb8f7801111';
 const DIST_DIR = path.join(__dirname, '..', 'dist');
+const KANBAN_DATA_FILE = path.join(__dirname, '..', 'kanban-data.json');
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -78,6 +79,45 @@ const server = http.createServer(async (req, res) => {
   }
 
   const pathname = url.parse(req.url).pathname;
+
+  // Kanban API - handle /api/kanban directly on this server
+  if (pathname === '/api/kanban') {
+    if (req.method === 'GET') {
+      try {
+        if (fs.existsSync(KANBAN_DATA_FILE)) {
+          const data = fs.readFileSync(KANBAN_DATA_FILE, 'utf8');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(data);
+        } else {
+          // No data yet - return empty board
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ columns: [], activity: [] }));
+        }
+      } catch (err) {
+        console.error('Error reading kanban data:', err);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Failed to read kanban data' }));
+      }
+      return;
+    }
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          fs.writeFileSync(KANBAN_DATA_FILE, JSON.stringify(data, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true }));
+        } catch (err) {
+          console.error('Error writing kanban data:', err);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Failed to save kanban data' }));
+        }
+      });
+      return;
+    }
+  }
 
   // Proxy /api/* to API server
   if (pathname.startsWith('/api/')) {

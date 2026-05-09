@@ -39,14 +39,21 @@ function useAutoRefresh(intervalMs = 5000) {
 }
 
 const STORAGE_KEY = 'kanban-board-state';
+const KANBAN_API_URL = 'http://100.103.22.35:8787/api/kanban';
 
-// Save to localStorage
+// Save to localStorage and sync to server
 function saveBoard(columns: Column[], activity: ActivityEntry[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ columns, activity }));
   } catch (e) {
     console.error('Failed to save board:', e);
   }
+  // Also save to server for cross-device sync
+  fetch(KANBAN_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ columns, activity }),
+  }).catch(e => console.error('Failed to sync board to server:', e));
 }
 
 // Priority badge colors - using gradient classes
@@ -1008,6 +1015,22 @@ export default function KanbanBoard() {
 
   // Auto-refresh when new version deployed
   useAutoRefresh();
+
+  // Fetch board from server on mount (cross-device sync)
+  useEffect(() => {
+    fetch(KANBAN_API_URL)
+      .then(res => res.json())
+      .then(data => {
+        if (data.columns && data.columns.length > 0) {
+          // Server has data - use it (overrides localStorage)
+          setBoard(data);
+          // Also update localStorage to match server
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }
+        // If server has empty data, keep localStorage (seed data)
+      })
+      .catch(e => console.error('Failed to fetch board from server:', e));
+  }, []);
 
   // Apply theme class to body and persist
   useEffect(() => {
